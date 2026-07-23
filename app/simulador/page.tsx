@@ -158,7 +158,6 @@ const STT_LANG: Record<Lang, string> = { es: "es", en: "en" };
 
 const MODELS: ModelOption[] = [
   { id: "gemini-flash", label: "Gemini 2.5 Flash", provider: "gemini", model: "gemini-2.5-flash", tag: "Recomendado" },
-  { id: "gemini-flash-lite", label: "Gemini 2.5 Flash Lite", provider: "gemini", model: "gemini-2.5-flash-lite", tag: "Rápido" },
 ];
 const DEFAULT_MODEL_ID = "gemini-flash";
 
@@ -1639,7 +1638,7 @@ export default function SimuladorPage() {
 
           <footer className="sim-setup-footer">
             <button onClick={() => void startSimulation()} className="btn-action btn-primary">
-              ▶ Soltar Loro (generar sala)
+              ▶ Iniciar simulación (generar sala)
             </button>
             {savedReport && (
               <button
@@ -1850,7 +1849,7 @@ export default function SimuladorPage() {
               <div className="sim-loading-spinner" />
               <h2 className="mono" style={{ fontSize: 16, fontWeight: 700 }}>Generando reporte de feedback…</h2>
               <p className="tagline" style={{ maxWidth: 360 }}>
-                El Loro de IA está evaluando tus respuestas en base a la señal, fit cultural y claridad de
+                El asistente está evaluando tus respuestas en base a la señal, fit cultural y claridad de
                 comunicación. Esto demora unos segundos.
               </p>
             </div>
@@ -1872,7 +1871,7 @@ export default function SimuladorPage() {
               {!emailGatePassed && (
                 <div className="paywall-overlay">
                   <div className="paywall">
-                    <div className="paywall-title">¡Simulación completada Loro! 🦜</div>
+                    <div className="paywall-title">¡Simulación completada! 🦜</div>
                     <p className="paywall-text">
                       La IA terminó de analizar tu entrevista completa. Ingresá tu email para
                       desbloquear tu puntaje y ver tus correcciones exactas en este momento:
@@ -1958,7 +1957,7 @@ export default function SimuladorPage() {
               )}
 
               <div className="sim-card">
-                <div className="sim-card-header">📊 Resumen del Loro</div>
+                <div className="sim-card-header">📊 Resumen del feedback</div>
                 <div className="sim-card-body">
                   <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink)" }}>{feedbackReport?.summary}</p>
                 </div>
@@ -2013,11 +2012,11 @@ export default function SimuladorPage() {
                       <p className="sim-report-val" style={{ color: "var(--ink-dim)" }}>{q.answer}</p>
                     </div>
                     <div className="sim-report-row">
-                      <span className="sim-report-label">Análisis del Loro</span>
+                      <span className="sim-report-label">Análisis del asistente</span>
                       <p className="sim-report-val">{q.analysis}</p>
                     </div>
                     <div className="sim-report-row">
-                      <span className="sim-report-label">Sugerencia del Loro (Cómo responder mejor)</span>
+                      <span className="sim-report-label">Sugerencia del asistente (Cómo responder mejor)</span>
                       <div className="sim-report-val-suggestion">
                         <p>{q.suggestion}</p>
                         <button
@@ -2038,7 +2037,7 @@ export default function SimuladorPage() {
                   simulador. Una sola dirección dominante (Luhmann). */}
               <div className="sim-cross">
                 <div className="sim-cross-eyebrow">Esto fue práctica. La entrevista real, no. 🦜</div>
-                <div className="sim-cross-title">El día real, el Loro entra con vos.</div>
+                <div className="sim-cross-title">En la entrevista real, el asistente entra contigo.</div>
                 <div className="sim-cross-text">
                   Escucha la pregunta y te sopla la respuesta al instante —armada con tu CV, la empresa y el
                   puesto—. Vos solo la leés. Nadie se entera.
@@ -2046,7 +2045,7 @@ export default function SimuladorPage() {
                 <button onClick={goToCopilot} className="btn-action btn-primary btn-answer sim-cross-btn">
                   <span className="btn-answer-inner">
                     <SparkleIcon />
-                    Soltar el Loro en tu entrevista →
+                    Activar Interview Copilot en tu entrevista →
                   </span>
                 </button>
                 <button onClick={shareSimulator} className="btn-action btn-whatsapp">

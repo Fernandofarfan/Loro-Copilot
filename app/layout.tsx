@@ -5,14 +5,14 @@ import "./globals.css";
 
 // Dominio base para resolver OG/Twitter images y URLs absolutas. Se puede
 // pisar con NEXT_PUBLIC_SITE_URL en Vercel; default al dominio de producción.
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://interview-copilot.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Interview Copilot — Asistente profesional de entrevistas con IA",
+  title: "Loro Copilot — Asistente profesional de entrevistas con IA",
   description:
     "Transcribe entrevistas en tiempo real y recibe respuestas alineadas con tu perfil, la empresa y el puesto. Profesional, rápido y listo para usar.",
-  applicationName: "Interview Copilot",
+  applicationName: "Loro Copilot",
   keywords: [
     "copiloto de entrevistas",
     "entrevistas con IA",
@@ -20,11 +20,11 @@ export const metadata: Metadata = {
     "IA para entrevistas de trabajo",
     "preparación de entrevistas",
     "entrevista de trabajo",
-    "Interview Copilot",
+    "Loro Copilot",
   ],
-  authors: [{ name: "Interview Copilot" }],
-  creator: "Interview Copilot",
-  publisher: "Interview Copilot",
+  authors: [{ name: "Loro Copilot" }],
+  creator: "Loro Copilot",
+  publisher: "Loro Copilot",
   formatDetection: { telephone: false, email: false, address: false },
   robots: {
     index: true,
@@ -40,13 +40,13 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Interview Copilot",
+    title: "Loro Copilot",
   },
   openGraph: {
     type: "website",
     locale: "es_AR",
     url: SITE_URL,
-    siteName: "Interview Copilot",
+    siteName: "Loro Copilot",
     title: "Asistente profesional de entrevistas con IA.",
     description:
       "Transcribe entrevistas en tiempo real y recibe respuestas alineadas con tu perfil y contexto profesional.",
@@ -68,7 +68,7 @@ export const viewport: Viewport = {
 };
 
 // Datos estructurados (JSON-LD): ayudan a Google (rich results) y a las IA
-// (ChatGPT, Perplexity, Gemini) a entender qué es Interview Copilot y citarlo.
+// (ChatGPT, Perplexity, Gemini) a entender qué es Loro Copilot y citarlo.
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
@@ -79,7 +79,7 @@ const jsonLd = {
       url: SITE_URL,
       logo: `${SITE_URL}/apple-icon`,
       description:
-        "Interview Copilot es un asistente de IA para entrevistas de trabajo: un simulador para practicar y un copiloto que sugiere respuestas en tiempo real.",
+        "Loro Copilot es un asistente de IA para entrevistas de trabajo: un simulador para practicar y un copiloto que sugiere respuestas en tiempo real.",
     },
     {
       "@type": "WebSite",

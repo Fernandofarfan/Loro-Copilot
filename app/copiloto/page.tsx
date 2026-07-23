@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Interview Copilot — Acceso beta",
+  title: "Loro Copilot — Acceso beta",
   description: "Asistente profesional de entrevistas con IA. Acceso beta cerrado.",
   alternates: { canonical: "/copiloto" },
 };

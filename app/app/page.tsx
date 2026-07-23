@@ -4,11 +4,34 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { track, identify } from "../lib/track";
 import { BrandLogo } from "../lib/BrandLogo";
 
+const KeywordHighlighter = ({ text, role }: { text: string; role: string }) => {
+  if (!role || !text) return <>{text}</>;
+  // Extract words from role > 4 chars
+  const rawWords = role.toLowerCase().match(/\b[a-z]{5,}\w*\b/gi) || [];
+  const stopWords = new Set(["about", "their", "where", "which", "would", "should", "could", "there", "these", "those"]);
+  const keywords = Array.from(new Set(rawWords.filter(w => !stopWords.has(w.toLowerCase()))));
+  if (keywords.length === 0) return <>{text}</>;
+  
+  const regex = new RegExp(`\\b(${keywords.join("|")})\\b`, "gi");
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        keywords.some(k => k.toLowerCase() === part.toLowerCase()) ? (
+          <strong key={i} style={{ color: "var(--loro-green)", textDecoration: "underline" }}>{part}</strong>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+};
+
 type Status = "idle" | "connecting" | "live" | "error";
 type Mode = "mic" | "tab";
 type Line = { id: number; text: string; final: boolean };
 type Feedback = "up" | "down" | null;
-type Answer = { id: number; question: string; text: string; done: boolean; ts: number; feedback: Feedback };
+type Answer = { id: number; question: string; text: string; esText: string; enText: string; done: boolean; ts: number; feedback: Feedback; bilingual: boolean };
 
 function fmtTime(ts: number): string {
   try {
@@ -305,11 +328,7 @@ type ModelOption = { id: string; label: string; provider: Provider; model: strin
 // respuesta. Por ahora solo Gemini (OpenAI/Claude ocultos); el backend soporta
 // los tres proveedores: para reactivarlos, descomentar sus líneas y cargar la key.
 const MODELS: ModelOption[] = [
-  // { id: "gpt-4.1", label: "GPT-4.1", provider: "openai", model: "gpt-4.1", tag: "Smart" },
-  // { id: "gpt-4.1-mini", label: "GPT-4.1 Mini", provider: "openai", model: "gpt-4.1-mini", tag: "Rápido" },
-  // { id: "claude-haiku", label: "Claude 4.5 Haiku", provider: "anthropic", model: "claude-haiku-4-5", tag: "Lento" },
   { id: "gemini-flash", label: "Gemini 2.5 Flash", provider: "gemini", model: "gemini-2.5-flash", tag: "Recomendado" },
-  { id: "gemini-flash-lite", label: "Gemini 2.5 Flash Lite", provider: "gemini", model: "gemini-2.5-flash-lite", tag: "Rápido" },
 ];
 const DEFAULT_MODEL_ID = "gemini-flash";
 
@@ -338,11 +357,11 @@ const LS_KEY = "copiloto:context:v1";
 // storage / incógnito — a propósito en esta fase de guerrilla).
 const SESSIONS_KEY = "loreado:sessions:v1";
 const BONUS_KEY = "loreado:bonus:v1";
-const FREE_SESSIONS = 3;
+const FREE_SESSIONS = 999999;
 // Sesiones extra que se ganan compartiendo (loop viral). Tope para que no sea
 // infinito.
 const MAX_BONUS = 3;
-const SESSION_MAX_MS = 5 * 60 * 1000;
+const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 
 // ---------- Endpointing semántico ----------
 export default function Page() {
@@ -352,10 +371,13 @@ export default function Page() {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState("");
+  const [extraInstructions, setExtraInstructions] = useState("");
   const [lang, setLang] = useState<Lang>("es");
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [lines, setLines] = useState<Line[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const answersRef = useRef<Answer[]>([]);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
   const [tab, setTab] = useState<"answer" | "transcript">("answer");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   // Cuota gratuita
@@ -377,17 +399,22 @@ export default function Page() {
   // Total de sesiones disponibles (base + bonus) y cuántas quedan.
   const freeSessions = FREE_SESSIONS + bonus;
   const sessionsLeft = Math.max(0, freeSessions - sessionsUsed);
-  // Countdown de la sesión (10 min gratis), estilo Parakeet.
   const [remainingSec, setRemainingSec] = useState(Math.round(SESSION_MAX_MS / 1000));
+  const [fontSize, setFontSize] = useState<number>(14);
+  const [savedProfiles, setSavedProfiles] = useState<{name: string, company: string, role: string, profile: string, extraInstructions?: string}[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const waveformRafRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wakeLockRef = useRef<any>(null);
   const keepAliveRef = useRef<any>(null);
   const sessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const silenceStartRef = useRef<number | null>(null);
   // Reconexión: distingue cierres pedidos por el usuario (stop/cleanup) de
   // caídas inesperadas del WS en medio de la entrevista.
   const intentionalCloseRef = useRef(false);
@@ -407,6 +434,11 @@ export default function Page() {
   const ansId = useRef(0);
   // Respuesta en curso: permite abortarla si se pide otra o se limpia.
   const turnRef = useRef<{ id: number; sentText: string; controller: AbortController | null } | null>(null);
+  // Modo automático: dispara la respuesta cuando Deepgram detecta fin de intervención.
+  const autoModeRef = useRef(true);
+  const [autoMode, setAutoMode] = useState(true);
+  // Debounce para evitar dobles disparos de UtteranceEnd.
+  const utteranceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollT = useRef<HTMLDivElement | null>(null);
   const scrollA = useRef<HTMLDivElement | null>(null);
@@ -476,23 +508,28 @@ export default function Page() {
   // ---------- Contexto persistido (empresa / puesto / perfil) ----------
   useEffect(() => {
     try {
+      const sp = localStorage.getItem("loro-saved-profiles");
+      if (sp) setSavedProfiles(JSON.parse(sp));
+      
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (saved.company) setCompany(saved.company);
       if (saved.role) setRole(saved.role);
       if (saved.profile) setProfile(saved.profile);
+      if (saved.extraInstructions) setExtraInstructions(saved.extraInstructions);
       // El modelo sí se restaura (preferencia persistente del usuario).
       if (saved.modelId && MODELS.some((m) => m.id === saved.modelId)) setModelId(saved.modelId);
       // Idioma: se restaura la última preferencia (es/en).
       if (saved.lang === "es" || saved.lang === "en") setLang(saved.lang);
+      if (saved.fontSize && typeof saved.fontSize === "number") setFontSize(saved.fontSize);
     } catch {}
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ company, role, profile, modelId, lang }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ company, role, profile, extraInstructions, modelId, lang, fontSize }));
     } catch {}
-  }, [company, role, profile, modelId, lang]);
+  }, [company, role, profile, extraInstructions, modelId, lang, fontSize]);
 
   // ---------- Generación ----------
   // Ejecuta el fetch/stream para una tarjeta ya asignada (id + controller ya
@@ -500,10 +537,11 @@ export default function Page() {
   // controller, el AbortError se ignora en silencio: ya hay una versión
   // mejor en camino para la misma tarjeta.
   const runGenerate = useCallback(
-    async (id: number, question: string, controller: AbortController, attempt = 0) => {
+    async (id: number, question: string, controller: AbortController, attempt = 0, type: "answer" | "icebreaker" = "answer") => {
       // Crea/resetea la tarjeta (en un reintento la vaciamos para re-streamear).
+      const isBilingual = lang === "en";
       setAnswers((prev) => {
-        const card: Answer = { id, question, text: "", done: false, ts: Date.now(), feedback: null };
+        const card: Answer = { id, question, text: "", esText: "", enText: "", done: false, ts: Date.now(), feedback: null, bilingual: isBilingual };
         return prev.some((a) => a.id === id)
           ? prev.map((a) => (a.id === id ? card : a))
           : [...prev, card].slice(-20); // cronológico: nuevas abajo
@@ -519,10 +557,17 @@ export default function Page() {
             company,
             role,
             answerLang: ANSWER_LANG[lang],
+            bilingualMode: isBilingual,
             provider: modelRef.current.provider,
             model: modelRef.current.model,
             transcript: transcriptRef.current.slice(-4000),
             question,
+            type,
+            extraInstructions,
+            previousAnswers: answersRef.current
+              .filter(a => a.done && a.text)
+              .slice(-3)
+              .map(a => ({ q: a.question, a: a.bilingual ? a.enText || a.esText : a.text })),
           }),
           signal: controller.signal,
         });
@@ -537,7 +582,7 @@ export default function Page() {
           setAnswers((prev) =>
             prev.map((a) =>
               a.id === id
-                ? { ...a, text: detail ? `⚠️ ${detail}` : "· Error generando respuesta.", done: true }
+                ? { ...a, text: detail ? `⚠️ ${detail}` : "· Error generando respuesta.", esText: "", enText: "", done: true }
                 : a
             )
           );
@@ -551,7 +596,12 @@ export default function Page() {
           const { done, value } = await reader.read();
           if (done) break;
           acc += dec.decode(value, { stream: true });
-          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc } : a)));
+          if (isBilingual) {
+            const { esText, enText } = parseBilingualBlocks(acc);
+            setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, esText, enText } : a)));
+          } else {
+            setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc } : a)));
+          }
         }
         // El modelo a veces devuelve el placeholder "(esperando pregunta)" (o
         // texto vacío) en la primera respuesta, aunque la pregunta sea real.
@@ -562,8 +612,13 @@ export default function Page() {
         if (isPlaceholder && attempt < 1 && !controller.signal.aborted) {
           return runGenerate(id, question, controller, attempt + 1);
         }
-        setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, done: true } : a)));
-        track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt });
+        if (isBilingual) {
+          const { esText, enText } = parseBilingualBlocks(acc);
+          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, esText, enText, done: true } : a)));
+        } else {
+          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, done: true } : a)));
+        }
+        track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt, bilingual: isBilingual });
       } catch (err: any) {
         if (err?.name === "AbortError") return;
         setAnswers((prev) =>
@@ -575,10 +630,20 @@ export default function Page() {
     [profile, company, role, lang]
   );
 
+  // Parsea los bloques [ES] y [EN] del streaming bilingüe.
+  // Funciona tanto con el stream a medias como con el texto final.
+  function parseBilingualBlocks(raw: string): { esText: string; enText: string } {
+    const esMatch = raw.match(/\[ES\]([\s\S]*?)(?:\[EN\]|$)/);
+    const enMatch = raw.match(/\[EN\]([\s\S]*)$/);
+    return {
+      esText: esMatch ? esMatch[1].trim() : "",
+      enText: enMatch ? enMatch[1].trim() : "",
+    };
+  }
 
-  // Disparo manual (ÚNICA forma de responder, como Parakeet): al tocar
-  // "Responder ahora" se genera una respuesta sobre lo último dicho. La app
-  // NO responde sola mientras la persona habla; solo transcribe.
+  // Disparo manual (y también llamado desde el auto-mode).
+  // La app NO responde sola mientras la persona habla; solo al fin de intervención
+  // (UtteranceEnd) cuando auto-mode está ON, o al tocar el botón.
   const answerNow = useCallback(() => {
     track("answer_requested");
     // Aborta una respuesta en curso para no encimar dos generaciones. Si esa
@@ -598,8 +663,28 @@ export default function Page() {
     // Registrar el turno en curso: así el próximo toque a "Responder" (o
     // clearAll/cleanup) puede abortar este stream de verdad.
     turnRef.current = { id, sentText: q, controller };
-    runGenerate(id, q, controller);
+    runGenerate(id, q, controller, 0, "answer");
   }, [runGenerate]);
+
+  const askIcebreaker = useCallback(() => {
+    track("icebreaker_requested");
+    const prev = turnRef.current;
+    prev?.controller?.abort();
+    turnRef.current = null;
+    if (prev) {
+      setAnswers((list) => list.filter((a) => !(a.id === prev.id && !a.done && !a.text)));
+    }
+    const q = "¿Qué les puedo preguntar?";
+    const id = ++ansId.current;
+    const controller = new AbortController();
+    turnRef.current = { id, sentText: q, controller };
+    runGenerate(id, q, controller, 0, "icebreaker");
+  }, [runGenerate]);
+
+  // Referencia estable a answerNow para usarla en el callback de Deepgram
+  // sin crear closure viejas.
+  const answerNowRef = useRef(answerNow);
+  answerNowRef.current = answerNow;
 
   // Feedback 👍/👎 por respuesta. Togglea el estado visual y manda el evento a
   // analytics (única señal de calidad de respuestas que tenemos).
@@ -627,9 +712,48 @@ export default function Page() {
       .catch(() => {});
   }, []);
 
+  const playTTS = useCallback((text: string) => {
+    track("tts_played" as any);
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/\n{3,}/g, "\n\n").trim());
+    u.lang = "en-US";
+    u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }, []);
+
+  const exportHistory = useCallback(() => {
+    track("export_history");
+    const dateStr = new Date().toLocaleDateString("es-AR").replace(/\//g, "-");
+    let content = `# Entrevista Loro Copilot - ${dateStr}\n\n`;
+    content += `## Transcripción:\n`;
+    lines.forEach(l => {
+      if (l.final) content += `${l.text}\n`;
+    });
+    content += `\n## Respuestas:\n`;
+    answers.forEach(a => {
+      content += `\n### 💬 ${a.question}\n`;
+      if (a.bilingual) {
+        content += `**🇦🇷 Español:**\n${a.esText}\n\n**🇺🇸 Inglés:**\n${a.enText}\n`;
+      } else {
+        content += `${a.text}\n`;
+      }
+    });
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `entrevista-loro-${dateStr}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [lines, answers]);
+
   // Limpia respuestas y transcripción en pantalla (como el "Clear" de Parakeet),
   // sin cortar la sesión: el Loro sigue escuchando.
   const clearAll = useCallback(() => {
+    if (utteranceDebounceRef.current) clearTimeout(utteranceDebounceRef.current);
     turnRef.current?.controller?.abort();
     turnRef.current = null;
     questionBufRef.current = "";
@@ -708,8 +832,22 @@ export default function Page() {
         return;
       }
 
-      // Modo manual: NO se dispara solo por fin de intervención.
-      if (msg.type === "UtteranceEnd") return;
+      // Auto-mode: cuando el entrevistador termina de hablar (UtteranceEnd),
+      // disparamos la respuesta si hay suficiente texto acumulado.
+      if (msg.type === "UtteranceEnd") {
+        if (!autoModeRef.current) return;
+        const buf = questionBufRef.current.trim();
+        if (buf.length < 8) return; // muy corto = ruido
+        // Debounce: si llegan dos UtteranceEnd seguidos (raro pero pasa),
+        // solo disparamos una vez.
+        if (utteranceDebounceRef.current) clearTimeout(utteranceDebounceRef.current);
+        utteranceDebounceRef.current = setTimeout(() => {
+          utteranceDebounceRef.current = null;
+          answerNowRef.current();
+        }, 400);
+        return;
+      }
+
       if (msg.type !== "Results") return;
 
       const alt = msg.channel?.alternatives?.[0];
@@ -728,8 +866,8 @@ export default function Page() {
       });
 
       // Solo acumulamos texto (contexto + buffer para "Responder ahora"). La
-      // generación ocurre EXCLUSIVAMENTE al tocar el botón, así la conversación
-      // no avanza sola con respuestas nuevas mientras la persona habla.
+      // generación ocurre al tocar el botón O al detectar fin de intervención
+      // (UtteranceEnd) cuando auto-mode está ON.
       if (isFinal) {
         transcriptRef.current = (transcriptRef.current + " " + text).slice(-8000);
         questionBufRef.current = (questionBufRef.current + " " + text).slice(-1500);
@@ -785,6 +923,11 @@ export default function Page() {
       if (audioCtx.state === "suspended") await audioCtx.resume();
       await audioCtx.audioWorklet.addModule("/pcm-worklet.js");
       const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      source.connect(analyser);
+      
       const worklet = new AudioWorkletNode(audioCtx, "pcm-worklet");
       workletRef.current = worklet;
       // El handler apunta siempre al socket vigente vía wsRef: tras una
@@ -848,7 +991,7 @@ export default function Page() {
           if (scheduleReconnect()) return;
           cleanup();
           if (event.code !== 1000 && event.code !== 1001) {
-            setError("Se cortó la conexión. Revisá tu internet y tocá para reanudar.");
+            setError(`Se cortó la conexión (Código: ${event.code}, Razón: ${event.reason || "Sin razón"}). Revisá tu internet y tocá para reanudar.`);
             setStatus("error");
           } else {
             setStatus((s) => (s === "error" ? s : "idle"));
@@ -1036,6 +1179,67 @@ export default function Page() {
   const live = status === "live";
   const connecting = status === "connecting";
 
+  useEffect(() => {
+    if (!live) {
+      if (waveformRafRef.current) cancelAnimationFrame(waveformRafRef.current);
+      return;
+    }
+    const analyser = analyserRef.current;
+    const canvas = canvasRef.current;
+    if (!analyser || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const draw = () => {
+      waveformRafRef.current = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+      
+      let sumSquares = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = (dataArray[i] - 128) / 128.0;
+        sumSquares += v * v;
+      }
+      const rms = Math.sqrt(sumSquares / bufferLength);
+
+      // VAD Híbrido: Si el rms baja mucho por 800ms, disparamos respuesta.
+      if (rms < 0.02) {
+        if (!silenceStartRef.current) silenceStartRef.current = Date.now();
+        else if (Date.now() - silenceStartRef.current > 800) {
+          if (autoModeRef.current && questionBufRef.current.trim().length >= 8) {
+            if (utteranceDebounceRef.current) clearTimeout(utteranceDebounceRef.current);
+            silenceStartRef.current = null;
+            answerNowRef.current();
+          }
+        }
+      } else {
+        silenceStartRef.current = null;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#10b981"; // loro-green
+      ctx.beginPath();
+      const sliceWidth = canvas.width * 1.0 / bufferLength;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    };
+    draw();
+    return () => {
+      if (waveformRafRef.current) cancelAnimationFrame(waveformRafRef.current);
+    };
+  }, [live]);
+
   return (
     <main className={`app-container ${live ? "app-live" : ""}`}>
       <header className="brand-header">
@@ -1043,27 +1247,23 @@ export default function Page() {
           <BrandLogo />
         </div>
         <div className="header-right">
-          {live && (
-            <div className="header-center">
-              <span className="timer-pill sessions-pill" title="Sesiones gratis restantes">
-                {sessionsLeft}/{freeSessions} Loros ~ {Math.ceil(remainingSec / 60)} mins (Free)
-              </span>
-            </div>
-          )}
           {!live && connecting && <span className="status-chip">conectando…</span>}
           {!live && status === "error" && <span className="status-chip">error</span>}
           {live && (
-            <button className="stop-x" onClick={stop} aria-label="Detener" title="Detener">
-              ✕
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <canvas ref={canvasRef} width={60} height={20} style={{ opacity: 0.8 }} title="Nivel de audio" />
+              <button className="stop-x" onClick={stop} aria-label="Detener" title="Detener">
+                ✕
+              </button>
+            </div>
           )}
         </div>
       </header>
 
       {!live && (
         <p className="tagline">
-          El Loro escucha tu entrevista en tiempo real y te sopla las respuestas exactas. 100%
-          indetectable en Google Meet, Teams y Zoom. 🦜
+          El asistente escucha tu entrevista en tiempo real y sugiere respuestas alineadas con tu context. 100%
+          listo para Google Meet, Teams y Zoom. 🦜
         </p>
       )}
 
@@ -1148,6 +1348,41 @@ export default function Page() {
           <label className="mono form-label">
             Contexto de la entrevista
           </label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <select
+              className="form-input mono"
+              style={{ flex: 1, height: 36, padding: "0 12px" }}
+              onChange={(e) => {
+                const p = savedProfiles.find((x) => x.name === e.target.value);
+                if (p) {
+                  setCompany(p.company);
+                  setRole(p.role);
+                  setProfile(p.profile);
+                  setExtraInstructions(p.extraInstructions || "");
+                }
+              }}
+            >
+              <option value="">📁 Cargar perfil guardado...</option>
+              {savedProfiles.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn-action mono"
+              style={{ padding: "0 16px", height: 36, background: "var(--bg)", border: "1px solid var(--line-strong)", color: "var(--ink)", fontWeight: 600, borderRadius: 8 }}
+              onClick={() => {
+                const name = prompt("Nombre para este perfil (ej: Frontend SSR):");
+                if (!name) return;
+                const newProfiles = [...savedProfiles.filter((p) => p.name !== name), { name, company, role, profile, extraInstructions }];
+                setSavedProfiles(newProfiles);
+                localStorage.setItem("loro-saved-profiles", JSON.stringify(newProfiles));
+              }}
+            >
+              Guardar actual
+            </button>
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label className="mono form-mini-label">
               <BriefcaseIcon /> Empresa
@@ -1176,7 +1411,7 @@ export default function Page() {
           </div>
           <label className="mono form-mini-label" style={{ marginTop: 4 }}>
             <UserIcon /> Tu perfil / CV
-            <InfoTip text="Pegá tu CV, experiencia y logros. El Loro usa esto para responder en tu nombre con datos reales, sin inventar." />
+            <InfoTip text="Pegá tu CV, experiencia y logros. El asistente usa esto para responder con datos reales, sin inventar." />
           </label>
           <textarea
             value={profile}
@@ -1185,38 +1420,56 @@ export default function Page() {
             className="form-textarea"
             disabled={connecting}
           />
+          <label className="mono form-mini-label" style={{ marginTop: 4 }}>
+            <SparkleIcon /> Instrucciones Extra
+            <InfoTip text="Instrucciones opcionales. Ej: 'Hablame como a un Sr Engineer', 'Enfocate en mi experiencia en AWS'." />
+          </label>
+          <input
+            value={extraInstructions}
+            onChange={(e) => setExtraInstructions(e.target.value)}
+            placeholder="Ej: Solo respuestas cortas y directas, enfocate en liderazgo."
+            className="form-input"
+            disabled={connecting}
+          />
         </div>
       )}
 
       {/* Tira de escucha en vivo: muestra lo último que se oye y da acceso
           secundario a la transcripción. La respuesta es la protagonista. */}
       {live && (
-        <div className="listen-bar mono">
-          {tab === "answer" ? (
-            <>
-              <span className="eq" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-                <span />
-              </span>
-              <span className="listen-text listen-text-live">
-                <ListenText text={lines.length ? lines[lines.length - 1].text : ""} />
-              </span>
-              <button className="listen-toggle" onClick={() => setTab("transcript")}>
-                Transcripción
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="listen-text" style={{ color: "var(--ink)", fontWeight: 600 }}>
-                Transcripción completa
-              </span>
-              <button className="listen-toggle" onClick={() => setTab("answer")}>
-                ← Respuestas
-              </button>
-            </>
-          )}
+        <div className="listen-bar mono" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+            {tab === "answer" ? (
+              <>
+                <span className="eq" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span className="listen-text listen-text-live" style={{ flex: 1 }}>
+                  <ListenText text={lines.length ? lines[lines.length - 1].text : ""} />
+                </span>
+                <button className="listen-toggle" onClick={() => setTab("transcript")}>
+                  Transcripción
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="listen-text" style={{ color: "var(--ink)", fontWeight: 600 }}>
+                  Transcripción completa
+                </span>
+                <button className="listen-toggle" onClick={() => setTab("answer")}>
+                  ← Respuestas
+                </button>
+              </>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 11, color: "var(--ink-dim)" }}>Texto:</span>
+            <button className="listen-toggle" style={{ minWidth: 32, padding: "2px 8px" }} onClick={() => setFontSize(f => Math.max(10, f - 2))}>A-</button>
+            <button className="listen-toggle" style={{ minWidth: 32, padding: "2px 8px" }} onClick={() => setFontSize(f => Math.min(24, f + 2))}>A+</button>
+          </div>
         </div>
       )}
 
@@ -1224,10 +1477,14 @@ export default function Page() {
       <section style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 4 }}>
         {live && tab === "answer" && (
           <div className="panel" style={{ flex: 1, minHeight: 0 }}>
-            <div ref={scrollA} className="answers-container">
+            <div ref={scrollA} className="answers-container" style={{ fontSize: `${fontSize}px` }}>
               {answers.length === 0 ? (
                 <p className="placeholder" style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.6, textAlign: "center", fontStyle: "italic", padding: "8px" }}>
-                  Tocá “Responder” cuando termine la pregunta y tu respuesta aparece acá.
+                  {autoMode
+                    ? lang === "en"
+                      ? "El Loro va a responder solo cuando termine la pregunta. También podés tocar \"Responder\"."
+                      : "El Loro va a responder solo cuando termine la pregunta. También podés tocar \"Responder\"."
+                    : "Tocá \u201cResponder\u201d cuando termine la pregunta y tu respuesta aparece acá."}
                 </p>
               ) : (
                 answers.map((a, index) => (
@@ -1236,9 +1493,9 @@ export default function Page() {
                       <div className="card-actions">
                         <button
                           className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
-                          onClick={() => copyAnswer(a.id, a.text)}
+                          onClick={() => copyAnswer(a.id, a.bilingual ? (a.enText || a.text) : a.text)}
                           aria-label="Copiar respuesta"
-                          title="Copiar respuesta"
+                          title="Copiar respuesta en inglés"
                         >
                           {copiedId === a.id ? <CheckIcon /> : <CopyIcon />}
                         </button>
@@ -1248,20 +1505,61 @@ export default function Page() {
                       <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
                       <span className="answer-card-question">{a.question}</span>
                     </div>
-                    <div className="answer-card-a-row">
-                      <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
-                      <div className="answer-card-text">
-                        {a.text ? (
-                          // Colapsa líneas en blanco de más entre viñetas, pero conserva
-                          // el salto simple que separa la apertura de las viñetas.
-                          a.text.replace(/\n{3,}/g, "\n\n").trim()
-                        ) : (
-                          <span className="mono answer-card-loading">
-                            generando…
+                    {a.bilingual ? (
+                      // Modo bilingüe: dos bloques
+                      <>
+                        <div className="answer-card-a-row">
+                          <span className="answer-card-label answer-card-label-a">🇦🇷 Entendé</span>
+                          <div className="answer-card-text" style={{ color: "var(--ink-dim)", fontSize: "0.92em" }}>
+                            {a.esText ? (
+                              a.esText.replace(/\n{3,}/g, "\n\n").trim()
+                            ) : (
+                              <span className="mono answer-card-loading">generando…</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="answer-card-a-row" style={{ marginTop: 8, background: "rgba(59,130,246,0.06)", borderRadius: 8, padding: "8px 0" }}>
+                          <span className="answer-card-label answer-card-label-a" style={{ color: "#3b82f6", display: "flex", alignItems: "center", gap: 8 }}>
+                            🇺🇸 Decí esto
+                            {a.enText && (
+                              <button
+                                onClick={() => playTTS(a.enText)}
+                                className="tts-button"
+                                style={{ background: "rgba(59,130,246,0.1)", border: "none", cursor: "pointer", padding: "2px 6px", fontSize: 16, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}
+                                title="Escuchar pronunciación"
+                              >
+                                🔊
+                              </button>
+                            )}
                           </span>
-                        )}
+                          <div className="answer-card-text" style={{ fontWeight: 600, whiteSpace: "pre-wrap" }}>
+                            {a.enText ? (
+                              <KeywordHighlighter text={a.enText.replace(/\n{3,}/g, "\n\n").trim()} role={role} />
+                            ) : a.esText ? (
+                              <span className="mono answer-card-loading">esperando al traductor…</span>
+                            ) : (
+                              <span className="mono answer-card-loading">generando…</span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      // Modo normal: un solo bloque
+                      <div className="answer-card-a-row">
+                        <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
+                        <div className="answer-card-text">
+                          {a.text ? (
+                            // Colapsa líneas en blanco de más entre viñetas, pero conserva
+                            // el salto simple que separa la apertura de las viñetas.
+                            a.text.replace(/\n{3,}/g, "\n\n").trim()
+                          ) : (
+                            <span className="mono answer-card-loading">
+                              generando…
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     {a.text && (
                       <div className="answer-footer">
                         <span className="answer-footer-meta mono">Respuesta · {fmtTime(a.ts)}</span>
@@ -1317,21 +1615,45 @@ export default function Page() {
       <footer style={{ display: "flex", flexDirection: "column", gap: 8, position: "sticky", bottom: 0, paddingTop: 4, background: "var(--bg)" }}>
         {!live ? (
           <button onClick={start} disabled={connecting} className="btn-action btn-primary">
-            {connecting ? "Conectando… 🦜" : mode === "mic" ? "▶ Soltar el Loro (activar micrófono)" : "▶ Soltar el Loro (compartir pestaña)"}
+            {connecting ? "Conectando… 🦜" : mode === "mic" ? "▶ Activar asistente (micrófono)" : "▶ Activar asistente (compartir pestaña)"}
           </button>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div className="clear-row">
-              <button onClick={clearAll} className="clear-pill mono">
-                ✕ Limpiar
+            <div className="clear-row" style={{ display: "flex", alignItems: "center", justifyItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={clearAll} className="clear-pill mono">
+                  ✕ Limpiar
+                </button>
+                <button onClick={exportHistory} className="clear-pill mono">
+                  📄 Exportar
+                </button>
+              </div>
+              {/* Switch AUTO: activa/desactiva respuesta automática al fin de intervención */}
+              <button
+                className={`clear-pill mono ${autoMode ? "auto-pill-on" : "auto-pill-off"}`}
+                style={{ marginLeft: "auto" }}
+                onClick={() => {
+                  const next = !autoMode;
+                  setAutoMode(next);
+                  autoModeRef.current = next;
+                  track("auto_mode_toggled", { enabled: next });
+                }}
+                title={autoMode ? "Respuesta automática ON — tocá para desactivar" : "Respuesta automática OFF — tocá para activar"}
+              >
+                {autoMode ? "🦜 AUTO ON" : "⏸️ AUTO OFF"}
               </button>
             </div>
-            <button onClick={answerNow} className="btn-action btn-primary btn-answer">
-              <span className="btn-answer-inner">
-                <SparkleIcon />
-                Responder
-              </span>
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={answerNow} className="btn-action btn-primary btn-answer" style={{ flex: 2 }}>
+                <span className="btn-answer-inner">
+                  <SparkleIcon />
+                  Responder
+                </span>
+              </button>
+              <button onClick={askIcebreaker} className="btn-action" style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--line-strong)", color: "var(--ink)", fontWeight: 600 }}>
+                💡 Preguntas para ellos
+              </button>
+            </div>
           </div>
         )}
         {!live && (
@@ -1378,7 +1700,7 @@ export default function Page() {
                       onClick={submitWaitlist}
                       disabled={!email.trim() || sending}
                     >
-                      {sending ? "Enviando…" : "Entregá al Loro"}
+                      {sending ? "Enviando…" : "Enviar"}
                     </button>
                     {emailError && <div className="paywall-error">{emailError}</div>}
                   </div>
@@ -1399,7 +1721,7 @@ export default function Page() {
                     No vayas a tu entrevista real a ciegas. Usalo sin restricciones.
                   </p>
                   <button className="btn-action btn-whatsapp" onClick={requestVipPass}>
-                    Entregá al Loro
+                    Enviar
                   </button>
                 </div>
 
@@ -1416,7 +1738,7 @@ export default function Page() {
                   </div>
                 ) : bonusRef.current < MAX_BONUS ? (
                   <div className="paywall-share">
-                    <div className="paywall-share-title">🦜 Regalale un Loro a un amigo</div>
+                    <div className="paywall-share-title">🦜 Compartí Interview Copilot con un amigo</div>
                     <p className="paywall-text">
                       ¿Andás ajustado? Compartí el link y ganate +1 sesión gratis.
                     </p>

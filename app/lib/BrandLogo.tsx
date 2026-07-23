@@ -49,7 +49,7 @@ export function BrandLogo({
     <div className="brand-logo" aria-hidden="true">
       <ParrotSvg size={parrot} />
       <span className="brand-logo-text" style={{ fontSize, color }}>
-        Interview Copilot
+        Loro Copilot
       </span>
       <IaFlag w={flag.w} h={flag.h} />
     </div>

@@ -125,7 +125,7 @@ export default function Hub() {
       <main className="hub-main">
         <div className="hub-brand" aria-hidden="true">
           <ParrotSvg size={34} />
-          <span className="hub-brand-text">Interview Copilot</span>
+          <span className="hub-brand-text">Loro Copilot</span>
           <IaFlag />
         </div>
 

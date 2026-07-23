@@ -7,13 +7,17 @@ import { capacityClosed, rateLimit, sameOriginStrict } from "../../lib/ratelimit
 // (env var) y su propio endpoint de streaming. Si falta la key, se devuelve un
 // error claro. El backend soporta los tres providers aunque la UI hoy muestre
 // solo Gemini.
-type Provider = "gemini" | "anthropic" | "openai";
+type Provider = "gemini" | "anthropic" | "openai" | "openrouter";
 
 // Override por env SOLO si está explícitamente seteada (string vacío = no seteada).
 // Si no, manda el `model` que pide el cliente (el elegido en el selector).
 const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
 const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
 const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
+const OPENROUTER_MODEL_OVERRIDE = process.env.OPENROUTER_MODEL || "";
+const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
+const APP_NAME = "Loro Copilot";
 
 const SYSTEM_PROMPT = `Sos EL ENTREVISTADO. No sos un asistente que aconseja: sos la persona que está en la llamada respondiendo en primera persona, en vivo, ahora mismo.
 
@@ -39,8 +43,8 @@ Detectá el arquetipo y respondé con su mejor forma:
 - Pretensión salarial: si el perfil trae un número o rango, usalo con seguridad; si no, da un rango razonable o devolvé la pregunta al rango del puesto, sin quedar rígido.
 - "¿Tenés preguntas para nosotros?": 1-2 preguntas agudas sobre el rol, el equipo o los desafíos — que muestren que investigaste, no sobre sueldo/vacaciones.
 
-## Honestidad (crítico)
-Nunca inventes datos, títulos, empresas, números ni experiencia que no estén en el perfil. Si te preguntan por algo que NO tenés (una tech, un dominio, X años), no bluffees: reconocelo con naturalidad y puenteá a lo adyacente real que sí tenés ("no trabajé con eso puntual, pero sí con lo más cercano que es...") o a tu capacidad demostrada de aprenderlo rápido con un ejemplo real. Un bluff que te cazan es la peor respuesta posible.
+## Honestidad y Anti-Alucinación (CRÍTICO)
+Nunca inventes datos, títulos, empresas, herramientas, números ni experiencia que no estén en el perfil. Si te preguntan por una tecnología, herramienta o habilidad que NO tenés en el CV, NO bluffees ni asumas que la sabés. Reconocelo elegantemente y puenteá a lo adyacente real que sí tenés ("No trabajé con X puntual, pero sí tengo mucha experiencia con Y que es similar...") o a tu capacidad de aprender rápido con ejemplos reales. Un bluff que te cazan es la peor respuesta posible.
 
 ## Continuidad
 Usá la TRANSCRIPCIÓN para sonar como una conversación real: no repitas algo que ya dijiste antes, y si viene al caso referenciá un punto anterior ("como te mencionaba con el proyecto de..."). Leé el tono y la seniority del entrevistador y espejalo.
@@ -62,10 +66,48 @@ Usá la TRANSCRIPCIÓN para sonar como una conversación real: no repitas algo q
 ## Regla de oro sobre [PREGUNTA]
 Si ese campo tiene CUALQUIER texto —por corto, informal, mal transcrito o inesperado que sea, incluso si el PERFIL o la EMPRESA están vacíos— RESPONDÉLO IGUAL con lo que tengas. Nunca evalúes si "es lo bastante clara". El ÚNICO caso en que devolvés "(esperando pregunta)" es cuando [PREGUNTA] dice literalmente "(ninguna aún)" porque no llegó nada. Nunca lo uses por dudar del contenido.`;
 
+// Sufijo que se agrega al system prompt cuando se pide respuesta bilingüe (entrevista en inglés).
+// El candidato necesita: primero entender (español), luego leer en voz alta (inglés).
+const BILINGUAL_SUFFIX = `
+
+## MODO BILINGÜE (INGLÉS)
+El candidato no domina el inglés. Tu respuesta DEBE tener EXACTAMENTE este formato — dos bloques, sin texto fuera de ellos:
+
+[ES]
+<Respuesta completa en español rioplatense, con el mismo formato de apertura + viñetas que se describe arriba. Esta sección es para que el candidato ENTIENDA qué tiene que decir.>
+
+[EN]
+<Traducción natural al inglés de la respuesta anterior. Mismo contenido, mismo tono hablado, lista para leer en voz alta tal cual.>
+
+- Mantenés el mismo largo y estructura en ambos bloques.`;
+
+const ICEBREAKER_PROMPT = `Sos un candidato en los minutos finales de una entrevista de trabajo. El entrevistador acaba de preguntar si tenés alguna duda para ellos.
+
+Tu tarea: Generar 2 o 3 preguntas incisivas, estratégicas y muy bien pensadas para hacerles, basándote en la información que se charló durante la entrevista (TRANSCRIPCIÓN), la EMPRESA y el ROL.
+
+Reglas para las preguntas:
+1. No preguntes banalidades (sueldo, vacaciones, horarios).
+2. Preguntá sobre el mayor desafío técnico o de negocio que enfrentan, métricas de éxito del rol, la cultura real del equipo, o por qué la persona anterior dejó el puesto.
+3. Si en la transcripción mencionaron un proyecto, problema o tecnología específica, hacé una pregunta de seguimiento sobre eso.
+4. Formateá la respuesta como una lista con viñetas (- ), donde cada viñeta es una opción distinta de pregunta que el candidato puede elegir hacer.
+5. Lenguaje hablado, rioplatense, profesional pero suelto.
+6. Respondé en el idioma indicado en "## IDIOMA DE LA RESPUESTA".
+7. (Aplica también la regla del MODO BILINGÜE si se indica).`;
+
 function resolveModel(provider: Provider, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
+  if (provider === "openrouter") return OPENROUTER_MODEL_OVERRIDE || requested || "openai/gpt-4o-mini";
   return GEMINI_MODEL_OVERRIDE || requested || "gemini-2.5-flash";
+}
+
+function resolveProvider(requested?: string): Provider {
+  const envProvider = DEFAULT_PROVIDER_OVERRIDE as Provider;
+  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter") {
+    return envProvider;
+  }
+  if (requested === "anthropic" || requested === "openai" || requested === "openrouter") return requested;
+  return "gemini";
 }
 
 export async function POST(req: Request) {
@@ -97,6 +139,10 @@ export async function POST(req: Request) {
     question?: string;
     provider?: string;
     model?: string;
+    bilingualMode?: boolean;
+    type?: "answer" | "icebreaker";
+    extraInstructions?: string;
+    previousAnswers?: { q: string; a: string }[];
   };
   try {
     body = await req.json();
@@ -104,8 +150,7 @@ export async function POST(req: Request) {
     return new Response("Body inválido.", { status: 400 });
   }
 
-  const provider: Provider =
-    body.provider === "anthropic" || body.provider === "openai" ? body.provider : "gemini";
+  const provider: Provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
 
   const profile = (body.profile || "").slice(0, 8000);
@@ -113,10 +158,32 @@ export async function POST(req: Request) {
   const role = (body.role || "").slice(0, 2000);
   const transcript = (body.transcript || "").slice(0, 6000);
   const question = (body.question || "").slice(0, 1000);
-  const answerLangLabel =
-    body.answerLang === "en"
+  const bilingualMode = body.bilingualMode === true;
+
+  // En modo bilingüe no se usa el answerLang del cliente: el system prompt del
+  // sufijo bilingüe ya dicta el formato [ES]/[EN] y los dos idiomas.
+  const answerLangLabel = bilingualMode
+    ? "BILINGÜE — ver instrucciones de MODO BILINGÜE más abajo."
+    : body.answerLang === "en"
       ? "Inglés (English). Respondé SIEMPRE en inglés, aunque la pregunta esté en otro idioma."
       : "Español rioplatense. Respondé SIEMPRE en español, aunque la pregunta esté en inglés u otro idioma.";
+
+  const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
+  const effectiveSystemPrompt = bilingualMode
+    ? basePrompt + BILINGUAL_SUFFIX
+    : basePrompt;
+
+  const extraInstructions = (body.extraInstructions || "").slice(0, 1000);
+  const previousAnswers = body.previousAnswers || [];
+  
+  let historySection = "";
+  if (previousAnswers.length > 0) {
+    historySection = `## MEMORIA DE LA SESIÓN (RESPUESTAS PREVIAS)\n`;
+    historySection += `Ya le sugeriste al candidato las siguientes respuestas durante esta entrevista. NO repitas las mismas anécdotas o ideas a menos que sea necesario:\n`;
+    previousAnswers.forEach((pa, i) => {
+      historySection += `Q: ${pa.q}\nA: ${pa.a}\n\n`;
+    });
+  }
 
   const userContent = `## EMPRESA
 ${company || "(sin especificar)"}
@@ -127,9 +194,12 @@ ${role || "(sin especificar)"}
 ## PERFIL DEL CANDIDATO
 ${profile || "(sin perfil cargado)"}
 
+${extraInstructions ? `## INSTRUCCIONES EXTRA DEL USUARIO (REGLA ESTRICTA)\n${extraInstructions}\n` : ""}
 ## IDIOMA DE LA RESPUESTA
 ${answerLangLabel}
 
+${body.type === "icebreaker" ? "## ESTÁS EN MODO PREGUNTAS AL ENTREVISTADOR (ICEBREAKER)\nIgnorá la [PREGUNTA] si no aplica." : ""}
+${historySection}
 ## TRANSCRIPCIÓN RECIENTE
 ${transcript || "(vacío)"}
 
@@ -140,6 +210,7 @@ ${transcript || "(vacío)"}
   // cuenta, etc.), se reintenta con uno estable para no quedar sin respuesta
   // en plena entrevista.
   const FALLBACK: Record<Provider, string[]> = {
+    openrouter: ["openai/gpt-4o-mini", "openai/gpt-4.1-mini"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
     gemini: ["gemini-2.5-flash"],
@@ -147,9 +218,10 @@ ${transcript || "(vacío)"}
   const candidates = [model, ...FALLBACK[provider].filter((m) => m !== model)];
 
   try {
-    if (provider === "anthropic") return await streamAnthropic(candidates, userContent);
-    if (provider === "openai") return await streamOpenAI(candidates, userContent);
-    return await streamGemini(candidates, userContent);
+    if (provider === "anthropic") return await streamAnthropic(candidates, userContent, effectiveSystemPrompt);
+    if (provider === "openrouter") return await streamOpenRouter(candidates, userContent, effectiveSystemPrompt);
+    if (provider === "openai") return await streamOpenAI(candidates, userContent, effectiveSystemPrompt);
+    return await streamGemini(candidates, userContent, effectiveSystemPrompt);
   } catch (err: any) {
     return new Response(`Error del modelo: ${err?.message || "desconocido"}`, { status: 502 });
   }
@@ -211,17 +283,19 @@ function sseTextStream(
 }
 
 // ---------- Gemini ----------
-async function streamGemini(models: string[], userContent: string): Promise<Response> {
+async function streamGemini(models: string[], userContent: string, systemPrompt = SYSTEM_PROMPT): Promise<Response> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return new Response("Falta GEMINI_API_KEY en las variables de entorno.", { status: 500 });
   }
+  // En modo bilingüe las respuestas son más largas (dos bloques completos).
+  const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
   const payload = {
     contents: [{ role: "user", parts: [{ text: userContent }] }],
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    systemInstruction: { parts: [{ text: systemPrompt }] },
     generationConfig: {
       temperature: 0.4,
-      maxOutputTokens: 512,
+      maxOutputTokens: maxTokens,
       // Desactiva el "thinking" extendido: sin esto piensa varios cientos de ms
       // antes del primer token, y en vivo eso se nota.
       thinkingConfig: { thinkingBudget: 0 },
@@ -252,7 +326,7 @@ async function streamGemini(models: string[], userContent: string): Promise<Resp
 }
 
 // ---------- Anthropic (Claude) ----------
-async function streamAnthropic(models: string[], userContent: string): Promise<Response> {
+async function streamAnthropic(models: string[], userContent: string, systemPrompt = SYSTEM_PROMPT): Promise<Response> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(
@@ -260,6 +334,7 @@ async function streamAnthropic(models: string[], userContent: string): Promise<R
       { status: 500 }
     );
   }
+  const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
   let detail = "";
   for (const model of models) {
     if (!model) continue;
@@ -272,9 +347,9 @@ async function streamAnthropic(models: string[], userContent: string): Promise<R
       },
       body: JSON.stringify({
         model,
-        max_tokens: 512,
+        max_tokens: maxTokens,
         temperature: 0.4,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
         stream: true,
       }),
@@ -297,7 +372,7 @@ async function streamAnthropic(models: string[], userContent: string): Promise<R
 }
 
 // ---------- OpenAI (GPT) ----------
-async function streamOpenAI(models: string[], userContent: string): Promise<Response> {
+async function streamOpenAI(models: string[], userContent: string, systemPrompt = SYSTEM_PROMPT): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return new Response(
@@ -312,19 +387,20 @@ async function streamOpenAI(models: string[], userContent: string): Promise<Resp
     // rechazan temperature custom y permiten bajar el esfuerzo de razonamiento
     // (clave para latencia en vivo). Los clásicos (gpt-4.x) usan max_tokens.
     const isReasoning = /^(gpt-5|o[0-9])/.test(model);
+    const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
     };
     if (isReasoning) {
-      reqBody.max_completion_tokens = 900;
+      reqBody.max_completion_tokens = systemPrompt.includes("[ES]") ? 1800 : 900;
       reqBody.reasoning_effort = "low";
     } else {
-      reqBody.max_tokens = 512;
+      reqBody.max_tokens = maxTokens;
       reqBody.temperature = 0.4;
     }
     const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -346,4 +422,56 @@ async function streamOpenAI(models: string[], userContent: string): Promise<Resp
     detail = await upstream.text().catch(() => "");
   }
   return new Response(`GPT error: ${detail}`, { status: 502 });
+}
+
+// OpenRouter es compatible con la API de OpenAI, pero mantiene la clave del lado del servidor.
+async function streamOpenRouter(models: string[], userContent: string, systemPrompt = SYSTEM_PROMPT): Promise<Response> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      "Falta OPENROUTER_API_KEY en Vercel para usar OpenRouter. Cargá el token o elegí otro modelo.",
+      { status: 500 }
+    );
+  }
+  let detail = "";
+  for (const model of models) {
+    if (!model) continue;
+    const isReasoning = /^(gpt-5|o[0-9])/.test(model);
+    const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
+    const reqBody: Record<string, unknown> = {
+      model,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+    };
+    if (isReasoning) {
+      reqBody.max_completion_tokens = systemPrompt.includes("[ES]") ? 1800 : 900;
+      reqBody.reasoning_effort = "low";
+    } else {
+      reqBody.max_tokens = maxTokens;
+      reqBody.temperature = 0.4;
+    }
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": SITE_URL,
+        "X-Title": APP_NAME,
+      },
+      body: JSON.stringify(reqBody),
+    });
+    if (upstream.ok && upstream.body) {
+      return textStreamResponse(
+        sseTextStream(upstream.body, (json) => {
+          const evt = JSON.parse(json);
+          return evt.choices?.[0]?.delta?.content ?? null;
+        })
+      );
+    }
+    detail = await upstream.text().catch(() => "");
+  }
+  return new Response(`OpenRouter error: ${detail}`, { status: 502 });
 }

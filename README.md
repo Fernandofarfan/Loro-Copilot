@@ -1,88 +1,95 @@
-# Interview Copilot
+# Loro Copilot
 
-Asistente profesional de entrevistas con IA para preparar y afrontar conversaciones reales con mayor seguridad.
-Transcribe en streaming, analiza el contexto y sugiere respuestas alineadas con tu perfil, la empresa y el puesto.
+Loro Copilot es un asistente de IA para entrevistas de trabajo que combina transcripción en tiempo real, contexto del candidato y generación de respuestas sugeridas durante la conversación.
 
-## Dos modos de captura
+El producto está diseñado para ayudar a profesionales a prepararse mejor, responder con más seguridad y reducir la presión en entrevistas reales.
 
-- **🎙 Micrófono** (celular o notebook): el dispositivo escucha la sala por el mic.
-  Caso de uso: entrevista en la notebook con parlantes, celular apoyado al lado escuchando.
-  Funciona en Chrome Android y Safari iOS.
-- **🖥 Pestaña** (desktop): captura el audio directo de la pestaña del Meet/Zoom.
-  Más limpio, pero solo Chrome/Edge desktop.
+## Características principales
 
-Mobile-first: en el celular se usa con tabs (Respuestas / Transcripción) y wake lock
-para que no se apague la pantalla.
+- Transcripción en tiempo real desde micrófono o pestaña
+- Generación de respuestas sugeridas basadas en el contexto del usuario
+- Soporte para entrevistas en vivo y simulaciones de práctica
+- Experiencia optimizada para navegadores modernos y despliegue en Vercel
 
-## Cómo funciona
+## Tecnologías
 
-```
-Audio (mic o pestaña) ─► AudioWorklet (PCM16, resample a 16kHz)
-        │
-        ▼
-   WebSocket directo ─► Deepgram Nova-2 español
-        │                (endpointing + utterance_end + keepalive)
-        ▼  (fin de frase detectado)
-    /api/answer ─► Gemini (streaming) ─► bullets en pantalla
-```
+- Next.js 14
+- React 18
+- TypeScript
+- Vercel AI / APIs de IA
+- Deepgram para transcripción en streaming
+- Gemini para generación de respuestas
 
-- La API key de Deepgram nunca llega al navegador: `/api/deepgram-token` emite un
-  token temporal (grant, TTL 60s) vía la API de Deepgram; el navegador abre el
-  WebSocket con ese token efímero (subprotocolo `["bearer", token]`).
-- La key de Gemini vive solo en el servidor.
-- Las rutas `/api/answer` y `/api/deepgram-token` exigen mismo-origen y tienen
-  rate-limit por IP (en memoria, best-effort). No es auth: para protección fuerte
-  hace falta login + store compartido (Upstash/Vercel KV).
+## Requisitos
 
-## Correr local
+- Node.js 18 o superior
+- npm
+- Claves de API de Deepgram y Gemini
+
+## Configuración local
+
+1. Instala dependencias:
 
 ```bash
 npm install
-cp .env.example .env.local   # completá las 2 keys
+```
+
+2. Copia el archivo de ejemplo de variables de entorno:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Completa las variables necesarias en `.env.local`.
+
+4. Inicia el proyecto:
+
+```bash
 npm run dev
 ```
 
-http://localhost:3000 · Para probar el modo micrófono en el celular necesitás HTTPS,
-así que lo más simple es probar directamente en Vercel (preview deploy).
+La aplicación quedará disponible en:
 
-## Deploy en Vercel
+```text
+http://localhost:3000
+```
 
-1. Subí el repo a GitHub.
-2. Vercel → Add New → Project → Import el repo.
-3. Framework Next.js (autodetectado). No cambies nada.
-4. Cargá las variables de entorno (abajo).
-5. Deploy. Abrí la URL desde el celular para el modo micrófono.
+## Variables de entorno
 
-### Variables de entorno (Vercel → Settings → Environment Variables)
+Las variables principales del proyecto son:
 
-| Variable                   | Requerida | De dónde / para qué                                            |
-|----------------------------|-----------|----------------------------------------------------------------|
-| `DEEPGRAM_API_KEY`         | Sí        | console.deepgram.com → API Keys                                |
-| `GEMINI_API_KEY`           | Sí        | aistudio.google.com → API Keys (Google Studio)                 |
-| `GEMINI_MODEL`             | No        | default `gemini-2.5-flash`                                     |
-| `CAPACITY_CLOSED`          | No        | `1` = kill switch: cierra los endpoints pagos (503) y la app muestra "cupos agotados + waitlist". Requiere redeploy al cambiarla. |
-| `NEXT_PUBLIC_POSTHOG_KEY`  | No        | posthog.com → Project API key. Sin ella no se mandan eventos de funnel (en Vercel Hobby los eventos custom de Vercel Analytics se descartan). |
-| `NEXT_PUBLIC_POSTHOG_HOST` | No        | default `https://us.i.posthog.com`                             |
+| Variable | Requerida | Descripción |
+|---|---:|---|
+| `DEEPGRAM_API_KEY` | Sí | Clave para la transcripción en streaming |
+| `GEMINI_API_KEY` | Sí | Clave para la generación de respuestas con Gemini |
+| `OPENROUTER_API_KEY` | No | Clave privada para usar OpenRouter desde el backend |
+| `OPENROUTER_MODEL` | No | Modelo de OpenRouter a usar, por ejemplo `openai/gpt-4o-mini` |
+| `LLM_PROVIDER` | No | Proveedor por defecto del backend (`gemini`, `openai`, `anthropic` u `openrouter`) |
+| `GEMINI_MODEL` | No | Modelo alternativo de Gemini |
+| `CAPACITY_CLOSED` | No | Activa el modo de capacidad cerrada |
+| `NEXT_PUBLIC_POSTHOG_KEY` | No | Analytics de PostHog |
+| `NEXT_PUBLIC_POSTHOG_HOST` | No | Host de PostHog |
 
-Marcá las requeridas para Production, Preview y Development.
+## Despliegue en Vercel
 
-Checklist operativo pre-lanzamiento (cuotas, spend caps, kill switch, borradores
-del post): ver [LAUNCH.md](./LAUNCH.md).
+1. Conecta este repositorio a Vercel.
+2. Selecciona el proyecto como una app Next.js.
+3. Agrega las variables de entorno desde la pestaña de configuración.
+4. Haz deploy.
 
-## Latencia real
+## Estructura del proyecto
 
-- Deepgram interim: ~300ms · endpointing: 800ms de silencio · utterance_end: 1000ms
-- Primer token de Gemini: ~400ms
-- Total fin-de-frase → respuesta empezando: **~1.2–1.5s**
+```text
+app/                 # páginas, layouts y vistas principales
+app/api/             # rutas de API para transcripción y respuestas
+app/lib/             # utilidades compartidas y lógica de marca
+public/              # assets estáticos
+```
 
-## Notas del modo micrófono
+## Notas importantes
 
-- Como el mic escucha la sala, también te escucha a vos. El `endpointing` corta por frase,
-  así que en la práctica genera por cada intervención. Si querés que ignore tu voz hace falta
-  diarización (Deepgram `diarize=true` + filtrar por speaker) — queda para v2.
-- Usa echo cancellation + noise suppression en modo mic; los apaga en modo pestaña.
+Este proyecto sigue un enfoque de MVP y está pensado para demostración, validación y evolución iterativa.
 
-## Limitaciones (a propósito)
+## Licencia
 
-- Sin auth, sin base de datos, sin cobro. MVP funcional, no producto.
-- El overlay NO es "indetectable": es una web normal. Deliberado.
+Este proyecto está en desarrollo y se comparte con fines de aprendizaje y demostración.

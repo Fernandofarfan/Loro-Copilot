@@ -918,6 +918,28 @@ input {
   border-color: var(--ink-dim);
 }
 
+.auto-pill-on {
+  color: var(--loro-green);
+  border-color: var(--loro-green);
+  background: rgba(16, 185, 129, 0.05);
+}
+.auto-pill-on:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--loro-green);
+  color: var(--loro-green);
+}
+
+.auto-pill-off {
+  color: var(--loro-red);
+  border-color: var(--loro-red);
+  background: rgba(244, 63, 94, 0.05);
+}
+.auto-pill-off:hover {
+  background: rgba(244, 63, 94, 0.1);
+  border-color: var(--loro-red);
+  color: var(--loro-red);
+}
+
 /* Botón de respuesta: cara oscura con un halo de "colores de loro" (verde,
    amarillo, naranja, cian) que fluye suave alrededor.
    Capas: ::before = halo desenfocado / ::after = cara oscura / .inner = contenido. */

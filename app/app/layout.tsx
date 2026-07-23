@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "respuestas en la entrevista",
   ],
   openGraph: {
-    title: "Interview Copilot — Copiloto de entrevistas en vivo",
+    title: "Loro Copilot — Copiloto de entrevistas en vivo",
     description:
       "Recibí respuestas en tiempo real, alineadas con tu perfil profesional y el contexto de la empresa.",
     url: "/app",

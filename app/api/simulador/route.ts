@@ -2,11 +2,15 @@ export const runtime = "edge";
 
 import { capacityClosed, rateLimit, sameOriginStrict } from "../../lib/ratelimit";
 
-type Provider = "gemini" | "anthropic" | "openai";
+type Provider = "gemini" | "anthropic" | "openai" | "openrouter";
 
 const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
 const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
 const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
+const OPENROUTER_MODEL_OVERRIDE = process.env.OPENROUTER_MODEL || "";
+const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
+const APP_NAME = "Loro Copilot";
 
 const SYSTEM_PROMPT_INTERVIEWER = `Sos el ENTREVISTADOR. No sos un asistente que aconseja: estás en la llamada haciendo la entrevista en vivo al candidato, ahora mismo.
 
@@ -104,7 +108,17 @@ Reglas críticas:
 function resolveModel(provider: Provider, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
+  if (provider === "openrouter") return OPENROUTER_MODEL_OVERRIDE || requested || "openai/gpt-4o-mini";
   return GEMINI_MODEL_OVERRIDE || requested || "gemini-2.5-flash";
+}
+
+function resolveProvider(requested?: string): Provider {
+  const envProvider = DEFAULT_PROVIDER_OVERRIDE as Provider;
+  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter") {
+    return envProvider;
+  }
+  if (requested === "anthropic" || requested === "openai" || requested === "openrouter") return requested;
+  return "gemini";
 }
 
 export async function POST(req: Request) {
@@ -148,8 +162,7 @@ export async function POST(req: Request) {
   }
 
   const action = body.action || "next-question";
-  const provider: Provider =
-    body.provider === "anthropic" || body.provider === "openai" ? body.provider : "gemini";
+  const provider: Provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
 
   const profile = (body.profile || "").slice(0, 8000);
@@ -222,6 +235,7 @@ ${historyText}`;
   }
 
   const FALLBACK: Record<Provider, string[]> = {
+    openrouter: ["openai/gpt-4o-mini", "openai/gpt-4.1-mini"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
     gemini: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
@@ -233,6 +247,7 @@ ${historyText}`;
       return await getFeedback(provider, candidates, systemPrompt, userContent);
     } else {
       if (provider === "anthropic") return await streamAnthropic(candidates, systemPrompt, userContent);
+      if (provider === "openrouter") return await streamOpenRouter(candidates, systemPrompt, userContent);
       if (provider === "openai") return await streamOpenAI(candidates, systemPrompt, userContent);
       return await streamGemini(candidates, systemPrompt, userContent, image);
     }
@@ -429,6 +444,56 @@ async function streamOpenAI(models: string[], systemPrompt: string, userContent:
   return new Response(`GPT error: ${detail}`, { status: 502 });
 }
 
+async function streamOpenRouter(models: string[], systemPrompt: string, userContent: string): Promise<Response> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      "Falta OPENROUTER_API_KEY para usar OpenRouter. Cargá el token o elegí otro modelo.",
+      { status: 500 }
+    );
+  }
+  let detail = "";
+  for (const model of models) {
+    if (!model) continue;
+    const isReasoning = /^(gpt-5|o[0-9])/.test(model);
+    const reqBody: Record<string, unknown> = {
+      model,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+    };
+    if (isReasoning) {
+      reqBody.max_completion_tokens = 900;
+      reqBody.reasoning_effort = "low";
+    } else {
+      reqBody.max_tokens = 512;
+      reqBody.temperature = 0.5;
+    }
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": SITE_URL,
+        "X-Title": APP_NAME,
+      },
+      body: JSON.stringify(reqBody),
+    });
+    if (upstream.ok && upstream.body) {
+      return textStreamResponse(
+        sseTextStream(upstream.body, (json) => {
+          const evt = JSON.parse(json);
+          return evt.choices?.[0]?.delta?.content ?? null;
+        })
+      );
+    }
+    detail = await upstream.text().catch(() => "");
+  }
+  return new Response(`OpenRouter error: ${detail}`, { status: 502 });
+}
+
 // Los modelos a veces desobedecen y envuelven el JSON en fences ```json ...```
 // o le anteponen texto: limpiar antes de parsear para no tirar el reporte.
 function parseModelJson(text: string): unknown {
@@ -449,16 +514,18 @@ async function getFeedback(
   systemPrompt: string,
   userContent: string
 ): Promise<Response> {
-  if (provider === "openai") {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return new Response("Falta OPENAI_API_KEY.", { status: 500 });
+  if (provider === "openai" || provider === "openrouter") {
+    const baseUrl = provider === "openrouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1";
+    const apiKey = provider === "openrouter" ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
+    if (!apiKey) return new Response(provider === "openrouter" ? "Falta OPENROUTER_API_KEY." : "Falta OPENAI_API_KEY.", { status: 500 });
     let detail = "";
     for (const model of models) {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
+          ...(provider === "openrouter" ? { "HTTP-Referer": SITE_URL, "X-Title": APP_NAME } : {}),
         },
         body: JSON.stringify({
           model,
@@ -480,7 +547,7 @@ async function getFeedback(
       }
       detail = await res.text().catch(() => "");
     }
-    return new Response(`OpenAI feedback error: ${detail}`, { status: 502 });
+    return new Response(`${provider === "openrouter" ? "OpenRouter" : "OpenAI"} feedback error: ${detail}`, { status: 502 });
   }
 
   if (provider === "anthropic") {

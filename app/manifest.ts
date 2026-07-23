@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Interview Copilot",
-    short_name: "Interview Copilot",
+    name: "Loro Copilot",
+    short_name: "Loro Copilot",
     description: "Asistente profesional de entrevistas con IA en tiempo real.",
     start_url: "/app",
     display: "standalone",
