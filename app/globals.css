@@ -1,0 +1,2762 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Tema claro estilo Parakeet: fondo casi blanco, tarjetas blancas,
+     acción principal oscura, y un acento esmeralda para la marca / "en vivo". */
+  --bg: #f4f5f7;          /* Fondo de app (gris muy claro) */
+  --panel: #ffffff;       /* Tarjeta */
+  --panel-2: #ffffff;     /* Tarjeta secundaria */
+  --line: #e4e7ec;        /* Borde hairline */
+  --line-strong: #d4d8de; /* Borde un poco más marcado */
+  --ink: #17181a;         /* Texto casi negro */
+  --ink-dim: #5b6470;     /* Texto secundario */
+  --ink-faint: #98a1ad;   /* Texto tenue */
+
+  --loro-green: #10b981;         /* Esmeralda: acento (fills) */
+  --loro-green-bright: #059669;  /* Esmeralda para texto sobre blanco */
+  --loro-green-deep: #047857;    /* Esmeralda oscuro (labels) */
+  --loro-red: #ef4444;           /* Stop / error */
+  --loro-red-deep: #dc2626;
+
+  /* Acción principal: botón oscuro (como el "Answer" de Parakeet). */
+  --btn-dark: #17181a;
+  --btn-dark-hover: #2a2c30;
+
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Mono solo para "telemetría": chip de estado, labels, barra de escucha. */
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+textarea,
+input {
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.brand-logo-text {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+
+.tagline {
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.4;
+  margin-top: -6px;
+}
+
+/* Grid responsive genérico */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 500px) {
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Fila de selectores (idioma + modelo en una misma línea, como Parakeet). */
+.selectors-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Como ítem de grid necesita min-width 0 para que el label del dropdown
+     truncue con ellipsis en vez de desbordar el viewport. */
+  min-width: 0;
+}
+
+/* Translucent Flat Panels */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+/* Botones de modo (Micrófono / Pestaña) */
+.btn-select {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  color: var(--ink-dim);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.btn-select:hover:not(:disabled) {
+  border-color: var(--loro-green);
+  color: var(--ink);
+}
+
+.btn-select-active {
+  background: #f0fdf9 !important;
+  border-color: var(--loro-green) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 0 0 0 1px var(--loro-green);
+}
+
+.btn-select-sub {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+/* Labels de formulario */
+.form-label {
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--loro-green-deep);
+  font-weight: 700;
+}
+
+.form-mini-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+.form-mini-label svg {
+  color: var(--ink-dim);
+  flex-shrink: 0;
+}
+
+/* Tooltip de ayuda (ⓘ) */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.info-tip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.info-tip-btn:hover {
+  color: var(--loro-green-deep);
+}
+
+.info-bubble {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 240px;
+  background: var(--ink);
+  color: #fff;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.45;
+  padding: 8px 11px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px -6px rgba(16, 24, 40, 0.3);
+}
+
+/* La tira en vivo trunca a la izquierda para mostrar siempre lo más reciente. */
+.listen-text-live {
+  direction: rtl;
+  text-align: left;
+}
+
+/* Palabra activa en la tira de transcripción en vivo. */
+.active-word {
+  color: var(--loro-green-bright);
+  font-weight: 700;
+}
+
+.form-input, .form-textarea {
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  padding: 10px 12px;
+  /* 16px evita el zoom-on-focus de iOS al no estar bloqueado el pinch-zoom. */
+  font-size: 16px;
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input::placeholder, .form-textarea::placeholder {
+  color: var(--ink-faint);
+}
+
+.form-input:focus, .form-textarea:focus {
+  border-color: var(--loro-green);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+
+.form-textarea {
+  resize: none;
+  height: 100px;
+}
+
+.form-textarea-sm {
+  height: 72px;
+}
+
+/* Selectores custom (idioma y modelo): con icono, tag y badge, como Parakeet. */
+.dd {
+  position: relative;
+}
+
+.dd-trigger {
+  width: 100%;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px; /* píldora, como los "Output Settings" de Parakeet */
+  padding: 0 14px 0 16px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dd-trigger:hover:not(:disabled) {
+  border-color: var(--ink-dim);
+}
+
+.dd-trigger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.dd-trigger-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dd-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dd-caret {
+  color: var(--ink-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.dd-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.dd-flag {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 250px;
+  max-width: 82vw;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -8px rgba(16, 24, 40, 0.22);
+  padding: 6px;
+  z-index: 30;
+  max-height: 340px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* El selector de modelo abre alineado a la derecha para no salirse de pantalla. */
+.dd-menu-right {
+  left: auto;
+  right: 0;
+}
+
+.dd-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dd-option:hover {
+  background: #f2f5f7;
+}
+
+.dd-option-sel {
+  background: #f0fdf9;
+}
+
+.dd-option-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.dd-option-label {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.dd-option-tag {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dd-option-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dd-badge {
+  background: var(--btn-dark);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dd-check {
+  color: var(--loro-green-bright);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--ink-faint);
+  line-height: 1.4;
+}
+
+
+/* Status Chips */
+.status-chip {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  background: #fff;
+  font-weight: 500;
+}
+
+.status-chip-live {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: var(--loro-red-deep) !important;
+  font-weight: 700;
+}
+
+/* Contenedor de respuestas */
+.answers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.answer-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Acciones de la tarjeta (regenerar + copiar), arriba a la derecha. */
+.card-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.card-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+.card-btn-done {
+  color: var(--loro-green-bright);
+  border-color: var(--loro-green);
+  background: #f0fdf9;
+}
+
+/* La respuesta actual (la última): borde acentuado + elevación suave. Las
+   anteriores quedan como historial normal arriba (sin atenuar), como Parakeet. */
+.answer-card-current {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 30px -12px rgba(16, 185, 129, 0.35);
+  animation: answerIn 0.3s ease-out;
+}
+
+@keyframes answerIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Footer de la respuesta: hora + feedback (👍/👎), como Parakeet. */
+.answer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.answer-footer-meta {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.fb-btns {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.fb-btn:hover {
+  color: var(--ink-dim);
+  background: #f2f5f7;
+}
+
+.fb-up {
+  color: var(--loro-green-bright);
+}
+
+.fb-down {
+  color: var(--loro-red-deep);
+}
+
+/* Fila Pregunta / Respuesta estilo Parakeet. */
+.answer-card-q-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 12px;
+  padding-right: 36px; /* deja lugar para el botón de copiar */
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.answer-card-a-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.answer-card-label {
+  font-size: 12px;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+.answer-card-label-q {
+  color: var(--ink-faint);
+}
+
+.answer-card-label-a {
+  color: var(--loro-green-deep);
+}
+
+.answer-card-question {
+  font-size: 14.5px;
+  color: var(--ink-dim);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.answer-card-text {
+  font-size: 16.5px;
+  line-height: 1.72;
+  white-space: pre-wrap;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+
+.answer-card-loading {
+  font-size: 12.5px;
+  color: var(--loro-green-bright);
+  font-weight: 500;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* Barra de escucha en vivo */
+.listen-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-height: 36px;
+}
+
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.eq span {
+  width: 2.5px;
+  border-radius: 2px;
+  background: var(--loro-green);
+  height: 35%;
+  animation: eq 0.9s ease-in-out infinite;
+}
+
+.eq span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.eq span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+.eq span:nth-child(4) {
+  animation-delay: 0.54s;
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    height: 30%;
+  }
+  50% {
+    height: 100%;
+  }
+}
+
+.listen-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listen-toggle {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 5px 11px;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.listen-toggle:hover {
+  color: var(--ink);
+  border-color: var(--loro-green);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Contenedor de transcripción */
+.transcript-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.transcript-line {
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin-bottom: 2px;
+  color: var(--ink);
+}
+
+/* Botones */
+.btn-action {
+  font-family: inherit;
+  border: none;
+  border-radius: 10px;
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 700;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+}
+
+.btn-action:active:not(:disabled) {
+  transform: scale(0.995);
+}
+
+/* Acción principal: botón oscuro (como el "Answer" de Parakeet). */
+.btn-primary {
+  background: var(--btn-dark);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--btn-dark-hover);
+}
+
+/* Secundario: outline claro. */
+.btn-ghost {
+  background: #fff;
+  color: var(--ink-dim);
+  border: 1px solid var(--line-strong);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+/* Detener: outline rojo, calmo. */
+.btn-stop {
+  background: #fff;
+  color: var(--loro-red-deep);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.btn-stop:hover:not(:disabled) {
+  border-color: var(--loro-red-deep);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.btn-hint {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  text-align: center;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.app-container {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  gap: 14px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* En vivo: viewport fijo para que header + tira + botón queden quietos y las
+   respuestas scrolleen en el medio (como Parakeet), en vez de scrollear toda
+   la página. */
+.app-live {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Lado derecho del header en una sola fila: pills (sesiones + timer) + X. */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Pills del header (sesiones + timer), mismo formato estilo Parakeet. */
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e0e2e7;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.timer-pill svg {
+  flex-shrink: 0;
+  color: var(--ink-dim);
+}
+
+.timer-free {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+/* Detener = botón rojo con "✕" arriba a la derecha (como Parakeet). */
+.stop-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: none;
+  background: var(--loro-red);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.stop-x:hover {
+  background: var(--loro-red-deep);
+}
+
+/* "Limpiar" = pill chico alineado a la derecha, sobre el botón de respuesta. */
+.clear-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.clear-pill {
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 6px 14px;
+  color: var(--ink-dim);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.clear-pill:hover {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+/* Botón de respuesta: cara oscura con un halo de "colores de loro" (verde,
+   amarillo, naranja, cian) que fluye suave alrededor.
+   Capas: ::before = halo desenfocado / ::after = cara oscura / .inner = contenido. */
+.btn-answer {
+  position: relative;
+  z-index: 0;
+  background: transparent; /* la cara oscura vive en ::after, por encima del halo */
+  overflow: visible;
+}
+
+.btn-answer::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 13px;
+  background: linear-gradient(
+    90deg,
+    #10b981,
+    #34d399,
+    #a3e635,
+    #fbbf24,
+    #f59e0b,
+    #fb7185,
+    #22d3ee,
+    #10b981
+  );
+  background-size: 300% 100%;
+  filter: blur(9px);
+  opacity: 0.8;
+  z-index: 0;
+  animation: loroGlow 5s linear infinite;
+}
+
+.btn-answer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: var(--btn-dark);
+  z-index: 1;
+}
+
+.btn-answer:hover:not(:disabled)::after {
+  background: var(--btn-dark-hover);
+}
+
+.btn-answer:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.btn-answer-inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.btn-answer-inner svg {
+  flex-shrink: 0;
+}
+
+@keyframes loroGlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+/* ===================== Landing (/) ===================== */
+.landing {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #000;
+  color: #fff;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 56rem;
+  text-align: center;
+  z-index: 1;
+  text-transform: uppercase; /* todo en mayúscula: rústico / anti-marketing */
+}
+
+.landing-title {
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+  color: #fff;
+}
+
+.landing-sub {
+  font-size: clamp(0.9rem, 2.5vw, 1.25rem);
+  font-weight: 400;
+  color: #fff;
+  margin-bottom: 64px;
+}
+
+.landing-btn-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-bottom: 24px;
+}
+
+.landing-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 0;
+  /* Mismo efecto que el botón "Responder": halo de colores de loro que fluye. */
+  background: linear-gradient(
+    90deg,
+    #10b981,
+    #34d399,
+    #a3e635,
+    #fbbf24,
+    #f59e0b,
+    #fb7185,
+    #22d3ee,
+    #10b981
+  );
+  background-size: 300% 100%;
+  filter: blur(16px);
+  opacity: 0.8;
+  animation: loroGlow 5s linear infinite;
+  transition: opacity 0.35s ease;
+}
+
+.landing-btn-wrap:hover .landing-glow {
+  opacity: 1;
+}
+
+.landing-btn {
+  position: relative;
+  background: #0a0f1c;
+  color: #fff;
+  font-weight: 700;
+  font-size: clamp(1.15rem, 3vw, 1.5rem);
+  padding: 18px 56px;
+  border-radius: 0; /* cuadrado */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.landing-btn:hover {
+  transform: scale(1.02);
+}
+
+.landing-btn-sub {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: clamp(11px, 2.8vw, 14px);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.landing-warn {
+  color: #ef4444;
+  font-size: clamp(10px, 2.6vw, 13px);
+  font-weight: 400;
+  text-transform: none;
+  max-width: 34rem;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  margin: 36px auto 0;
+  padding: 0 4px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-glow { transition: none; }
+  .landing-btn { transition: none; }
+}
+
+.landing-sticker {
+  width: min(380px, 78vw);
+  height: auto;
+  margin: 8px 0 24px;
+}
+
+/* ===================== Home hub (minimal, Luhmann) ===================== */
+/* Un mensaje y dos puertas. Estética negra de marca; el mini-tag de cada
+   puerta le dice cuál es sin obligar a evaluar. */
+.hub {
+  background: #000;
+  color: #fff;
+  min-height: 100dvh;
+  width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hub-main {
+  width: 100%;
+  max-width: 48rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 1;
+}
+
+.hub-brand {
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hub-brand-text {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1;
+}
+
+.hub-h1 {
+  font-size: clamp(2rem, 7vw, 4.25rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  margin-bottom: 18px;
+}
+
+.hub-tagline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: rgba(255, 79, 18, 0.12);
+  border: 1px solid rgba(255, 79, 18, 0.5);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  margin-bottom: clamp(40px, 7vh, 68px);
+}
+
+.hub-tagline-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff4f12;
+  box-shadow: 0 0 8px 1px rgba(255, 79, 18, 0.9);
+  animation: hubPulseDot 1.6s ease-in-out infinite;
+}
+
+@keyframes hubPulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ===================== Matrix Options (3D Pills + Morpheus Hand) ===================== */
+.hub-doors-pills {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 48px;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 16px 0;
+}
+
+@media (max-width: 640px) {
+  .hub-doors-pills {
+    flex-direction: row !important; /* Siempre horizontal en mobile */
+    justify-content: space-around;
+    gap: 8px;
+    padding: 10px 2px;
+  }
+
+  .hub-option-btn {
+    max-width: 48%;
+    padding: 6px 2px;
+  }
+
+  .hub-pill-wrapper {
+    width: 140px !important;
+    height: 80px !important;
+  }
+
+  .hub-3d-pill-svg {
+    width: 110px !important;
+    height: 46px !important;
+  }
+
+  .hub-morpheus-hand-wrap svg {
+    width: 130px !important;
+    height: 100px !important;
+  }
+
+  .hub-option-label {
+    font-size: 1.1rem !important;
+    margin-top: 2px;
+  }
+
+  .hub-option-sub {
+    font-size: 0.7rem !important;
+    max-width: 130px;
+    line-height: 1.2;
+  }
+}
+
+.hub-option-btn {
+  flex: 1;
+  width: 100%;
+  max-width: 270px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  text-decoration: none;
+  text-align: center;
+  position: relative;
+  border: none;
+  background: transparent;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 1;
+}
+
+.hub-option-btn:hover {
+  transform: scale(1.07) translateY(-6px);
+}
+
+.hub-pill-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 170px;
+  height: 85px;
+  margin-bottom: 4px;
+}
+
+.hub-3d-pill-svg {
+  position: relative;
+  z-index: 5;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.35s ease;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6));
+}
+
+/* Hover effects on the 3D pills - intense matching color glows */
+.hub-option-blue:hover .hub-3d-pill-svg {
+  transform: scale(1.16) rotate(-8deg) translateY(-4px) !important;
+  filter: drop-shadow(0 0 25px rgba(56, 189, 248, 0.95)) drop-shadow(0 0 45px rgba(2, 132, 199, 0.85)) !important;
+}
+
+.hub-option-red:hover .hub-3d-pill-svg {
+  transform: scale(1.16) rotate(8deg) translateY(-4px) !important;
+  filter: drop-shadow(0 0 25px rgba(248, 113, 113, 0.95)) drop-shadow(0 0 45px rgba(239, 68, 68, 0.85)) !important;
+}
+
+/* Title labels are pure white */
+.hub-option-label {
+  font-size: 1.55rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ffffff !important;
+  margin-top: 6px;
+  transition: text-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.hub-label-blue {
+  text-shadow: 0 0 16px rgba(56, 189, 248, 0.6);
+}
+
+.hub-option-blue:hover .hub-label-blue {
+  text-shadow: 0 0 24px rgba(56, 189, 248, 1), 0 0 45px rgba(2, 132, 199, 0.95);
+}
+
+.hub-label-red {
+  text-shadow: 0 0 16px rgba(248, 113, 113, 0.6);
+}
+
+.hub-option-red:hover .hub-label-red {
+  text-shadow: 0 0 24px rgba(248, 113, 113, 1), 0 0 45px rgba(239, 68, 68, 0.95);
+}
+
+.hub-option-sub {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  max-width: 220px;
+}
+
+/* Intense monochromatic color aura glow behind the blue option */
+.hub-glow-blue {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(2, 132, 199, 0.9) 0%, rgba(37, 99, 235, 0.5) 45%, transparent 75%);
+  filter: blur(30px);
+  z-index: -1;
+  opacity: 0.25;
+  transition: opacity 0.35s ease, filter 0.35s ease, transform 0.35s ease;
+}
+
+.hub-option-blue:hover .hub-glow-blue {
+  opacity: 1;
+  filter: blur(38px);
+  transform: scale(1.18);
+}
+
+/* Intense monochromatic color aura glow behind the red option */
+.hub-glow-red {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.9) 0%, rgba(185, 28, 28, 0.5) 45%, transparent 75%);
+  filter: blur(30px);
+  z-index: -1;
+  opacity: 0.25;
+  transition: opacity 0.35s ease, filter 0.35s ease, transform 0.35s ease;
+}
+
+.hub-option-red:hover .hub-glow-red {
+  opacity: 1;
+  filter: blur(38px);
+  transform: scale(1.18);
+}
+
+/* Multi-color gradient outline and blur glow for the red pill */
+.hub-pill-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    #10b981,
+    #34d399,
+    #a3e635,
+    #fbbf24,
+    #f59e0b,
+    #fb7185,
+    #22d3ee,
+    #10b981
+  );
+  background-size: 300% 100%;
+  animation: loroGlow 4s linear infinite;
+  z-index: 1;
+  opacity: 0.95;
+  transition: opacity 0.3s ease;
+}
+
+/* Blur backing */
+.hub-pill-glow::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+  background: inherit;
+  background-size: inherit;
+  filter: blur(18px);
+  z-index: -1;
+  opacity: 0.85;
+}
+
+.hub-pill-red:hover .hub-pill-glow {
+  opacity: 1;
+}
+
+.hub-pill-red .hub-pill-label {
+  color: #fca5a5;
+  text-shadow: 0 0 12px rgba(252, 165, 165, 0.8);
+}
+
+/* ===================== Paywall / lista de espera ===================== */
+.paywall-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 8, 6, 0.72);
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.paywall {
+  width: 100%;
+  max-width: 26rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 24px 60px -12px rgba(16, 24, 40, 0.5);
+  text-align: center;
+  animation: answerIn 0.25s ease-out;
+}
+
+.paywall-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+}
+
+.paywall-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin-bottom: 10px;
+}
+
+.paywall-cta {
+  color: var(--ink);
+  font-weight: 600;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.paywall-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.paywall-sent {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--loro-green-deep);
+  background: #f0fdf9;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 10px;
+  padding: 14px;
+  animation: answerIn 0.25s ease-out;
+}
+
+/* Oferta primaria (Pase VIP) dentro del paywall: bloque destacado. */
+.paywall-vip {
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  background: #f0fdf9;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.14);
+}
+.paywall-vip-title {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--loro-green-deep);
+  margin-bottom: 6px;
+}
+.paywall-vip .paywall-text {
+  margin-bottom: 12px;
+}
+
+/* Sección de compartir (loop viral) dentro del paywall. */
+.paywall-share {
+  border: 1px dashed rgba(16, 185, 129, 0.45);
+  background: #f0fdf9;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.paywall-share-done {
+  border-style: solid;
+}
+.paywall-share-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+/* Botón de WhatsApp (verde de marca de WhatsApp para reconocimiento). */
+.btn-whatsapp {
+  background: #25d366;
+  color: #06371c;
+  font-weight: 800;
+}
+.btn-whatsapp:hover {
+  background: #1fb855;
+}
+
+.paywall-error {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c0392b;
+  margin-top: 2px;
+}
+
+/* ===== Simulador (/simulador) ===== */
+
+/* Solo para lectores de pantalla (aria-live, labels invisibles). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.sim-turn-hint {
+  font-weight: 700;
+  color: var(--loro-green-deep);
+}
+
+/* --- Social proof del setup --- */
+.sim-social-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff5f0;
+  border: 1px solid #ffe4d6;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  flex: none;
+}
+/* En pantallas chicas la píldora comparte línea con el logo: achicar y
+   esconder el badge Beta para que entre todo. */
+@media (max-width: 560px) {
+  .sim-social-pill {
+    font-size: 11px;
+    padding: 5px 10px;
+    gap: 6px;
+  }
+}
+.sim-social-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: simBlink 2s infinite;
+  flex: none;
+}
+@keyframes simBlink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* CTA del setup siempre a la vista: sticky al fondo del viewport, con
+   degradé para que el formulario scrollee por debajo sin corte seco. */
+.sim-setup-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 18px 0 calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(244, 245, 247, 0) 0%, var(--bg) 35%);
+}
+
+/* --- Sala: header de videollamada --- */
+.sim-room {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+/* La sala usa más ancho que el resto de la app (experiencia de videollamada). */
+.app-container.sim-wide { max-width: 1160px; }
+.sim-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.sim-room-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.sim-room-header-right { flex: none; }
+.sim-room-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sim-room-meta {
+  font-size: 12px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sim-room-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sim-back-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s;
+}
+.sim-back-btn:hover { background: #f8fafc; }
+.sim-ctl-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  transition: all 0.15s;
+}
+.sim-ctl-btn:hover { background: #f8fafc; color: var(--ink); }
+.sim-ctl-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Activa = naranja, como la referencia de sala de videollamada. */
+.sim-ctl-on {
+  background: #f97316;
+  border-color: #f97316;
+  color: #fff;
+}
+.sim-ctl-on:hover { background: #ea6a0a; color: #fff; }
+.sim-finish-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--loro-red);
+  border: none;
+  color: #fff;
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.sim-finish-btn:hover { background: var(--loro-red-deep); }
+
+/* --- Grid de la sala --- */
+.sim-room-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+.sim-room-left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* --- Stage de video --- */
+.sim-stage {
+  position: relative;
+  background: linear-gradient(180deg, #f0fdf9 0%, #ffffff 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+.sim-stage-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--loro-green);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 3;
+}
+.sim-stage-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  animation: simBlink 2s infinite;
+  flex: none;
+}
+.sim-stage-badge-connecting { background: #64748b; }
+
+.sim-pip {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 26%;
+  max-width: 180px;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  background: #17181a;
+  z-index: 3;
+}
+.sim-pip video {
+  /* Absoluto + inset:0 para llenar la caja exacta: en iOS Safari el <video>
+     con solo width/height 100% no siempre cubre el alto y dejaba banda negra. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* espejo, como se espera verse a uno mismo */
+}
+.sim-pip-off {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #98a1ad;
+  font-size: 11px;
+  text-align: center;
+  padding: 4px;
+}
+.sim-pip-off-emoji { font-size: 20px; }
+
+/* --- Avatar del entrevistador (video con fallback SVG) --- */
+.sim-avatar {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sim-avatar-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.04);
+  transition: filter 0.45s ease, transform 0.45s ease, opacity 0.3s ease;
+}
+.sim-avatar-video-paused {
+  /* El video sigue en loop lento mientras el loro no habla; el zoom tipo Ken
+     Burns le suma vida. Atenuación mínima para distinguir del estado hablando.
+     Scale mínimo 1.02 mantiene overscan: el translate/rotate nunca revela el
+     fondo de la caja. */
+  filter: saturate(0.95) brightness(0.99);
+  transform: scale(1.02);
+  animation: simAvatarIdle 4.5s ease-in-out infinite;
+}
+@keyframes simAvatarIdle {
+  0%, 100% { transform: scale(1.02) translateY(0) rotate(0deg); }
+  50% { transform: scale(1.05) translateY(-1%) rotate(0.5deg); }
+}
+/* Oculto pero en el DOM para que precargue mientras se muestra el SVG. */
+.sim-avatar-video-hidden { opacity: 0; }
+
+/* Anillo de "escuchando": marco interno pulsante sobre el stage. */
+.sim-avatar-ring {
+  position: absolute;
+  inset: 6px;
+  border-radius: 10px;
+  border: 2px solid var(--loro-green);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.sim-avatar-listening .sim-avatar-ring { animation: simRingPulse 1.8s ease-out infinite; }
+@keyframes simRingPulse {
+  0% { opacity: 0.7; }
+  70% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Puntitos de "pensando". */
+.sim-thinking-dots {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  z-index: 3;
+}
+.sim-thinking-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--loro-green);
+  animation: simPulse 1.4s infinite ease-in-out both;
+}
+.sim-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.sim-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes simPulse {
+  0%, 80%, 100% { transform: scale(0.4); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Fallback SVG del loro (si el video no carga/reproduce). */
+.sim-avatar-circle {
+  width: min(46%, 220px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #ffffff 0%, #ecfdf5 70%, #d1fae5 100%);
+  border: 1px solid #a7f3d0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  box-shadow: 0 10px 30px -12px rgba(16, 185, 129, 0.35);
+}
+.sim-avatar-svg {
+  width: 82%;
+  height: 82%;
+  margin-bottom: -6%;
+  animation: simBob 4s ease-in-out infinite;
+}
+@keyframes simBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(3px) rotate(0.8deg); }
+}
+.sim-head {
+  transform-box: fill-box;
+  transform-origin: 50% 65%;
+  transition: transform 0.45s ease;
+}
+.sim-avatar-listening .sim-head { transform: rotate(-5deg); }
+.sim-avatar-thinking .sim-head { transform: rotate(3deg) translateY(-1px); }
+.sim-eyelid {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: scaleY(0);
+  transition: transform 0.07s linear;
+}
+.sim-blink .sim-eyelid { transform: scaleY(1); }
+.sim-beak-upper {
+  transform-box: fill-box;
+  transform-origin: 90% 85%;
+  transform: rotate(calc(var(--mouth, 0) * 7deg));
+}
+.sim-beak-lower {
+  transform-box: fill-box;
+  transform-origin: 95% 5%;
+  transform: rotate(calc(var(--mouth, 0) * -24deg));
+}
+
+/* --- Panel de contexto colapsable --- */
+.sim-context-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+}
+.sim-context-panel summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sim-context-panel summary::-webkit-details-marker { display: none; }
+.sim-context-panel summary::after {
+  content: "▾";
+  color: var(--ink-faint);
+  transition: transform 0.2s;
+}
+.sim-context-panel[open] summary::after { transform: rotate(180deg); }
+.sim-context-rows {
+  padding: 4px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sim-context-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.sim-context-row span { color: var(--ink-dim); flex: none; }
+.sim-context-row b {
+  color: var(--ink);
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Panel de chat --- */
+.sim-chat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sim-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.sim-chat-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sim-chat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: var(--loro-green-bright);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.sim-chat-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--loro-green);
+  animation: simBlink 2s infinite;
+  flex: none;
+}
+.sim-chat-chip-prep {
+  background: #f8fafc;
+  border-color: var(--line);
+  color: var(--ink-dim);
+}
+.sim-chat-chip-prep .sim-chat-chip-dot { background: #94a3b8; }
+.sim-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 45vh;
+  scroll-behavior: smooth;
+}
+.sim-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sim-bubble {
+  max-width: 88%;
+  padding: 10px 13px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  animation: simBubbleIn 0.25s ease;
+}
+@keyframes simBubbleIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Pregunta del entrevistador: durazno, a la izquierda (como la referencia). */
+.sim-bubble-q {
+  align-self: flex-start;
+  background: #fff5f0;
+  border: 1px solid #ffe4d6;
+  border-radius: 12px 12px 12px 4px;
+}
+/* Respuesta del usuario: verde de marca, a la derecha. */
+.sim-bubble-a {
+  align-self: flex-end;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px 12px 4px 12px;
+}
+.sim-bubble-interim {
+  color: var(--ink-dim);
+  font-style: italic;
+}
+.sim-bubble-typing {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 13px 15px;
+}
+.sim-bubble-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fdba74;
+  animation: simPulse 1.4s infinite ease-in-out both;
+}
+.sim-bubble-typing span:nth-child(2) { animation-delay: 0.2s; }
+.sim-bubble-typing span:nth-child(3) { animation-delay: 0.4s; }
+.sim-chat-hint {
+  align-self: center;
+  font-size: 12px;
+  color: var(--ink-dim);
+  text-align: center;
+  padding: 2px 6px;
+}
+
+/* --- Pasos de conexión --- */
+.sim-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+.sim-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-faint);
+  font-family: 'JetBrains Mono', monospace;
+}
+.sim-steps li.sim-step-done { color: var(--ink-dim); }
+.sim-steps li.sim-step-active { color: var(--ink); }
+.sim-step-mark {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--loro-green-bright);
+  font-weight: 700;
+}
+.sim-step-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(16, 185, 129, 0.2);
+  border-radius: 50%;
+  border-left-color: var(--loro-green);
+  animation: simSpin 0.9s linear infinite;
+}
+
+/* --- Desktop --- */
+@media (min-width: 880px) {
+  .sim-room-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: stretch;
+  }
+  /* height:0 + min-height:100% ancla el chat a la altura de la columna
+     izquierda; los mensajes scrollean adentro. */
+  .sim-chat {
+    height: 0;
+    min-height: 100%;
+    overflow: hidden;
+  }
+  .sim-chat-body { max-height: none; }
+}
+@media (max-width: 560px) {
+  .sim-room-meta { display: none; }
+  .sim-room-title { display: none; }
+}
+
+/* --- Mobile: sala inmersiva a pantalla completa ---
+   El video del entrevistador llena el viewport y la conversación flota
+   encima como burbujas translúcidas (referencia: Final Round mobile). */
+@media (max-width: 879px) {
+  .sim-room {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: #0c0d0e;
+    gap: 0;
+  }
+  .sim-room-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(8px);
+    padding-top: calc(8px + env(safe-area-inset-top));
+  }
+  .sim-room > .sim-error-box {
+    position: absolute;
+    top: calc(64px + env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    z-index: 70;
+    background: rgba(254, 226, 226, 0.95);
+  }
+  .sim-room-grid,
+  .sim-room-left {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+  .sim-stage {
+    position: absolute;
+    inset: 0;
+    aspect-ratio: auto;
+    border: none;
+    border-radius: 0;
+  }
+  .sim-stage-badge { top: calc(64px + env(safe-area-inset-top)); }
+  .sim-context-panel { display: none; }
+  .sim-pip {
+    top: calc(64px + env(safe-area-inset-top));
+    bottom: auto;
+    right: 12px;
+    /* Retrato en mobile: la cámara frontal del teléfono es vertical, como en
+       Meet/Zoom/FaceTime. Encuadra la cara sin recorte raro ni banda negra. */
+    aspect-ratio: 3 / 4;
+    width: 27%;
+    max-width: 116px;
+  }
+  .sim-avatar-ring { inset: 0; border-radius: 0; border-width: 3px; }
+
+  /* Chat como overlay inferior: burbujas oscuras translúcidas sobre el video,
+     con fade hacia arriba para que lo viejo se desvanezca. */
+  .sim-chat {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    max-height: 58%;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    justify-content: flex-end;
+    z-index: 55;
+  }
+  .sim-chat-header { display: none; }
+  .sim-chat-body {
+    max-height: none;
+    /* safe-area inferior: en iPhone con home indicator la última burbuja no
+       queda tapada. */
+    padding: 24px 12px calc(10px + env(safe-area-inset-bottom));
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14%);
+  }
+  .sim-bubble {
+    max-width: 92%;
+    backdrop-filter: blur(6px);
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .sim-bubble-q { background: rgba(23, 24, 26, 0.55); }
+  .sim-bubble-a { background: rgba(23, 24, 26, 0.7); }
+  .sim-bubble-interim { color: rgba(255, 255, 255, 0.75); }
+  .sim-bubble-typing span { background: rgba(255, 255, 255, 0.85); }
+  .sim-chat-hint {
+    color: #fff;
+    background: rgba(23, 24, 26, 0.55);
+    backdrop-filter: blur(6px);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+  }
+  /* En el overlay oscuro mobile el verde profundo no contrasta: usar claro. */
+  .sim-turn-hint { color: #6ee7b7; }
+  .sim-steps {
+    background: rgba(23, 24, 26, 0.55);
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+    padding: 14px;
+    align-self: flex-start;
+  }
+  .sim-steps li { color: rgba(255, 255, 255, 0.65); }
+  .sim-steps li.sim-step-done { color: rgba(255, 255, 255, 0.85); }
+  .sim-steps li.sim-step-active { color: #fff; }
+      }
+
+/* --- Tarjetas / feedback --- */
+.sim-card {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+.sim-card-header {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sim-card-body { padding: 20px; }
+.sim-feedback-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 30px;
+}
+.sim-score-circle-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+}
+.sim-score-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #fff;
+  border: 8px solid var(--loro-green);
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--loro-green-bright);
+  margin-bottom: 12px;
+  position: relative;
+}
+.sim-score-circle::after {
+  content: '/100';
+  font-size: 13px;
+  color: var(--ink-dim);
+  position: absolute;
+  bottom: 24px;
+}
+.sim-score-label {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.sim-columns-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .sim-columns-layout { grid-template-columns: 1fr; }
+}
+.sim-feedback-card {
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.sim-feedback-card-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sim-strengths-list, .sim-improvements-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sim-strengths-list li::before {
+  content: '✓';
+  color: var(--loro-green-bright);
+  font-weight: bold;
+  margin-right: 8px;
+}
+.sim-improvements-list li::before {
+  content: '→';
+  color: #f59e0b;
+  font-weight: bold;
+  margin-right: 8px;
+}
+.sim-strengths-list li, .sim-improvements-list li {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.sim-question-report-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+.sim-report-q-header {
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sim-report-row {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.sim-report-row:last-child { border-bottom: none; }
+.sim-report-label {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  display: block;
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+.sim-report-val { color: var(--ink); }
+.sim-report-val-suggestion {
+  background: #f0fdf4;
+  border: 1px dashed #a7f3d0;
+  padding: 12px;
+  border-radius: 8px;
+  color: var(--loro-green-deep);
+  font-style: italic;
+  position: relative;
+  padding-right: 40px;
+}
+.sim-copy-suggested-btn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sim-copy-suggested-btn:hover {
+  color: var(--loro-green-bright);
+  border-color: #a7f3d0;
+}
+.sim-loading-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  gap: 16px;
+}
+.sim-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(16, 185, 129, 0.1);
+  border-radius: 50%;
+  border-left-color: var(--loro-green);
+  animation: simSpin 1s linear infinite;
+}
+@keyframes simSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.sim-error-box {
+  font-size: 13px;
+  color: var(--loro-red-deep);
+  background: rgba(239, 68, 68, 0.07);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim-avatar-svg,
+  .sim-avatar-ring,
+  .sim-thinking-dots span,
+  .sim-bubble-typing span,
+  .sim-social-dot,
+  .sim-stage-badge-dot,
+  .sim-chat-chip-dot,
+  .sim-bubble,
+  .sim-loading-spinner,
+  .sim-step-spinner { animation: none !important; }
+  .sim-avatar-video { transition: none; transform: none; animation: none; }
+  .sim-gauge-needle { transition: none !important; }
+  .sim-ind-bar-fill { transition: none !important; }
+}
+
+/* --- Reporte visual: velocímetro, semáforos y scores por pregunta --- */
+.sim-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.sim-gauge-svg {
+  width: min(56vw, 230px);
+  height: auto;
+}
+.sim-gauge-value {
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sim-gauge-total {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  margin-left: 2px;
+}
+/* Botón de ayuda "te trabaste" dentro del hint del chat */
+.sim-skip-inline {
+  background: transparent;
+  border: none;
+  color: var(--loro-green-bright);
+  font-weight: 700;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+/* CTA de salida cuando se pierde la conexión de audio */
+.sim-error-cta {
+  display: block;
+  margin-top: 10px;
+  background: var(--loro-red);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sim-error-cta:hover { background: var(--loro-red-deep); }
+
+/* Cross-sell al copiloto en vivo al final del informe */
+.sim-cross {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #17181a 0%, #24262b 100%);
+  color: #fff;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+.sim-cross-eyebrow {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #a7f3d0;
+  letter-spacing: 0.02em;
+}
+.sim-cross-title {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.sim-cross-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #c8ccd2;
+  max-width: 440px;
+  margin: 0 auto 4px;
+}
+.sim-cross-btn { margin-top: 4px; }
+/* El botón del copiloto usa el efecto "Responder" (.btn-answer): cara oscura
+   en ::after + halo de loro animado. El texto va blanco (el override verde de
+   abajo dejaría el label invisible sobre la cara oscura). */
+.sim-cross .btn-answer .btn-answer-inner { color: #fff; }
+/* El otro botón (WhatsApp) no se ve afectado; este override aplica al resto. */
+.sim-cross .btn-primary:not(.btn-answer) {
+  background: var(--loro-green);
+  color: #06371c;
+}
+.sim-cross .btn-primary:not(.btn-answer):hover { background: var(--loro-green-bright); color: #fff; }
+.sim-restart-link {
+  align-self: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px;
+  margin-top: 4px;
+  text-decoration: underline;
+}
+/* Acceso al último informe guardado, en el setup. */
+.sim-last-report-link {
+  align-self: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px;
+  text-decoration: underline;
+}
+.sim-last-report-link:hover { color: var(--loro-green-bright); }
+
+/* "La una cosa": bloque hero del informe (decisión Luhmann) */
+.sim-priority {
+  border: 1px solid #a7f3d0;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: 0 6px 18px -10px rgba(16, 185, 129, 0.4);
+}
+.sim-priority-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--loro-green-deep);
+  margin-bottom: 6px;
+}
+.sim-priority-text {
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sim-priority-step {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.sim-priority-step span {
+  font-weight: 700;
+  color: var(--loro-green-deep);
+}
+
+/* Titular de veredicto + nivel del informe */
+.sim-verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  max-width: 460px;
+}
+.sim-verdict-level {
+  border: 1.5px solid;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background: #fff;
+  text-transform: uppercase;
+}
+.sim-verdict-text {
+  font-size: 15.5px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+
+.sim-indicators {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (min-width: 700px) {
+  .sim-indicators { grid-template-columns: repeat(4, 1fr); }
+}
+.sim-ind-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.sim-ind-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.sim-ind-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+}
+.sim-ind-score {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.sim-ind-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #eef1f4;
+  overflow: hidden;
+}
+.sim-ind-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.9s ease;
+}
+.sim-traffic {
+  display: inline-flex;
+  gap: 4px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 3px 5px;
+  flex: none;
+}
+.sim-traffic-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d7dde3;
+}
+.sim-qscore {
+  flex: none;
+  border: 1.5px solid;
+  border-radius: 999px;
+  min-width: 34px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+}

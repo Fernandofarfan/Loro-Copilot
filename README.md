@@ -1,0 +1,88 @@
+# Interview Copilot
+
+Asistente profesional de entrevistas con IA para preparar y afrontar conversaciones reales con mayor seguridad.
+Transcribe en streaming, analiza el contexto y sugiere respuestas alineadas con tu perfil, la empresa y el puesto.
+
+## Dos modos de captura
+
+- **🎙 Micrófono** (celular o notebook): el dispositivo escucha la sala por el mic.
+  Caso de uso: entrevista en la notebook con parlantes, celular apoyado al lado escuchando.
+  Funciona en Chrome Android y Safari iOS.
+- **🖥 Pestaña** (desktop): captura el audio directo de la pestaña del Meet/Zoom.
+  Más limpio, pero solo Chrome/Edge desktop.
+
+Mobile-first: en el celular se usa con tabs (Respuestas / Transcripción) y wake lock
+para que no se apague la pantalla.
+
+## Cómo funciona
+
+```
+Audio (mic o pestaña) ─► AudioWorklet (PCM16, resample a 16kHz)
+        │
+        ▼
+   WebSocket directo ─► Deepgram Nova-2 español
+        │                (endpointing + utterance_end + keepalive)
+        ▼  (fin de frase detectado)
+    /api/answer ─► Gemini (streaming) ─► bullets en pantalla
+```
+
+- La API key de Deepgram nunca llega al navegador: `/api/deepgram-token` emite un
+  token temporal (grant, TTL 60s) vía la API de Deepgram; el navegador abre el
+  WebSocket con ese token efímero (subprotocolo `["bearer", token]`).
+- La key de Gemini vive solo en el servidor.
+- Las rutas `/api/answer` y `/api/deepgram-token` exigen mismo-origen y tienen
+  rate-limit por IP (en memoria, best-effort). No es auth: para protección fuerte
+  hace falta login + store compartido (Upstash/Vercel KV).
+
+## Correr local
+
+```bash
+npm install
+cp .env.example .env.local   # completá las 2 keys
+npm run dev
+```
+
+http://localhost:3000 · Para probar el modo micrófono en el celular necesitás HTTPS,
+así que lo más simple es probar directamente en Vercel (preview deploy).
+
+## Deploy en Vercel
+
+1. Subí el repo a GitHub.
+2. Vercel → Add New → Project → Import el repo.
+3. Framework Next.js (autodetectado). No cambies nada.
+4. Cargá las variables de entorno (abajo).
+5. Deploy. Abrí la URL desde el celular para el modo micrófono.
+
+### Variables de entorno (Vercel → Settings → Environment Variables)
+
+| Variable                   | Requerida | De dónde / para qué                                            |
+|----------------------------|-----------|----------------------------------------------------------------|
+| `DEEPGRAM_API_KEY`         | Sí        | console.deepgram.com → API Keys                                |
+| `GEMINI_API_KEY`           | Sí        | aistudio.google.com → API Keys (Google Studio)                 |
+| `GEMINI_MODEL`             | No        | default `gemini-2.5-flash`                                     |
+| `CAPACITY_CLOSED`          | No        | `1` = kill switch: cierra los endpoints pagos (503) y la app muestra "cupos agotados + waitlist". Requiere redeploy al cambiarla. |
+| `NEXT_PUBLIC_POSTHOG_KEY`  | No        | posthog.com → Project API key. Sin ella no se mandan eventos de funnel (en Vercel Hobby los eventos custom de Vercel Analytics se descartan). |
+| `NEXT_PUBLIC_POSTHOG_HOST` | No        | default `https://us.i.posthog.com`                             |
+
+Marcá las requeridas para Production, Preview y Development.
+
+Checklist operativo pre-lanzamiento (cuotas, spend caps, kill switch, borradores
+del post): ver [LAUNCH.md](./LAUNCH.md).
+
+## Latencia real
+
+- Deepgram interim: ~300ms · endpointing: 800ms de silencio · utterance_end: 1000ms
+- Primer token de Gemini: ~400ms
+- Total fin-de-frase → respuesta empezando: **~1.2–1.5s**
+
+## Notas del modo micrófono
+
+- Como el mic escucha la sala, también te escucha a vos. El `endpointing` corta por frase,
+  así que en la práctica genera por cada intervención. Si querés que ignore tu voz hace falta
+  diarización (Deepgram `diarize=true` + filtrar por speaker) — queda para v2.
+- Usa echo cancellation + noise suppression en modo mic; los apaga en modo pestaña.
+
+## Limitaciones (a propósito)
+
+- Sin auth, sin base de datos, sin cobro. MVP funcional, no producto.
+- El overlay NO es "indetectable": es una web normal. Deliberado.
