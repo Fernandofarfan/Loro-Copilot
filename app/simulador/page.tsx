@@ -565,16 +565,7 @@ export default function SimuladorPage() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState("");
 
-  // Social proof simulada del setup: número que deriva lentamente entre 35 y
-  // 90 para que parezca actividad real. Decisión de producto explícita.
-  const [practicing, setPracticing] = useState(0);
-  useEffect(() => {
-    setPracticing(35 + Math.floor(Math.random() * 56));
-    const iv = setInterval(() => {
-      setPracticing((p) => Math.min(90, Math.max(35, p + Math.floor(Math.random() * 5) - 2)));
-    }, 4000);
-    return () => clearInterval(iv);
-  }, []);
+
 
   // Refs de audio / red
   const wsRef = useRef<WebSocket | null>(null);
@@ -1529,12 +1520,7 @@ export default function SimuladorPage() {
           <div className="brand">
             <BrandLogo />
           </div>
-          {phase === "setup" && practicing > 0 && (
-            <div className="sim-social-pill">
-              <span className="sim-social-dot" aria-hidden="true" />
-              {practicing} personas practicando ahora
-            </div>
-          )}
+
         </header>
       )}
 

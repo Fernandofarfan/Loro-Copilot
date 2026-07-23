@@ -1,6 +1,5 @@
 export const runtime = "edge";
 
-import { capacityClosed, rateLimit, sameOriginStrict } from "../../../lib/ratelimit";
 
 // Voz del entrevistador del simulador. gpt-4o-mini-tts soporta `instructions`
 // (tono/acento); tts-1 no, por eso el retry lo omite.
@@ -39,23 +38,7 @@ async function requestSpeech(apiKey: string, model: string, text: string, lang: 
 }
 
 export async function POST(req: Request) {
-  if (capacityClosed()) {
-    return Response.json(
-      { error: "Cupos agotados por hoy. Sumate a la lista de espera y te avisamos.", closed: true },
-      { status: 503 }
-    );
-  }
-  if (!sameOriginStrict(req)) {
-    return new Response("Origen no permitido.", { status: 403 });
-  }
-  // ~15 oraciones por sesión de 5 preguntas; 40/min deja margen de reintentos.
-  const rl = rateLimit(req, "sim-tts", 40, 60_000);
-  if (!rl.ok) {
-    return new Response("Demasiadas solicitudes. Esperá un momento.", {
-      status: 429,
-      headers: { "Retry-After": String(rl.retryAfter) },
-    });
-  }
+
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

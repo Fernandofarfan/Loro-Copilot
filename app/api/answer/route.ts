@@ -1,6 +1,6 @@
 export const runtime = "edge";
 
-import { capacityClosed, rateLimit, sameOriginStrict } from "../../lib/ratelimit";
+
 
 // ---------- Modelos disponibles ----------
 // El cliente manda { provider, model }. Cada provider usa su propia API key
@@ -66,18 +66,23 @@ Usá la TRANSCRIPCIÓN para sonar como una conversación real: no repitas algo q
 ## Regla de oro sobre [PREGUNTA]
 Si ese campo tiene CUALQUIER texto —por corto, informal, mal transcrito o inesperado que sea, incluso si el PERFIL o la EMPRESA están vacíos— RESPONDÉLO IGUAL con lo que tengas. Nunca evalúes si "es lo bastante clara". El ÚNICO caso en que devolvés "(esperando pregunta)" es cuando [PREGUNTA] dice literalmente "(ninguna aún)" porque no llegó nada. Nunca lo uses por dudar del contenido.`;
 
-// Sufijo que se agrega al system prompt cuando se pide respuesta bilingüe (entrevista en inglés).
-// El candidato necesita: primero entender (español), luego leer en voz alta (inglés).
-const BILINGUAL_SUFFIX = `
+// Sufijo para Detección Automática de Idioma
+const AUTO_LANGUAGE_SUFFIX = `
 
-## MODO BILINGÜE (INGLÉS)
-El candidato no domina el inglés. Tu respuesta DEBE tener EXACTAMENTE este formato — dos bloques, sin texto fuera de ellos:
+## DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE
+Tu respuesta se va a adaptar automáticamente al idioma en el que habló el entrevistador en su última pregunta.
+
+Si el entrevistador te habló en **ESPAÑOL**:
+- Respondé SOLO en español rioplatense. No uses bloques especiales.
+
+Si el entrevistador te habló en **INGLÉS** (o de repente cambia a inglés):
+- El candidato necesita leer la traducción. Tu respuesta DEBE tener EXACTAMENTE este formato — dos bloques, sin texto fuera de ellos:
 
 [ES]
-<Respuesta completa en español rioplatense, con el mismo formato de apertura + viñetas que se describe arriba. Esta sección es para que el candidato ENTIENDA qué tiene que decir.>
+<Respuesta completa en español rioplatense, para que el candidato ENTIENDA qué tiene que decir.>
 
 [EN]
-<Traducción natural al inglés de la respuesta anterior. Mismo contenido, mismo tono hablado, lista para leer en voz alta tal cual.>
+<Traducción natural al inglés de la respuesta anterior. Lista para leer en voz alta tal cual.>
 
 - Mantenés el mismo largo y estructura en ambos bloques.`;
 
@@ -111,24 +116,7 @@ function resolveProvider(requested?: string): Provider {
 }
 
 export async function POST(req: Request) {
-  if (capacityClosed()) {
-    return Response.json(
-      { error: "Cupos agotados por hoy. Sumate a la lista de espera y te avisamos.", closed: true },
-      { status: 503 }
-    );
-  }
-  if (!sameOriginStrict(req)) {
-    return new Response("Origen no permitido.", { status: 403 });
-  }
-  // Endpoint pago (LLM). Una entrevista real dispara 2-4 respuestas por minuto;
-  // 20 sigue siendo holgado y corta antes el abuso automatizado.
-  const rl = rateLimit(req, "answer", 20, 60_000);
-  if (!rl.ok) {
-    return new Response("Demasiadas solicitudes. Esperá un momento.", {
-      status: 429,
-      headers: { "Retry-After": String(rl.retryAfter) },
-    });
-  }
+  // No rate limits nor origin checks for local instance
 
   let body: {
     profile?: string;
@@ -160,18 +148,19 @@ export async function POST(req: Request) {
   const question = (body.question || "").slice(0, 1000);
   const bilingualMode = body.bilingualMode === true;
 
-  // En modo bilingüe no se usa el answerLang del cliente: el system prompt del
-  // sufijo bilingüe ya dicta el formato [ES]/[EN] y los dos idiomas.
-  const answerLangLabel = bilingualMode
-    ? "BILINGÜE — ver instrucciones de MODO BILINGÜE más abajo."
-    : body.answerLang === "en"
-      ? "Inglés (English). Respondé SIEMPRE en inglés, aunque la pregunta esté en otro idioma."
-      : "Español rioplatense. Respondé SIEMPRE en español, aunque la pregunta esté en inglés u otro idioma.";
+  // El modo bilingüe ahora es automático. Le indicamos al LLM que detecte
+  // el idioma del entrevistador y actúe en consecuencia.
+  const answerLangLabel = `
+DETECTÁ AUTOMÁTICAMENTE el idioma en el que está hablando el [Entrevistador] basándote en la última [PREGUNTA] y la transcripción reciente.
+- Si el entrevistador pregunta en INGLÉS: Respondé usando el formato BILINGÜE (ver sección "DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE" más abajo).
+- Si el entrevistador pregunta en ESPAÑOL: Respondé SIEMPRE en Español rioplatense.
+- Si el entrevistador pregunta en otro idioma, adaptate a ese idioma o usá formato bilingüe.
+
+Preferencias de la interfaz del candidato: ${body.answerLang === "en" ? "Inglés" : "Español"}.`;
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
-  const effectiveSystemPrompt = bilingualMode
-    ? basePrompt + BILINGUAL_SUFFIX
-    : basePrompt;
+  // Siempre agregamos el sufijo para que el LLM sepa cómo comportarse si detecta inglés.
+  const effectiveSystemPrompt = basePrompt + AUTO_LANGUAGE_SUFFIX;
 
   const extraInstructions = (body.extraInstructions || "").slice(0, 1000);
   const previousAnswers = body.previousAnswers || [];

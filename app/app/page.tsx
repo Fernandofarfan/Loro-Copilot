@@ -4,23 +4,19 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { track, identify } from "../lib/track";
 import { BrandLogo } from "../lib/BrandLogo";
 
-const KeywordHighlighter = ({ text, role }: { text: string; role: string }) => {
-  if (!role || !text) return <>{text}</>;
-  // Extract words from role > 4 chars
-  const rawWords = role.toLowerCase().match(/\b[a-z]{5,}\w*\b/gi) || [];
-  const stopWords = new Set(["about", "their", "where", "which", "would", "should", "could", "there", "these", "those"]);
-  const keywords = Array.from(new Set(rawWords.filter(w => !stopWords.has(w.toLowerCase()))));
-  if (keywords.length === 0) return <>{text}</>;
-  
-  const regex = new RegExp(`\\b(${keywords.join("|")})\\b`, "gi");
-  const parts = text.split(regex);
+const MarkdownText = ({ text }: { text: string }) => {
+  if (!text) return null;
+  // Limpiamos los saltos de línea extra y partimos por las negritas (**texto**)
+  const parts = text.replace(/\n{3,}/g, "\n\n").trim().split(/\*\*(.*?)\*\*/g);
   return (
     <>
       {parts.map((part, i) =>
-        keywords.some(k => k.toLowerCase() === part.toLowerCase()) ? (
-          <strong key={i} style={{ color: "var(--loro-green)", textDecoration: "underline" }}>{part}</strong>
+        i % 2 === 1 ? (
+          <strong key={i} style={{ color: "var(--loro-green)", fontWeight: 700 }}>
+            {part}
+          </strong>
         ) : (
-          part
+          <span key={i}>{part}</span>
         )
       )}
     </>
@@ -29,9 +25,23 @@ const KeywordHighlighter = ({ text, role }: { text: string; role: string }) => {
 
 type Status = "idle" | "connecting" | "live" | "error";
 type Mode = "mic" | "tab";
-type Line = { id: number; text: string; final: boolean };
+type Line = { id: number; text: string; final: boolean; speaker: number };
 type Feedback = "up" | "down" | null;
-type Answer = { id: number; question: string; text: string; esText: string; enText: string; done: boolean; ts: number; feedback: Feedback; bilingual: boolean };
+type Answer = {
+  id: number;
+  question: string;
+  text: string;
+  esText: string;
+  enText: string;
+  done: boolean;
+  ts: number;
+  feedback: Feedback;
+  bilingual: boolean;
+  cheats: string[];
+  alert: string;
+  snippet: string;
+  cleanText: string;
+};
 
 function fmtTime(ts: number): string {
   try {
@@ -307,10 +317,7 @@ function Dropdown({
 
 // ---------- Idioma ----------
 // "es" → entrevista y respuesta en español.
-// "en" → entrevista y respuesta en inglés.
-type Lang = "es" | "en";
-const STT_LANG: Record<Lang, string> = { es: "es", en: "en" };
-const ANSWER_LANG: Record<Lang, "es" | "en"> = { es: "es", en: "en" };
+
 
 // ---------- Modelos de LLM ----------
 // El usuario elige el modelo (como el idioma). El default es Gemini 2.5 Flash
@@ -332,15 +339,16 @@ const MODELS: ModelOption[] = [
 ];
 const DEFAULT_MODEL_ID = "gemini-flash";
 
-function buildDgUrl(sttLang: string): string {
+function buildDgUrl(): string {
   const params = new URLSearchParams({
     model: "nova-2",
-    language: sttLang,
+    language: "multi",
     smart_format: "true",
     interim_results: "true",
     endpointing: "500",
-    utterance_end_ms: "1000", // mínimo impuesto por Deepgram — NO bajar de 1000
+    utterance_end_ms: "3000", // Aumentado a 3s para evitar cortes por pausas largas
     vad_events: "true",
+    diarize: "true",
     encoding: "linear16",
     sample_rate: "16000",
     channels: "1",
@@ -350,18 +358,6 @@ function buildDgUrl(sttLang: string): string {
 
 const LS_KEY = "copiloto:context:v1";
 
-// ---------- Cuota gratuita (100% client-side, sin backend) ----------
-// Cada navegador arranca con FREE_SESSIONS sesiones de hasta SESSION_MAX_MS.
-// Se descuenta 1 al arrancar. Al agotarse, se muestra el modal de lista de
-// espera. Es escasez percibida, no protección de costos (se saltea borrando
-// storage / incógnito — a propósito en esta fase de guerrilla).
-const SESSIONS_KEY = "loreado:sessions:v1";
-const BONUS_KEY = "loreado:bonus:v1";
-const FREE_SESSIONS = 999999;
-// Sesiones extra que se ganan compartiendo (loop viral). Tope para que no sea
-// infinito.
-const MAX_BONUS = 3;
-const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 
 // ---------- Endpointing semántico ----------
 export default function Page() {
@@ -372,34 +368,19 @@ export default function Page() {
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState("");
   const [extraInstructions, setExtraInstructions] = useState("");
-  const [lang, setLang] = useState<Lang>("es");
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [lines, setLines] = useState<Line[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const answersRef = useRef<Answer[]>([]);
   useEffect(() => { answersRef.current = answers; }, [answers]);
+  const lastSpeakerRef = useRef<number | null>(null);
   const [tab, setTab] = useState<"answer" | "transcript">("answer");
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  // Cuota gratuita
-  const [sessionsUsed, setSessionsUsed] = useState(0);
-  const sessionsUsedRef = useRef(0);
-  // Sesiones extra ganadas por compartir (loop viral).
-  const [bonus, setBonus] = useState(0);
-  const bonusRef = useRef(0);
-  const [showPaywall, setShowPaywall] = useState(false);
-  // Por qué se muestra el paywall: "quota" = se acabaron las sesiones gratis
-  // del navegador; "capacity" = kill switch global del server (CAPACITY_CLOSED),
-  // donde compartir no destraba nada — solo queda la lista de espera.
-  const [paywallReason, setPaywallReason] = useState<"quota" | "capacity">("quota");
-  const [shareDone, setShareDone] = useState(false);
-  const [email, setEmail] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [sending, setSending] = useState(false);
-  // Total de sesiones disponibles (base + bonus) y cuántas quedan.
-  const freeSessions = FREE_SESSIONS + bonus;
-  const sessionsLeft = Math.max(0, freeSessions - sessionsUsed);
-  const [remainingSec, setRemainingSec] = useState(Math.round(SESSION_MAX_MS / 1000));
+  
+  // Resumen Post-Entrevista
+  const [summary, setSummary] = useState<string>("");
+  const [generatingSummary, setGeneratingSummary] = useState<boolean>(false);
+
   const [fontSize, setFontSize] = useState<number>(14);
   const [savedProfiles, setSavedProfiles] = useState<{name: string, company: string, role: string, profile: string, extraInstructions?: string}[]>([]);
 
@@ -437,6 +418,18 @@ export default function Page() {
   // Modo automático: dispara la respuesta cuando Deepgram detecta fin de intervención.
   const autoModeRef = useRef(true);
   const [autoMode, setAutoMode] = useState(true);
+  
+  // Pausa manual: ignora los mensajes de Deepgram para que no transcriba tu voz
+  // si estás usando el modo Mic o si querés frenar la IA un rato.
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+  const togglePause = useCallback(() => {
+    setIsPaused((p) => {
+      const next = !p;
+      isPausedRef.current = next;
+      return next;
+    });
+  }, []);
   // Debounce para evitar dobles disparos de UtteranceEnd.
   const utteranceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -491,19 +484,7 @@ export default function Page() {
     track("enter_app");
   }, []);
 
-  // Carga la cuota gratuita usada + bonus (persistidos en el navegador).
-  useEffect(() => {
-    try {
-      const n = parseInt(localStorage.getItem(SESSIONS_KEY) || "0", 10);
-      const used = Number.isFinite(n) ? Math.max(0, n) : 0;
-      sessionsUsedRef.current = used;
-      setSessionsUsed(used);
-      const b = parseInt(localStorage.getItem(BONUS_KEY) || "0", 10);
-      const earned = Number.isFinite(b) ? Math.min(MAX_BONUS, Math.max(0, b)) : 0;
-      bonusRef.current = earned;
-      setBonus(earned);
-    } catch {}
-  }, []);
+
 
   // ---------- Contexto persistido (empresa / puesto / perfil) ----------
   useEffect(() => {
@@ -520,16 +501,13 @@ export default function Page() {
       if (saved.extraInstructions) setExtraInstructions(saved.extraInstructions);
       // El modelo sí se restaura (preferencia persistente del usuario).
       if (saved.modelId && MODELS.some((m) => m.id === saved.modelId)) setModelId(saved.modelId);
-      // Idioma: se restaura la última preferencia (es/en).
-      if (saved.lang === "es" || saved.lang === "en") setLang(saved.lang);
       if (saved.fontSize && typeof saved.fontSize === "number") setFontSize(saved.fontSize);
     } catch {}
   }, []);
   useEffect(() => {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ company, role, profile, extraInstructions, modelId, lang, fontSize }));
-    } catch {}
-  }, [company, role, profile, extraInstructions, modelId, lang, fontSize]);
+    if (status !== "idle") return; // solo guardar mientras configurás
+    localStorage.setItem(LS_KEY, JSON.stringify({ company, role, profile, extraInstructions, modelId, fontSize }));
+  }, [company, role, profile, extraInstructions, modelId, fontSize]);
 
   // ---------- Generación ----------
   // Ejecuta el fetch/stream para una tarjeta ya asignada (id + controller ya
@@ -539,9 +517,8 @@ export default function Page() {
   const runGenerate = useCallback(
     async (id: number, question: string, controller: AbortController, attempt = 0, type: "answer" | "icebreaker" = "answer") => {
       // Crea/resetea la tarjeta (en un reintento la vaciamos para re-streamear).
-      const isBilingual = lang === "en";
       setAnswers((prev) => {
-        const card: Answer = { id, question, text: "", esText: "", enText: "", done: false, ts: Date.now(), feedback: null, bilingual: isBilingual };
+        const card: Answer = { id, question, text: "", esText: "", enText: "", done: false, ts: Date.now(), feedback: null, bilingual: false, cheats: [], alert: "", snippet: "", cleanText: "" };
         return prev.some((a) => a.id === id)
           ? prev.map((a) => (a.id === id ? card : a))
           : [...prev, card].slice(-20); // cronológico: nuevas abajo
@@ -556,8 +533,6 @@ export default function Page() {
             profile,
             company,
             role,
-            answerLang: ANSWER_LANG[lang],
-            bilingualMode: isBilingual,
             provider: modelRef.current.provider,
             model: modelRef.current.model,
             transcript: transcriptRef.current.slice(-4000),
@@ -582,7 +557,7 @@ export default function Page() {
           setAnswers((prev) =>
             prev.map((a) =>
               a.id === id
-                ? { ...a, text: detail ? `⚠️ ${detail}` : "· Error generando respuesta.", esText: "", enText: "", done: true }
+                ? { ...a, text: detail ? `⚠️ ${detail}` : "· Error generando respuesta.", esText: "", enText: "", done: true, cheats: [], alert: "", snippet: "", cleanText: "" }
                 : a
             )
           );
@@ -596,12 +571,8 @@ export default function Page() {
           const { done, value } = await reader.read();
           if (done) break;
           acc += dec.decode(value, { stream: true });
-          if (isBilingual) {
-            const { esText, enText } = parseBilingualBlocks(acc);
-            setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, esText, enText } : a)));
-          } else {
-            setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc } : a)));
-          }
+          const parsed = parseBlocks(acc);
+          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed } : a)));
         }
         // El modelo a veces devuelve el placeholder "(esperando pregunta)" (o
         // texto vacío) en la primera respuesta, aunque la pregunta sea real.
@@ -612,13 +583,9 @@ export default function Page() {
         if (isPlaceholder && attempt < 1 && !controller.signal.aborted) {
           return runGenerate(id, question, controller, attempt + 1);
         }
-        if (isBilingual) {
-          const { esText, enText } = parseBilingualBlocks(acc);
-          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, esText, enText, done: true } : a)));
-        } else {
-          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, done: true } : a)));
-        }
-        track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt, bilingual: isBilingual });
+        const finalParsed = parseBlocks(acc);
+        setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...finalParsed, done: true } : a)));
+        track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt });
       } catch (err: any) {
         if (err?.name === "AbortError") return;
         setAnswers((prev) =>
@@ -627,17 +594,41 @@ export default function Page() {
         track("answer_failed", { reason: err?.message || "network_error", duration_ms: Date.now() - startedAt });
       }
     },
-    [profile, company, role, lang]
+    [profile, company, role, autoMode, modelId, extraInstructions]
   );
 
-  // Parsea los bloques [ES] y [EN] del streaming bilingüe.
-  // Funciona tanto con el stream a medias como con el texto final.
-  function parseBilingualBlocks(raw: string): { esText: string; enText: string } {
+  // Parsea todos los bloques especiales (Bilingüe, Cheats, Alert, Snippet)
+  // Funciona con el stream a medias.
+  function parseBlocks(raw: string) {
     const esMatch = raw.match(/\[ES\]([\s\S]*?)(?:\[EN\]|$)/);
     const enMatch = raw.match(/\[EN\]([\s\S]*)$/);
+    
+    // Remover las etiquetas para que no se muestren en el texto principal
+    let cleanText = raw;
+    
+    const alertMatch = cleanText.match(/\[ALERT\]([\s\S]*?)(?:\[\/ALERT\]|$)/);
+    const alert = alertMatch ? alertMatch[1].trim() : "";
+    if (alertMatch) cleanText = cleanText.replace(alertMatch[0], "");
+
+    const cheatsMatch = cleanText.match(/\[CHEATS\]([\s\S]*?)(?:\[\/CHEATS\]|$)/);
+    const cheats = cheatsMatch ? cheatsMatch[1].trim().split("|").map(s => s.trim()).filter(Boolean) : [];
+    if (cheatsMatch) cleanText = cleanText.replace(cheatsMatch[0], "");
+
+    const snippetMatch = cleanText.match(/\[SNIPPET\]([\s\S]*?)(?:\[\/SNIPPET\]|$)/);
+    let snippet = snippetMatch ? snippetMatch[1].trim() : "";
+    if (snippet.startsWith("```") && snippet.endsWith("```")) {
+      // Limpiar backticks si el LLM los mete adentro del SNIPPET
+      snippet = snippet.replace(/^```[\w]*\n/, "").replace(/```$/, "").trim();
+    }
+    if (snippetMatch) cleanText = cleanText.replace(snippetMatch[0], "");
+
     return {
-      esText: esMatch ? esMatch[1].trim() : "",
-      enText: enMatch ? enMatch[1].trim() : "",
+      esText: esMatch ? esMatch[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/g, "").trim() : "",
+      enText: enMatch ? enMatch[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/g, "").trim() : "",
+      cleanText: cleanText.trim(),
+      alert,
+      cheats,
+      snippet
     };
   }
 
@@ -699,8 +690,45 @@ export default function Page() {
     );
   }, []);
 
-  // Copia la respuesta al portapapeles con feedback breve.
-  const copyAnswer = useCallback((id: number, text: string) => {
+  // ---------- Resumen Post-Entrevista ----------
+  const generateSummary = async () => {
+    if (lines.length === 0) return;
+    setGeneratingSummary(true);
+    setSummary("");
+    try {
+      const fullTranscript = lines
+        .map((l) => `${l.speaker === 1 ? "[Yo]" : "[Entrevistador]"}: ${l.text}`)
+        .join("\n");
+      const res = await fetch("/api/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile,
+          company,
+          role,
+          transcript: fullTranscript,
+          model: modelRef.current.model,
+          provider: modelRef.current.provider,
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error("Error en request a summary");
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = dec.decode(value, { stream: true });
+        setSummary((prev) => prev + text);
+      }
+    } catch (err) {
+      setSummary("Error al generar resumen.");
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
+
+  // ---------- Utils UI ----------
+  const copyAnswer = (id: number, text: string) => {
     const clean = text.replace(/\n{3,}/g, "\n\n").trim();
     navigator.clipboard
       ?.writeText(clean)
@@ -710,14 +738,15 @@ export default function Page() {
         track("answer_copied", { model: modelRef.current.model });
       })
       .catch(() => {});
-  }, []);
+  };
 
   const playTTS = useCallback((text: string) => {
     track("tts_played" as any);
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/\n{3,}/g, "\n\n").trim());
-    u.lang = "en-US";
+    const isEn = text.includes(" the ") || text.includes(" and ") || text.includes(" to ");
+    u.lang = isEn ? "en-US" : "es-AR";
     u.rate = 0.95;
     window.speechSynthesis.speak(u);
   }, []);
@@ -761,66 +790,6 @@ export default function Page() {
     setLines([]);
   }, []);
 
-  // Lista de espera: manda el email a /api/waitlist, que reenvía al Google Form
-  // desde el servidor y reporta éxito/fallo REAL (no el submit opaco no-cors).
-  const submitWaitlist = useCallback(async () => {
-    const em = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      setEmailError("Poné un email válido.");
-      return;
-    }
-    setSending(true);
-    setEmailError("");
-    try {
-      const r = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: em }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) {
-        setEmailSent(true);
-        track("waitlist_submit");
-        identify(em, { email: em });
-      } else {
-        setEmailError(j.error || "No se pudo enviar. Probá de nuevo.");
-      }
-    } catch {
-      setEmailError("Error de red. Probá de nuevo.");
-    } finally {
-      setSending(false);
-    }
-  }, [email]);
-
-  // Loop viral: compartir por WhatsApp otorga +1 sesión (hasta MAX_BONUS).
-  // Honesto con la fase actual: no verifica que el amigo entre (igual que la
-  // cuota client-side), pero convierte a cada usuario en distribuidor.
-  const shareForBonus = useCallback(() => {
-    const msg = `Hey Loro mirá esto.\nUn Loro con IA que te sopla las respuestas en la entrevista, armadas con tu CV, la empresa y el puesto al que aplicás. Tocás un botón y es instantáneo. https://loreado.vercel.app`;
-    try {
-      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-    } catch {}
-    track("share_whatsapp");
-    if (bonusRef.current < MAX_BONUS) {
-      const b = bonusRef.current + 1;
-      bonusRef.current = b;
-      setBonus(b);
-      try {
-        localStorage.setItem(BONUS_KEY, String(b));
-      } catch {}
-    }
-    setShareDone(true);
-  }, []);
-
-  // Pase VIP: abre WhatsApp con un mensaje listo para enviar al creador.
-  const requestVipPass = useCallback(() => {
-    const msg =
-      "Hola Loro creador! Estuve probando Loreado y quiero solicitar un Pase VIP Early Member para mi próxima entrevista. ¿Cómo avanzo Loro?";
-    track("vip_pass_click");
-    try {
-      window.open(`https://wa.me/5491164090022?text=${encodeURIComponent(msg)}`, "_blank");
-    } catch {}
-  }, []);
 
   // ---------- Mensajes Deepgram ----------
   const onDgMessage = useCallback(
@@ -832,10 +801,13 @@ export default function Page() {
         return;
       }
 
+      if (isPausedRef.current) return;
+
       // Auto-mode: cuando el entrevistador termina de hablar (UtteranceEnd),
       // disparamos la respuesta si hay suficiente texto acumulado.
       if (msg.type === "UtteranceEnd") {
         if (!autoModeRef.current) return;
+        if (lastSpeakerRef.current === 1) return; // Si hablé yo, no disparo respuesta
         const buf = questionBufRef.current.trim();
         if (buf.length < 8) return; // muy corto = ruido
         // Debounce: si llegan dos UtteranceEnd seguidos (raro pero pasa),
@@ -854,13 +826,15 @@ export default function Page() {
       const text: string = alt?.transcript || "";
       if (!text) return;
       const isFinal = !!msg.is_final;
+      // Por defecto 0 si no hay info de diarization
+      const speaker = alt?.words?.[0]?.speaker ?? 0;
 
       setLines((prev) => {
         const next = [...prev];
-        if (next.length && !next[next.length - 1].final) {
-          next[next.length - 1] = { id: next[next.length - 1].id, text, final: isFinal };
+        if (next.length && !next[next.length - 1].final && next[next.length - 1].speaker === speaker) {
+          next[next.length - 1] = { id: next[next.length - 1].id, text, final: isFinal, speaker };
         } else {
-          next.push({ id: ++lineId.current, text, final: isFinal });
+          next.push({ id: ++lineId.current, text, final: isFinal, speaker });
         }
         return next.slice(-60);
       });
@@ -869,12 +843,28 @@ export default function Page() {
       // generación ocurre al tocar el botón O al detectar fin de intervención
       // (UtteranceEnd) cuando auto-mode está ON.
       if (isFinal) {
-        transcriptRef.current = (transcriptRef.current + " " + text).slice(-8000);
-        questionBufRef.current = (questionBufRef.current + " " + text).slice(-1500);
+        let prefix = " ";
+        if (speaker !== lastSpeakerRef.current) {
+          prefix = speaker === 1 ? "\n\n[Yo]: " : "\n\n[Entrevistador]: ";
+          lastSpeakerRef.current = speaker;
+        }
+        transcriptRef.current = (transcriptRef.current + prefix + text).slice(-8000);
+        questionBufRef.current = (questionBufRef.current + prefix + text).slice(-1500);
       }
     },
     []
   );
+
+  // Escuchar mensajes de la extensión de Chrome
+  useEffect(() => {
+    const handleExtMessage = (e: MessageEvent) => {
+      if (e.data?.type === "LORO_EXT_DG_MESSAGE") {
+        onDgMessage(e.data.data);
+      }
+    };
+    window.addEventListener("message", handleExtMessage);
+    return () => window.removeEventListener("message", handleExtMessage);
+  }, [onDgMessage]);
 
   // ---------- Captura ----------
   const acquireStream = useCallback(async (m: Mode): Promise<MediaStream> => {
@@ -898,13 +888,6 @@ export default function Page() {
   }, []);
 
   const start = useCallback(async () => {
-    // Cuota gratuita: si no quedan sesiones, mostramos la lista de espera.
-    if (sessionsUsedRef.current >= FREE_SESSIONS + bonusRef.current) {
-      setPaywallReason("quota");
-      setShowPaywall(true);
-      track("paywall_shown");
-      return;
-    }
     setError("");
     setStatus("connecting");
     questionBufRef.current = "";
@@ -913,7 +896,7 @@ export default function Page() {
     turnRef.current?.controller?.abort();
     turnRef.current = null;
     // Idioma del entrevistador (STT) fijado al inicio de la sesión.
-    const dgUrl = buildDgUrl(STT_LANG[lang]);
+    const dgUrl = buildDgUrl();
     try {
       const stream = await acquireStream(mode);
       streamRef.current = stream;
@@ -1047,29 +1030,7 @@ export default function Page() {
 
       await connectWs();
 
-      // La sesión arrancó de verdad (audio + socket): descontamos 1 y armamos
-      // el corte automático a los 10 minutos.
-      const used = sessionsUsedRef.current + 1;
-      sessionsUsedRef.current = used;
-      setSessionsUsed(used);
       track("session_start", { mode, model: modelRef.current.model });
-      try {
-        localStorage.setItem(SESSIONS_KEY, String(used));
-      } catch {}
-      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
-      sessionTimerRef.current = setTimeout(() => stop(), SESSION_MAX_MS);
-      // Countdown visible (pill "X min (Free)"), tick cada segundo.
-      const startedAt = Date.now();
-      setRemainingSec(Math.round(SESSION_MAX_MS / 1000));
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      countdownRef.current = setInterval(() => {
-        const left = Math.max(0, Math.ceil((SESSION_MAX_MS - (Date.now() - startedAt)) / 1000));
-        setRemainingSec(left);
-        if (left <= 0 && countdownRef.current) {
-          clearInterval(countdownRef.current);
-          countdownRef.current = null;
-        }
-      }, 1000);
 
       stream.getAudioTracks()[0].onended = () => stop();
 
@@ -1080,21 +1041,13 @@ export default function Page() {
       } catch {}
     } catch (err: any) {
       cleanup();
-      if (err?.name === "CapacityClosed") {
-        // Sin cupo global: se ve como escasez (paywall + waitlist), no como
-        // una app rota con un error técnico en rojo.
-        setStatus("idle");
-        setPaywallReason("capacity");
-        setShowPaywall(true);
-        track("capacity_closed_shown");
-        return;
-      }
+
       track("session_error", { error: err?.name || "unknown" });
       setError(err?.message || "Error al iniciar.");
       setStatus("error");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, acquireStream, onDgMessage, lang]);
+  }, [mode, acquireStream, onDgMessage]);
 
   const cleanup = useCallback(() => {
     // Marca el cierre como intencional ANTES de cerrar el WS: su onclose no
@@ -1204,11 +1157,11 @@ export default function Page() {
       }
       const rms = Math.sqrt(sumSquares / bufferLength);
 
-      // VAD Híbrido: Si el rms baja mucho por 800ms, disparamos respuesta.
+      // VAD Híbrido: Si el rms baja mucho por 3s, disparamos respuesta.
       if (rms < 0.02) {
         if (!silenceStartRef.current) silenceStartRef.current = Date.now();
-        else if (Date.now() - silenceStartRef.current > 800) {
-          if (autoModeRef.current && questionBufRef.current.trim().length >= 8) {
+        else if (Date.now() - silenceStartRef.current > 3000) {
+          if (autoModeRef.current && lastSpeakerRef.current !== 1 && questionBufRef.current.trim().length >= 8) {
             if (utteranceDebounceRef.current) clearTimeout(utteranceDebounceRef.current);
             silenceStartRef.current = null;
             answerNowRef.current();
@@ -1271,19 +1224,7 @@ export default function Page() {
       {!live && (
         <div>
           <div className="selectors-row">
-            <div className="field">
-              <label className="mono form-label">Idioma</label>
-              <Dropdown
-                value={lang}
-                onChange={(id) => { setLang(id as Lang); track("lang_changed", { lang: id }); }}
-                disabled={connecting}
-                ariaLabel="Idioma de la entrevista"
-                options={[
-                  { id: "es", label: "Español", icon: <span className="dd-flag">🇪🇸</span> },
-                  { id: "en", label: "English", icon: <span className="dd-flag">🇺🇸</span> },
-                ]}
-              />
-            </div>
+
             <div className="field">
               <label className="mono form-label">Modelo de IA</label>
               <Dropdown
@@ -1339,6 +1280,30 @@ export default function Page() {
           lineHeight: 1.5
         }}>
           ⚠️ {error}
+        </div>
+      )}
+
+      {/* Resumen Post-Entrevista */}
+      {!live && lines.length > 0 && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className="mono" style={{ fontWeight: 600, fontSize: "1.1em" }}>📊 Análisis de Entrevista</span>
+            {!summary && (
+              <button 
+                onClick={generateSummary}
+                disabled={generatingSummary}
+                className="btn-action mono" 
+                style={{ background: "var(--loro-green)", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600 }}
+              >
+                {generatingSummary ? "Analizando..." : "Generar Feedback"}
+              </button>
+            )}
+          </div>
+          {summary && (
+            <div className="answer-card-text" style={{ marginTop: 12, padding: 12, background: "var(--bg)", borderRadius: 8, border: "1px solid var(--line-strong)", fontSize: "0.95em", whiteSpace: "pre-wrap" }}>
+              <MarkdownText text={summary} />
+            </div>
+          )}
         </div>
       )}
 
@@ -1409,14 +1374,31 @@ export default function Page() {
               disabled={connecting}
             />
           </div>
-          <label className="mono form-mini-label" style={{ marginTop: 4 }}>
-            <UserIcon /> Tu perfil / CV
-            <InfoTip text="Pegá tu CV, experiencia y logros. El asistente usa esto para responder con datos reales, sin inventar." />
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4 }}>
+            <label className="mono form-mini-label" style={{ marginTop: 0 }}>
+              <UserIcon /> Perfil y Base de Conocimiento (RAG)
+              <InfoTip text="Subí tu CV o PDFs con proyectos, notas o info de la empresa. El asistente usará TODO este contexto como su cerebro para responder sin inventar." />
+            </label>
+            <label className="btn-action mono" style={{ cursor: "pointer", fontSize: 11, padding: "2px 8px", background: "var(--bg)", border: "1px solid var(--line-strong)", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 }}>
+              📄 Subir PDF
+              <input type="file" accept="application/pdf" style={{ display: "none" }} onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { extractTextFromPdf } = await import("../lib/pdf");
+                  const text = await extractTextFromPdf(file);
+                  setProfile((prev) => prev ? prev + "\n\n--- NUEVO DOCUMENTO ---\n" + text.trim() : text.trim());
+                } catch (err) {
+                  alert("Error al leer el PDF. Asegurate de que sea un PDF con texto seleccionable.");
+                }
+                e.target.value = "";
+              }} disabled={connecting} />
+            </label>
+          </div>
           <textarea
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
-            placeholder="Pegá tu CV, experiencia o notas. El Loro usará esto para responder."
+            placeholder="Pegá tu CV, notas o subí múltiples PDFs. El Loro usará esto como su base de datos personal."
             className="form-textarea"
             disabled={connecting}
           />
@@ -1481,9 +1463,7 @@ export default function Page() {
               {answers.length === 0 ? (
                 <p className="placeholder" style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.6, textAlign: "center", fontStyle: "italic", padding: "8px" }}>
                   {autoMode
-                    ? lang === "en"
-                      ? "El Loro va a responder solo cuando termine la pregunta. También podés tocar \"Responder\"."
-                      : "El Loro va a responder solo cuando termine la pregunta. También podés tocar \"Responder\"."
+                    ? "El Loro va a responder solo cuando termine la pregunta. También podés tocar \"Responder\"."
                     : "Tocá \u201cResponder\u201d cuando termine la pregunta y tu respuesta aparece acá."}
                 </p>
               ) : (
@@ -1505,14 +1485,36 @@ export default function Page() {
                       <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
                       <span className="answer-card-question">{a.question}</span>
                     </div>
+
+                    {a.alert && (
+                      <div className="alert-banner" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", padding: "8px 12px", borderRadius: 8, fontSize: "0.9em", marginTop: 8, border: "1px solid rgba(239,68,68,0.2)" }}>
+                        <strong>⚠️ {a.alert}</strong>
+                      </div>
+                    )}
+                    {a.cheats && a.cheats.length > 0 && (
+                      <div className="cheats-container" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                        {a.cheats.map((c, i) => (
+                          <button key={i} className="cheat-btn" style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", padding: "4px 10px", borderRadius: 16, fontSize: "0.85em", color: "var(--text)", cursor: "pointer" }} onClick={() => copyAnswer(a.id, c)}>
+                            ⚡ {c}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {a.snippet && (
+                      <div className="snippet-container" style={{ background: "#1e1e1e", color: "#d4d4d4", padding: "12px", borderRadius: 8, marginTop: 8, fontFamily: "monospace", fontSize: "0.85em", whiteSpace: "pre-wrap", overflowX: "auto", position: "relative" }}>
+                        <button style={{ position: "absolute", top: 8, right: 8, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, cursor: "pointer", fontSize: "0.8em" }} onClick={() => copyAnswer(a.id, a.snippet)}>Copiar</button>
+                        {a.snippet}
+                      </div>
+                    )}
+
                     {a.bilingual ? (
                       // Modo bilingüe: dos bloques
                       <>
-                        <div className="answer-card-a-row">
+                        <div className="answer-card-a-row" style={{ marginTop: 8 }}>
                           <span className="answer-card-label answer-card-label-a">🇦🇷 Entendé</span>
-                          <div className="answer-card-text" style={{ color: "var(--ink-dim)", fontSize: "0.92em" }}>
+                          <div className="answer-card-text" style={{ color: "var(--ink-dim)", fontSize: "0.95em" }}>
                             {a.esText ? (
-                              a.esText.replace(/\n{3,}/g, "\n\n").trim()
+                              <MarkdownText text={a.esText} />
                             ) : (
                               <span className="mono answer-card-loading">generando…</span>
                             )}
@@ -1532,9 +1534,9 @@ export default function Page() {
                               </button>
                             )}
                           </span>
-                          <div className="answer-card-text" style={{ fontWeight: 600, whiteSpace: "pre-wrap" }}>
+                          <div className="answer-card-text" style={{ fontWeight: 500, whiteSpace: "pre-wrap", fontSize: "1.05em" }}>
                             {a.enText ? (
-                              <KeywordHighlighter text={a.enText.replace(/\n{3,}/g, "\n\n").trim()} role={role} />
+                              <MarkdownText text={a.enText} />
                             ) : a.esText ? (
                               <span className="mono answer-card-loading">esperando al traductor…</span>
                             ) : (
@@ -1545,13 +1547,11 @@ export default function Page() {
                       </>
                     ) : (
                       // Modo normal: un solo bloque
-                      <div className="answer-card-a-row">
+                      <div className="answer-card-a-row" style={{ marginTop: 8 }}>
                         <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
-                        <div className="answer-card-text">
+                        <div className="answer-card-text" style={{ fontSize: "1.05em", fontWeight: 500 }}>
                           {a.text ? (
-                            // Colapsa líneas en blanco de más entre viñetas, pero conserva
-                            // el salto simple que separa la apertura de las viñetas.
-                            a.text.replace(/\n{3,}/g, "\n\n").trim()
+                            <MarkdownText text={a.cleanText || a.text} />
                           ) : (
                             <span className="mono answer-card-loading">
                               generando…
@@ -1602,6 +1602,9 @@ export default function Page() {
                     className="transcript-line"
                     style={{ color: l.final ? "var(--ink)" : "var(--ink-dim)" }}
                   >
+                    <span style={{ color: l.speaker === 1 ? "#10b981" : "#8b5cf6", fontWeight: 600, marginRight: 6 }}>
+                      {l.speaker === 1 ? "[Yo]" : "[Entrevistador]"}
+                    </span>
                     {l.text}
                   </p>
                 ))
@@ -1626,6 +1629,14 @@ export default function Page() {
                 </button>
                 <button onClick={exportHistory} className="clear-pill mono">
                   📄 Exportar
+                </button>
+                <button
+                  onClick={togglePause}
+                  className={`clear-pill mono ${isPaused ? "auto-pill-off" : ""}`}
+                  style={{ background: isPaused ? "rgba(239, 68, 68, 0.1)" : undefined, color: isPaused ? "#ef4444" : undefined }}
+                  title={isPaused ? "Reanudar escucha" : "Pausar para hablar sin transcribir"}
+                >
+                  {isPaused ? "▶ Reanudar" : "⏸ Pausar"}
                 </button>
               </div>
               {/* Switch AUTO: activa/desactiva respuesta automática al fin de intervención */}
@@ -1665,93 +1676,7 @@ export default function Page() {
         )}
       </footer>
 
-      {showPaywall && (
-        <div className="paywall-overlay" onClick={() => setShowPaywall(false)}>
-          <div className="paywall" onClick={(e) => e.stopPropagation()}>
-            {paywallReason === "capacity" ? (
-              <>
-                <div className="paywall-title">🛑 CUPOS AGOTADOS POR HOY</div>
-                <p className="paywall-text">
-                  Las APIs son caras y el acceso gratis se abre de a tandas para no fundirme.
-                  El cupo de hoy ya se usó entero.
-                </p>
-                <p className="paywall-text paywall-cta">
-                  Dejá tu email y te avisamos apenas abra la próxima tanda.
-                </p>
-                {emailSent ? (
-                  <div className="paywall-sent">Enviado ✔ Te avisamos cuando abramos cupos.</div>
-                ) : (
-                  <div className="paywall-form">
-                    <input
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (emailError) setEmailError("");
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && submitWaitlist()}
-                      placeholder="tu@email.com"
-                      className="form-input"
-                    />
-                    <button
-                      className="btn-action btn-primary"
-                      onClick={submitWaitlist}
-                      disabled={!email.trim() || sending}
-                    >
-                      {sending ? "Enviando…" : "Enviar"}
-                    </button>
-                    {emailError && <div className="paywall-error">{emailError}</div>}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="paywall-title">🛑 LLEGASTE AL LÍMITE DE TUS SESIONES</div>
-                <p className="paywall-text">
-                  Ya probaste cómo funciona. Las APIs de IA son caras y tuve que frenar el acceso
-                  gratuito para no fundirme. Elegí cómo seguir:
-                </p>
 
-                {/* Opción primaria: Pase VIP (WhatsApp directo al creador). */}
-                <div className="paywall-vip">
-                  <div className="paywall-vip-title">👑 Pase VIP Ilimitado (7 Días) — $19.99 USD</div>
-                  <p className="paywall-text">
-                    No vayas a tu entrevista real a ciegas. Usalo sin restricciones.
-                  </p>
-                  <button className="btn-action btn-whatsapp" onClick={requestVipPass}>
-                    Enviar
-                  </button>
-                </div>
-
-                {/* Opción secundaria: loop viral, compartir = +1 sesión. */}
-                {shareDone && sessionsLeft > 0 ? (
-                  <div className="paywall-share paywall-share-done">
-                    <div className="paywall-share-title">🦜 ¡Ganaste 1 sesión más!</div>
-                    <button
-                      className="btn-action btn-primary"
-                      onClick={() => setShowPaywall(false)}
-                    >
-                      Seguir gratis →
-                    </button>
-                  </div>
-                ) : bonusRef.current < MAX_BONUS ? (
-                  <div className="paywall-share">
-                    <div className="paywall-share-title">🦜 Compartí Interview Copilot con un amigo</div>
-                    <p className="paywall-text">
-                      ¿Andás ajustado? Compartí el link y ganate +1 sesión gratis.
-                    </p>
-                    <button className="btn-action btn-ghost" onClick={shareForBonus}>
-                      Lorealo por WhatsApp
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </main>
   );
 }

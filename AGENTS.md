@@ -28,28 +28,20 @@ si no vas a ver ruido de módulos faltantes que no tiene que ver con tu cambio).
 ## Estructura
 
 - `app/app/page.tsx` — **toda** la UI y lógica de cliente en un solo componente grande
-  (estado, WebSocket a Deepgram, generación de respuestas, paywall, waitlist, share).
+  (estado, WebSocket a Deepgram, generación de respuestas).
   Es el archivo que más se toca.
 - `app/api/deepgram-token/route.ts` — emite un token temporal (grant, 60s) de Deepgram.
   La API key permanente nunca llega al browser.
 - `app/api/answer/route.ts` — genera la respuesta con streaming. Soporta tres providers
   (`gemini` | `anthropic` | `openai`) aunque la UI hoy solo expone modelos Gemini.
-- `app/api/waitlist/route.ts` — reenvía el email al Google Form desde el servidor
-  (reporta éxito/fallo real, a diferencia de un submit `no-cors` opaco).
-- `app/lib/ratelimit.ts` — rate limiting in-memory, guard de same-origin estricto, y
-  `capacityClosed()` (kill switch global).
 - `app/lib/track.ts` — wrapper de analytics (`track()`, `identify()`), fail-safe (nunca
   rompe la UI). Todo evento nuevo se agrega al union type `FunnelEvent` acá.
-- `app/lib/analytics-client.tsx` — inicializa PostHog client-side (`autocapture: false`
-  a propósito — en las textareas se pega CV y no queremos rozar ese contenido).
-- `next.config.mjs` — reverse proxy `/ingest/*` → PostHog (evita adblockers).
 
 ## Convenciones del código
 
 - Comentarios en **español**, solo para el "por qué" no obvio (constraints, decisiones de
   producto, workarounds). No comentar lo que el código ya dice.
-- Analytics: siempre a través de `track()`/`identify()` de `app/lib/track.ts`, nunca
-  `posthog.capture` directo desde componentes. Nombrar eventos en snake_case
+- Analytics: siempre a través de `track()`/`identify()` de `app/lib/track.ts`. Nombrar eventos en snake_case
   (`answer_requested`, no `answerRequested`).
 - El generar respuesta es **siempre manual** (botón "Responder"), nunca automático
   mientras la persona habla — es una decisión de producto explícita, no la cambies sin
@@ -67,9 +59,7 @@ Ver `.env.example` para la lista completa y comentarios. Resumen:
 | `GEMINI_API_KEY` | Sí | Generación de respuestas (provider default) |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | No | Providers alternativos, soportados en backend, sin UI hoy |
 | `GEMINI_MODEL` / `ANTHROPIC_MODEL` / `OPENAI_MODEL` | No | Override de modelo por provider |
-| `CAPACITY_CLOSED` | No | `"1"` = kill switch: 503 en endpoints pagos, la waitlist sigue abierta. Requiere redeploy |
-| `NEXT_PUBLIC_POSTHOG_KEY` | No | Sin ella, `track()` es no-op hacia PostHog (Vercel Analytics igual descarta eventos custom en Hobby) |
-| `GFORM_ACTION` / `GFORM_EMAIL_ENTRY` | No | Override del Google Form de waitlist |
+
 
 Las `NEXT_PUBLIC_*` se leen en build time — cambiarlas en Vercel requiere redeploy.
 

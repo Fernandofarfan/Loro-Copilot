@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/next";
-import { AnalyticsClient } from "./lib/analytics-client";
 import "./globals.css";
 
 // Dominio base para resolver OG/Twitter images y URLs absolutas. Se puede
@@ -118,8 +116,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         {children}
-        <Analytics />
-        <AnalyticsClient />
       </body>
     </html>
   );

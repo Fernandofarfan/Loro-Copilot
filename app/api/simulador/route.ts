@@ -1,6 +1,5 @@
 export const runtime = "edge";
 
-import { capacityClosed, rateLimit, sameOriginStrict } from "../../lib/ratelimit";
 
 type Provider = "gemini" | "anthropic" | "openai" | "openrouter";
 
@@ -122,23 +121,7 @@ function resolveProvider(requested?: string): Provider {
 }
 
 export async function POST(req: Request) {
-  if (capacityClosed()) {
-    return Response.json(
-      { error: "Cupos agotados por hoy. Sumate a la lista de espera y te avisamos.", closed: true },
-      { status: 503 }
-    );
-  }
-  if (!sameOriginStrict(req)) {
-    return new Response("Origen no permitido.", { status: 403 });
-  }
 
-  const rl = rateLimit(req, "simulador", 30, 60_000);
-  if (!rl.ok) {
-    return new Response("Demasiadas solicitudes. Esperá un momento.", {
-      status: 429,
-      headers: { "Retry-After": String(rl.retryAfter) },
-    });
-  }
 
   let body: {
     action?: "next-question" | "feedback" | "closing";
