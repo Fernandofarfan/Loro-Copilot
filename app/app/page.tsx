@@ -381,6 +381,10 @@ export default function Page() {
   const [summary, setSummary] = useState<string>("");
   const [generatingSummary, setGeneratingSummary] = useState<boolean>(false);
 
+  // Auto-Bilingual: Detección de idioma al vuelo
+  const [detectedLang, setDetectedLang] = useState<string>("es");
+  const detectedLangRef = useRef<string>("es");
+
   const [fontSize, setFontSize] = useState<number>(14);
   const [savedProfiles, setSavedProfiles] = useState<{name: string, company: string, role: string, profile: string, extraInstructions?: string}[]>([]);
 
@@ -538,6 +542,7 @@ export default function Page() {
             transcript: transcriptRef.current.slice(-4000),
             question,
             type,
+            detectedLang: detectedLangRef.current,
             extraInstructions,
             previousAnswers: answersRef.current
               .filter(a => a.done && a.text)
@@ -828,6 +833,16 @@ export default function Page() {
       const isFinal = !!msg.is_final;
       // Por defecto 0 si no hay info de diarization
       const speaker = alt?.words?.[0]?.speaker ?? 0;
+      
+      const langs = alt?.languages;
+      if (langs && langs.length > 0) {
+        // Deepgram devuelve "es", "en", o a veces "en-US", "es-419"
+        const baseLang = langs[0].slice(0, 2).toLowerCase();
+        if (baseLang === "es" || baseLang === "en") {
+          detectedLangRef.current = baseLang;
+          setDetectedLang(baseLang);
+        }
+      }
 
       setLines((prev) => {
         const next = [...prev];
@@ -1204,6 +1219,10 @@ export default function Page() {
           {!live && status === "error" && <span className="status-chip">error</span>}
           {live && (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="status-chip" style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.2)" }} title="Idioma detectado (Auto-Bilingual)">
+                <span style={{ fontSize: "1.2em", lineHeight: 1 }}>{detectedLang === "en" ? "🇺🇸" : "🇪🇸"}</span>
+                <span style={{ fontWeight: 600 }}>{detectedLang.toUpperCase()}</span>
+              </div>
               <canvas ref={canvasRef} width={60} height={20} style={{ opacity: 0.8 }} title="Nivel de audio" />
               <button className="stop-x" onClick={stop} aria-label="Detener" title="Detener">
                 ✕

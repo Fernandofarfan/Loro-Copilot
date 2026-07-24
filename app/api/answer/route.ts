@@ -123,6 +123,7 @@ export async function POST(req: Request) {
     company?: string;
     role?: string;
     answerLang?: string;
+    detectedLang?: string;
     transcript?: string;
     question?: string;
     provider?: string;
@@ -148,18 +149,17 @@ export async function POST(req: Request) {
   const question = (body.question || "").slice(0, 1000);
   const bilingualMode = body.bilingualMode === true;
 
-  // El modo bilingüe ahora es automático. Le indicamos al LLM que detecte
-  // el idioma del entrevistador y actúe en consecuencia.
+  const detectedLang = body.detectedLang || "es";
+  
+  // El modo bilingüe usa el idioma explícitamente detectado por Deepgram
   const answerLangLabel = `
-DETECTÁ AUTOMÁTICAMENTE el idioma en el que está hablando el [Entrevistador] basándote en la última [PREGUNTA] y la transcripción reciente.
-- Si el entrevistador pregunta en INGLÉS: Respondé usando el formato BILINGÜE (ver sección "DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE" más abajo).
-- Si el entrevistador pregunta en ESPAÑOL: Respondé SIEMPRE en Español rioplatense.
-- Si el entrevistador pregunta en otro idioma, adaptate a ese idioma o usá formato bilingüe.
-
-Preferencias de la interfaz del candidato: ${body.answerLang === "en" ? "Inglés" : "Español"}.`;
+INFO DE SISTEMA DE VOZ: El motor de voz detectó que el entrevistador acaba de hablar en **${detectedLang === "en" ? "INGLÉS" : "ESPAÑOL"}**.
+Teniendo esto en cuenta:
+- Si el idioma detectado es INGLÉS: Respondé usando el formato BILINGÜE (ver sección "DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE").
+- Si el idioma detectado es ESPAÑOL: Respondé SIEMPRE en Español rioplatense (sin formato especial).`;
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
-  // Siempre agregamos el sufijo para que el LLM sepa cómo comportarse si detecta inglés.
+  // Siempre agregamos el sufijo para el comportamiento
   const effectiveSystemPrompt = basePrompt + AUTO_LANGUAGE_SUFFIX;
 
   const extraInstructions = (body.extraInstructions || "").slice(0, 1000);
