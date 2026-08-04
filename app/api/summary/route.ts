@@ -34,7 +34,7 @@ function resolveModel(provider: string, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
   if (provider === "openrouter") return OPENROUTER_MODEL_OVERRIDE || requested || "openai/gpt-4o-mini";
-  return GEMINI_MODEL_OVERRIDE || requested || "gemini-2.5-flash";
+  return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
 }
 
 function resolveProvider(requested?: string): string {
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     openrouter: ["openai/gpt-4o-mini", "openai/gpt-4.1-mini"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
-    gemini: ["gemini-2.5-flash"],
+    gemini: ["gemini-3.6-flash"],
   };
   const candidates = [model, ...FALLBACK[provider].filter((m) => m !== model)];
 

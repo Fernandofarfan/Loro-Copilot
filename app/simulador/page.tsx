@@ -157,7 +157,7 @@ function TrafficLight({ score }: { score: number }) {
 const STT_LANG: Record<Lang, string> = { es: "es", en: "en" };
 
 const MODELS: ModelOption[] = [
-  { id: "gemini-flash", label: "Gemini 2.5 Flash", provider: "gemini", model: "gemini-2.5-flash", tag: "Recomendado" },
+  { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Recomendado" },
 ];
 const DEFAULT_MODEL_ID = "gemini-flash";
 

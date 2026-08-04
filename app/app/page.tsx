@@ -320,7 +320,7 @@ function Dropdown({
 
 
 // ---------- Modelos de LLM ----------
-// El usuario elige el modelo (como el idioma). El default es Gemini 2.5 Flash
+// El usuario elige el modelo (como el idioma). El default es Gemini 3.6 Flash
 // (rápido y ya probado). Claude y GPT se activan cuando el token está cargado
 // en Vercel; si falta, el backend devuelve un error claro. Los IDs de modelo se
 // pueden pisar por env var en el backend (ANTHROPIC_MODEL / OPENAI_MODEL).
@@ -335,7 +335,7 @@ type ModelOption = { id: string; label: string; provider: Provider; model: strin
 // respuesta. Por ahora solo Gemini (OpenAI/Claude ocultos); el backend soporta
 // los tres proveedores: para reactivarlos, descomentar sus líneas y cargar la key.
 const MODELS: ModelOption[] = [
-  { id: "gemini-flash", label: "Gemini 2.5 Flash", provider: "gemini", model: "gemini-2.5-flash", tag: "Recomendado" },
+  { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Recomendado" },
 ];
 const DEFAULT_MODEL_ID = "gemini-flash";
 
