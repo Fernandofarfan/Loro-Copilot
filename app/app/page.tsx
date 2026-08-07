@@ -458,6 +458,36 @@ export default function Page() {
     model: true,
   });
 
+  // Buscador y Modo Compacto
+  const [searchFilter, setSearchFilter] = useState("");
+  const [compactUi, setCompactUi] = useState(false);
+
+  // Detector de Preguntas Trampa
+  function detectTrickQuestion(q: string) {
+    const lower = (q || "").toLowerCase();
+    if (/defecto|debilidad|peor|error|fracaso|por qu[eé] dej|motivo de salida|conflict|problema con tu jefe|desacuerdo con manager/i.test(lower)) {
+      return "⚠️ Pregunta Delicada: Mantener actitud positiva, enfocar defectos en aprendizaje continuo y evitar hablar mal de empleadores anteriores.";
+    }
+    return null;
+  }
+
+  // Tono de audio sutil al comenzar respuesta
+  const playChimeSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch {}
+  }, []);
+
   // Clasificador de preguntas
   function classifyQuestion(q: string) {
     const lower = (q || "").toLowerCase();
@@ -726,6 +756,7 @@ export default function Page() {
           if (done) break;
           if (!firstTokenTs && value && value.length > 0) {
             firstTokenTs = Date.now();
+            playChimeSound();
           }
           acc += dec.decode(value, { stream: true });
           const latencyMs = firstTokenTs ? firstTokenTs - startedAt : Date.now() - startedAt;
@@ -1513,7 +1544,20 @@ export default function Page() {
               <div style={{ marginBottom: 16, padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--line-strong)", borderRadius: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                   <span className="mono" style={{ fontSize: "0.9em", fontWeight: 600 }}>📊 Score de Preparación: <strong style={{ color: score >= 80 ? "var(--loro-green)" : "var(--ink)" }}>{score}% ({level})</strong></span>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button 
+                      className="btn-action mono" 
+                      style={{ fontSize: 11, padding: "3px 10px", background: "var(--bg)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.3)", borderRadius: 6, fontWeight: 600 }}
+                      onClick={() => {
+                        const q = `🎙️ [ELEVATOR PITCH] Generar una presentación personal impecable de 60 segundos ("Háblame de ti") sintetizando mi perfil de ${role || "Desarrollador"} para la empresa ${company || "esta empresa"}, destacando mis mejores fortalezas y propuesta de valor.`;
+                        const id = ++ansId.current;
+                        const controller = new AbortController();
+                        turnRef.current = { id, sentText: q, controller };
+                        runGenerate(id, q, controller, 0, "answer");
+                      }}
+                    >
+                      🎙️ Presentación 60s
+                    </button>
                     <button 
                       className="btn-action mono" 
                       style={{ fontSize: 11, padding: "3px 10px", background: "var(--bg)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, fontWeight: 600 }}
@@ -1760,7 +1804,19 @@ export default function Page() {
       {/* Contenido */}
       <section style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 4 }}>
         {live && tab === "answer" && (
-          <div className="panel" style={{ flex: 1, minHeight: 0 }}>
+          <div className="panel" style={{ flex: 1, minHeight: 0, padding: compactUi ? "8px" : undefined }}>
+            {answers.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar en respuestas pasadas..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="form-input mono"
+                  style={{ height: 32, fontSize: 12, padding: "0 10px" }}
+                />
+              </div>
+            )}
             <div ref={scrollA} className="answers-container" style={{ fontSize: `${fontSize}px` }}>
               {answers.length === 0 ? (
                 <p className="placeholder" style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.6, textAlign: "center", fontStyle: "italic", padding: "8px" }}>
@@ -1769,34 +1825,44 @@ export default function Page() {
                     : "Tocá \u201cResponder\u201d cuando termine la pregunta y tu respuesta aparece acá."}
                 </p>
               ) : (
-                answers.map((a, index) => (
-                  <div key={a.id} className={`answer-card ${index === answers.length - 1 ? "answer-card-current" : ""}`}>
-                    {a.text && (
-                      <div className="card-actions">
-                        <button
-                          className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
-                          onClick={() => copyAnswer(a.id, a.bilingual ? (a.enText || a.text) : a.text)}
-                          aria-label="Copiar respuesta"
-                          title="Copiar respuesta en inglés"
-                        >
-                          {copiedId === a.id ? <CheckIcon /> : <CopyIcon />}
-                        </button>
-                      </div>
-                    )}
-                    <div className="answer-card-q-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
-                        <span className="answer-card-question">{a.question}</span>
-                      </div>
-                      {(() => {
-                        const cat = classifyQuestion(a.question);
-                        return (
-                          <span className="mono" style={{ fontSize: "0.75em", padding: "2px 8px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: `1px solid ${cat.color}`, color: cat.color, whiteSpace: "nowrap" }}>
-                            {cat.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                answers
+                  .filter((a) => !searchFilter || a.question.toLowerCase().includes(searchFilter.toLowerCase()) || a.text.toLowerCase().includes(searchFilter.toLowerCase()))
+                  .map((a, index) => {
+                    const warning = detectTrickQuestion(a.question);
+                    return (
+                      <div key={a.id} className={`answer-card ${index === answers.length - 1 ? "answer-card-current" : ""}`} style={{ padding: compactUi ? "10px" : undefined }}>
+                        {a.text && (
+                          <div className="card-actions">
+                            <button
+                              className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
+                              onClick={() => copyAnswer(a.id, a.bilingual ? (a.enText || a.text) : a.text)}
+                              aria-label="Copiar respuesta"
+                              title="Copiar respuesta en inglés"
+                            >
+                              {copiedId === a.id ? <CheckIcon /> : <CopyIcon />}
+                            </button>
+                          </div>
+                        )}
+                        <div className="answer-card-q-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div>
+                            <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
+                            <span className="answer-card-question">{a.question}</span>
+                          </div>
+                          {(() => {
+                            const cat = classifyQuestion(a.question);
+                            return (
+                              <span className="mono" style={{ fontSize: "0.75em", padding: "2px 8px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: `1px solid ${cat.color}`, color: cat.color, whiteSpace: "nowrap" }}>
+                                {cat.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+
+                        {warning && (
+                          <div style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", padding: "6px 10px", borderRadius: 6, fontSize: "0.85em", marginTop: 6, border: "1px solid rgba(245,158,11,0.3)" }}>
+                            <strong>{warning}</strong>
+                          </div>
+                        )}
 
                     {a.alert && (
                       <div className="alert-banner" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", padding: "8px 12px", borderRadius: 8, fontSize: "0.9em", marginTop: 8, border: "1px solid rgba(239,68,68,0.2)" }}>
@@ -1896,7 +1962,8 @@ export default function Page() {
                       </div>
                     )}
                   </div>
-                ))
+                );
+              })
               )}
             </div>
           </div>
