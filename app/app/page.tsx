@@ -89,10 +89,17 @@ function GeminiMark() {
     </svg>
   );
 }
+function OpenCodeMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  );
+}
 function ProviderIcon({ provider }: { provider: Provider }) {
   return (
     <span className="dd-icon">
-      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : <GeminiMark />}
+      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : provider === "opencode" || provider === "openrouter" ? <OpenCodeMark /> : <GeminiMark />}
     </span>
   );
 }
@@ -109,6 +116,26 @@ const fieldIconProps = {
   strokeLinejoin: "round" as const,
   "aria-hidden": true,
 };
+
+type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
+type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
+const MODELS: ModelOption[] = [
+  { id: "deepseek-flash", label: "DeepSeek V4 Flash", provider: "opencode", model: "deepseek-v4-flash", tag: "Recomendado" },
+  { id: "deepseek-pro", label: "DeepSeek V4 Pro", provider: "opencode", model: "deepseek-v4-pro", tag: "Pro" },
+  { id: "qwen37-max", label: "Qwen 3.7 Max", provider: "opencode", model: "qwen3.7-max", tag: "Alibaba" },
+  { id: "qwen38-max", label: "Qwen 3.8 Max", provider: "opencode", model: "qwen3.8-max", tag: "Alibaba" },
+  { id: "glm-5-2", label: "GLM 5.2", provider: "opencode", model: "glm-5.2", tag: "Zhipu" },
+  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Zhipu" },
+  { id: "kimi-k3", label: "Kimi K3", provider: "opencode", model: "kimi-k3", tag: "Moonshot" },
+  { id: "kimi-k27-code", label: "Kimi K2.7 Code", provider: "opencode", model: "kimi-k2.7-code", tag: "Moonshot" },
+  { id: "mimo-v25-pro", label: "MiMo V2.5 Pro", provider: "opencode", model: "mimo-v2.5-pro", tag: "Xiaomi" },
+  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "MiniMax" },
+  { id: "gpt-5-luna", label: "GPT 5.6 Luna", provider: "opencode", model: "gpt-5.6-luna", tag: "OpenAI" },
+  { id: "grok-4-5", label: "Grok 4.5", provider: "opencode", model: "grok-4.5", tag: "xAI" },
+  { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Tencent" },
+  { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
+];
+
 function BriefcaseIcon() {
   return (
     <svg {...fieldIconProps}>
@@ -320,24 +347,7 @@ function Dropdown({
 
 
 // ---------- Modelos de LLM ----------
-// El usuario elige el modelo (como el idioma). El default es Gemini 3.6 Flash
-// (rápido y ya probado). Claude y GPT se activan cuando el token está cargado
-// en Vercel; si falta, el backend devuelve un error claro. Los IDs de modelo se
-// pueden pisar por env var en el backend (ANTHROPIC_MODEL / OPENAI_MODEL).
-type Provider = "gemini" | "anthropic" | "openai";
-type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
-// Misma lista que Parakeet (mismo orden y tags). Los `model` son los IDs reales
-// de API: para Claude va el ID canónico (claude-haiku-4-5) y para Gemini los IDs
-// que funcionan con la key actual; el resto usa el ID que matchea el nombre.
-// Cualquiera se puede pisar por env en el backend (OPENAI_MODEL/ANTHROPIC_MODEL/GEMINI_MODEL).
-// IDs reales de la API de Gemini (los que responden con la key actual). El
-// backend igual cae a un modelo estable si alguno fallara, así nunca queda sin
-// respuesta. Por ahora solo Gemini (OpenAI/Claude ocultos); el backend soporta
-// los tres proveedores: para reactivarlos, descomentar sus líneas y cargar la key.
-const MODELS: ModelOption[] = [
-  { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Recomendado" },
-];
-const DEFAULT_MODEL_ID = "gemini-flash";
+const DEFAULT_MODEL_ID = "deepseek-flash";
 
 function buildDgUrl(): string {
   const params = new URLSearchParams({

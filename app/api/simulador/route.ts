@@ -1,12 +1,12 @@
 export const runtime = "edge";
 
 
-type Provider = "gemini" | "anthropic" | "openai" | "openrouter";
+type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
 
 const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
 const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
 const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
-const OPENROUTER_MODEL_OVERRIDE = process.env.OPENROUTER_MODEL || "";
+const OPENCODE_MODEL_OVERRIDE = process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || "";
 const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
 const APP_NAME = "Loro Copilot";
@@ -107,17 +107,17 @@ Reglas críticas:
 function resolveModel(provider: Provider, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "openrouter") return OPENROUTER_MODEL_OVERRIDE || requested || "openai/gpt-4o-mini";
+  if (provider === "opencode" || provider === "openrouter") return OPENCODE_MODEL_OVERRIDE || requested || "deepseek-v4-flash-free";
   return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
 }
 
 function resolveProvider(requested?: string): Provider {
   const envProvider = DEFAULT_PROVIDER_OVERRIDE as Provider;
-  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter") {
+  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter" || envProvider === "opencode") {
     return envProvider;
   }
-  if (requested === "anthropic" || requested === "openai" || requested === "openrouter") return requested;
-  return "gemini";
+  if (requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") return requested;
+  return "opencode";
 }
 
 export async function POST(req: Request) {
@@ -218,7 +218,8 @@ ${historyText}`;
   }
 
   const FALLBACK: Record<Provider, string[]> = {
-    openrouter: ["openai/gpt-4o-mini", "openai/gpt-4.1-mini"],
+    opencode: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2", "gpt-5.6-luna"],
+    openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
     gemini: ["gemini-3.6-flash", "gemini-3.5-flash"],
@@ -230,7 +231,7 @@ ${historyText}`;
       return await getFeedback(provider, candidates, systemPrompt, userContent);
     } else {
       if (provider === "anthropic") return await streamAnthropic(candidates, systemPrompt, userContent);
-      if (provider === "openrouter") return await streamOpenRouter(candidates, systemPrompt, userContent);
+      if (provider === "opencode" || provider === "openrouter") return await streamOpenRouter(candidates, systemPrompt, userContent);
       if (provider === "openai") return await streamOpenAI(candidates, systemPrompt, userContent);
       return await streamGemini(candidates, systemPrompt, userContent, image);
     }
@@ -429,6 +430,7 @@ async function streamOpenAI(models: string[], systemPrompt: string, userContent:
 
 async function streamOpenRouter(models: string[], systemPrompt: string, userContent: string): Promise<Response> {
   const apiKey = process.env.OPENROUTER_API_KEY;
+  const baseUrl = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
   if (!apiKey) {
     return new Response(
       "Falta OPENROUTER_API_KEY para usar OpenRouter. Cargá el token o elegí otro modelo.",
@@ -438,7 +440,7 @@ async function streamOpenRouter(models: string[], systemPrompt: string, userCont
   let detail = "";
   for (const model of models) {
     if (!model) continue;
-    const isReasoning = /^(gpt-5|o[0-9])/.test(model);
+    const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,
@@ -454,7 +456,7 @@ async function streamOpenRouter(models: string[], systemPrompt: string, userCont
       reqBody.max_tokens = 512;
       reqBody.temperature = 0.5;
     }
-    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const upstream = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -497,10 +499,11 @@ async function getFeedback(
   systemPrompt: string,
   userContent: string
 ): Promise<Response> {
-  if (provider === "openai" || provider === "openrouter") {
-    const baseUrl = provider === "openrouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1";
-    const apiKey = provider === "openrouter" ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
-    if (!apiKey) return new Response(provider === "openrouter" ? "Falta OPENROUTER_API_KEY." : "Falta OPENAI_API_KEY.", { status: 500 });
+  if (provider === "openai" || provider === "openrouter" || provider === "opencode") {
+    const isOpencode = provider === "opencode" || provider === "openrouter";
+    const baseUrl = isOpencode ? (process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://api.opencode.ai/v1") : "https://api.openai.com/v1";
+    const apiKey = isOpencode ? (process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY) : process.env.OPENAI_API_KEY;
+    if (!apiKey) return new Response(isOpencode ? "Falta OPENCODE_API_KEY." : "Falta OPENAI_API_KEY.", { status: 500 });
     let detail = "";
     for (const model of models) {
       const res = await fetch(`${baseUrl}/chat/completions`, {

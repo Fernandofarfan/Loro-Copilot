@@ -33,7 +33,7 @@ const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase()
 function resolveModel(provider: string, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "openrouter") return OPENROUTER_MODEL_OVERRIDE || requested || "openai/gpt-4o-mini";
+  if (provider === "opencode" || provider === "openrouter") return process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || requested || "deepseek-v4-flash-free";
   return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
 }
 
@@ -73,7 +73,8 @@ export async function POST(req: Request) {
   const userContent = `## EMPRESA\n${company}\n\n## ROL\n${role}\n\n## PERFIL\n${profile}\n\n## TRANSCRIPCIÓN\n${transcript}`;
 
   const FALLBACK: Record<string, string[]> = {
-    openrouter: ["openai/gpt-4o-mini", "openai/gpt-4.1-mini"],
+    opencode: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
+    openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
     gemini: ["gemini-3.6-flash"],

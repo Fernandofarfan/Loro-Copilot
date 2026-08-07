@@ -7,14 +7,14 @@ export const runtime = "edge";
 // (env var) y su propio endpoint de streaming. Si falta la key, se devuelve un
 // error claro. El backend soporta los tres providers aunque la UI hoy muestre
 // solo Gemini.
-type Provider = "gemini" | "anthropic" | "openai" | "openrouter";
+type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
 
 // Override por env SOLO si está explícitamente seteada (string vacío = no seteada).
 // Si no, manda el `model` que pide el cliente (el elegido en el selector).
 const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
 const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
 const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
-const OPENROUTER_MODEL_OVERRIDE = process.env.OPENROUTER_MODEL || "";
+const OPENCODE_MODEL_OVERRIDE = process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || "";
 const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
 const APP_NAME = "Loro Copilot";
@@ -102,17 +102,17 @@ Reglas para las preguntas:
 function resolveModel(provider: Provider, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "openrouter") return OPENROUTER_MODEL_OVERRIDE || requested || "openai/gpt-4o-mini";
+  if (provider === "opencode" || provider === "openrouter") return OPENCODE_MODEL_OVERRIDE || requested || "deepseek-v4-flash-free";
   return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
 }
 
 function resolveProvider(requested?: string): Provider {
   const envProvider = DEFAULT_PROVIDER_OVERRIDE as Provider;
-  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter") {
+  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter" || envProvider === "opencode") {
     return envProvider;
   }
-  if (requested === "anthropic" || requested === "openai" || requested === "openrouter") return requested;
-  return "gemini";
+  if (requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") return requested;
+  return "opencode";
 }
 
 export async function POST(req: Request) {
@@ -199,7 +199,8 @@ ${transcript || "(vacío)"}
   // cuenta, etc.), se reintenta con uno estable para no quedar sin respuesta
   // en plena entrevista.
   const FALLBACK: Record<Provider, string[]> = {
-    openrouter: ["openai/gpt-4o-mini", "openai/gpt-4.1-mini"],
+    opencode: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2", "gpt-5.6-luna"],
+    openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
     gemini: ["gemini-3.6-flash"],
@@ -208,7 +209,7 @@ ${transcript || "(vacío)"}
 
   try {
     if (provider === "anthropic") return await streamAnthropic(candidates, userContent, effectiveSystemPrompt);
-    if (provider === "openrouter") return await streamOpenRouter(candidates, userContent, effectiveSystemPrompt);
+    if (provider === "opencode" || provider === "openrouter") return await streamOpenCode(candidates, userContent, effectiveSystemPrompt);
     if (provider === "openai") return await streamOpenAI(candidates, userContent, effectiveSystemPrompt);
     return await streamGemini(candidates, userContent, effectiveSystemPrompt);
   } catch (err: any) {
@@ -413,19 +414,21 @@ async function streamOpenAI(models: string[], userContent: string, systemPrompt 
   return new Response(`GPT error: ${detail}`, { status: 502 });
 }
 
-// OpenRouter es compatible con la API de OpenAI, pero mantiene la clave del lado del servidor.
-async function streamOpenRouter(models: string[], userContent: string, systemPrompt = SYSTEM_PROMPT): Promise<Response> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+// OpenCode es compatible con la API de OpenAI/OpenRouter.
+async function streamOpenCode(models: string[], userContent: string, systemPrompt = SYSTEM_PROMPT): Promise<Response> {
+  const apiKey = process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY;
+  const rawBaseUrl = process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+  const baseUrl = rawBaseUrl.replace(/\/$/, "");
   if (!apiKey) {
     return new Response(
-      "Falta OPENROUTER_API_KEY en Vercel para usar OpenRouter. Cargá el token o elegí otro modelo.",
+      "Falta OPENCODE_API_KEY en las variables de entorno para usar OpenCode.",
       { status: 500 }
     );
   }
   let detail = "";
   for (const model of models) {
     if (!model) continue;
-    const isReasoning = /^(gpt-5|o[0-9])/.test(model);
+    const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
     const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
     const reqBody: Record<string, unknown> = {
       model,
@@ -442,7 +445,7 @@ async function streamOpenRouter(models: string[], userContent: string, systemPro
       reqBody.max_tokens = maxTokens;
       reqBody.temperature = 0.4;
     }
-    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const upstream = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -452,7 +455,8 @@ async function streamOpenRouter(models: string[], userContent: string, systemPro
       },
       body: JSON.stringify(reqBody),
     });
-    if (upstream.ok && upstream.body) {
+    const contentType = upstream.headers.get("content-type") || "";
+    if (upstream.ok && upstream.body && (contentType.includes("text/event-stream") || contentType.includes("application/x-ndjson"))) {
       return textStreamResponse(
         sseTextStream(upstream.body, (json) => {
           const evt = JSON.parse(json);
@@ -460,7 +464,14 @@ async function streamOpenRouter(models: string[], userContent: string, systemPro
         })
       );
     }
+    if (upstream.ok && contentType.includes("json")) {
+      const j = await upstream.json().catch(() => null);
+      const text = j?.choices?.[0]?.message?.content;
+      if (text) {
+        return new Response(text, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      }
+    }
     detail = await upstream.text().catch(() => "");
   }
-  return new Response(`OpenRouter error: ${detail}`, { status: 502 });
+  return new Response(`Error de API (${baseUrl}): ${detail || "La API no devolvió una respuesta válida o la clave es incorrecta."}`, { status: 502 });
 }

@@ -173,15 +173,16 @@ export async function streamOpenAI(models: string[], userContent: string, system
   return new Response(`GPT error: ${detail}`, { status: 502 });
 }
 
-export async function streamOpenRouter(models: string[], userContent: string, systemPrompt: string): Promise<Response> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+export async function streamOpenCode(models: string[], userContent: string, systemPrompt: string): Promise<Response> {
+  const apiKey = process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY;
+  const baseUrl = process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://api.opencode.ai/v1";
   if (!apiKey) {
-    return new Response("Falta OPENROUTER_API_KEY en Vercel.", { status: 500 });
+    return new Response("Falta OPENCODE_API_KEY en Vercel.", { status: 500 });
   }
   let detail = "";
   for (const model of models) {
     if (!model) continue;
-    const isReasoning = /^(gpt-5|o[0-9])/.test(model);
+    const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
     const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
     const reqBody: Record<string, unknown> = {
       model,
@@ -198,7 +199,7 @@ export async function streamOpenRouter(models: string[], userContent: string, sy
       reqBody.max_tokens = maxTokens;
       reqBody.temperature = 0.4;
     }
-    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const upstream = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -218,5 +219,7 @@ export async function streamOpenRouter(models: string[], userContent: string, sy
     }
     detail = await upstream.text().catch(() => "");
   }
-  return new Response(`OpenRouter error: ${detail}`, { status: 502 });
+  return new Response(`OpenCode error: ${detail}`, { status: 502 });
 }
+
+export const streamOpenRouter = streamOpenCode;
