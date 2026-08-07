@@ -450,6 +450,29 @@ export default function Page() {
   // Dialecto / Registro de respuesta (Rioplatense / Neutro / English)
   const [dialect, setDialect] = useState<"rioplatense" | "neutro" | "english">("rioplatense");
 
+  // Checklist Pre-Entrevista
+  const [checklist, setChecklist] = useState({
+    cv: false,
+    teleprompter: false,
+    mic: true,
+    model: true,
+  });
+
+  // Clasificador de preguntas
+  function classifyQuestion(q: string) {
+    const lower = (q || "").toLowerCase();
+    if (/salario|sueldo|pretensi|cu[aá]nto quer|cu[aá]nto gan/i.test(lower)) {
+      return { label: "💰 Pretensión Salarial", color: "#f59e0b" };
+    }
+    if (/contame|cu[eé]ntame|alguna vez|situaci[oó]n|conflicto|desaf[ií]o|ejemplo|fracaso|logro|compa[nñ]ero|equipo/i.test(lower)) {
+      return { label: "🧠 Comportamental · Usar STAR", color: "#8b5cf6" };
+    }
+    if (/c[oó]digo|arquitectura|base de datos|react|node|sql|aws|diferencia|funciona|api|escalab/i.test(lower)) {
+      return { label: "🛠️ Pregunta Técnica", color: "#38bdf8" };
+    }
+    return { label: "💬 General", color: "#10b981" };
+  }
+
   // Ventana flotante (Teleprompter Ghost Pop-out)
   const popoutRef = useRef<Window | null>(null);
 
@@ -1477,7 +1500,7 @@ export default function Page() {
       {/* Contexto de la entrevista (solo antes de arrancar) */}
       {!live && (
         <div className="panel">
-          {/* Score de Preparación del Candidato */}
+          {/* Score de Preparación + Checklist Pre-Entrevista */}
           {(() => {
             let score = 0;
             if (company.trim()) score += 20;
@@ -1487,26 +1510,56 @@ export default function Page() {
             if (answers.length > 0) score += 10;
             const level = score >= 80 ? "Sólido 🔥" : score >= 50 ? "Aceptable 🟡" : "Inicial ⚪";
             return (
-              <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--line-strong)", borderRadius: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <div style={{ marginBottom: 16, padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--line-strong)", borderRadius: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                   <span className="mono" style={{ fontSize: "0.9em", fontWeight: 600 }}>📊 Score de Preparación: <strong style={{ color: score >= 80 ? "var(--loro-green)" : "var(--ink)" }}>{score}% ({level})</strong></span>
-                  <button 
-                    className="btn-action mono" 
-                    style={{ fontSize: 11, padding: "3px 10px", background: "var(--loro-green)", color: "#fff", border: "none", borderRadius: 6, fontWeight: 600 }}
-                    onClick={() => {
-                      if (!role && !company) return alert("Ingresá la empresa o descripción del puesto primero.");
-                      const q = `🎯 [PREPARACIÓN] ¿Cuáles son las 5 preguntas técnicas y de comportamiento más probables para el puesto de ${role || "Desarrollador"} en ${company || "esta empresa"}? Dar también 3 buenas preguntas para hacerle al entrevistador al final.`;
-                      const id = ++ansId.current;
-                      const controller = new AbortController();
-                      turnRef.current = { id, sentText: q, controller };
-                      runGenerate(id, q, controller, 0, "answer");
-                    }}
-                  >
-                    🎯 Predecir Preguntas del Puesto
-                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button 
+                      className="btn-action mono" 
+                      style={{ fontSize: 11, padding: "3px 10px", background: "var(--bg)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, fontWeight: 600 }}
+                      onClick={() => {
+                        const q = `💰 [SALARIO] ¿Cómo responder de forma elegante y estratégica a las pretensiones salariales para el puesto de ${role || "Desarrollador"} en ${company || "esta empresa"}? Dar una respuesta profesional con rango justificado según mi perfil.`;
+                        const id = ++ansId.current;
+                        const controller = new AbortController();
+                        turnRef.current = { id, sentText: q, controller };
+                        runGenerate(id, q, controller, 0, "answer");
+                      }}
+                    >
+                      💰 Negociar Salario
+                    </button>
+                    <button 
+                      className="btn-action mono" 
+                      style={{ fontSize: 11, padding: "3px 10px", background: "var(--loro-green)", color: "#fff", border: "none", borderRadius: 6, fontWeight: 600 }}
+                      onClick={() => {
+                        if (!role && !company) return alert("Ingresá la empresa o descripción del puesto primero.");
+                        const q = `🎯 [PREPARACIÓN] ¿Cuáles son las 5 preguntas técnicas y de comportamiento más probables para el puesto de ${role || "Desarrollador"} en ${company || "esta empresa"}? Dar también 3 buenas preguntas para hacerle al entrevistador al final.`;
+                        const id = ++ansId.current;
+                        const controller = new AbortController();
+                        turnRef.current = { id, sentText: q, controller };
+                        runGenerate(id, q, controller, 0, "answer");
+                      }}
+                    >
+                      🎯 Predecir Preguntas
+                    </button>
+                  </div>
                 </div>
-                <div style={{ height: 6, width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: 6, width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
                   <div style={{ height: "100%", width: `${score}%`, background: score >= 80 ? "var(--loro-green)" : score >= 50 ? "#f59e0b" : "var(--ink-dim)", transition: "width 0.3s ease" }} />
+                </div>
+                {/* Checklist Pre-Entrevista */}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: "0.8em", color: "var(--ink-dim)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 8 }}>
+                  <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    <input type="checkbox" checked={profile.length > 30} readOnly /> CV Cargado
+                  </label>
+                  <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    <input type="checkbox" checked={role.length > 20} readOnly /> Puesto Cargado
+                  </label>
+                  <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    <input type="checkbox" checked={checklist.teleprompter} onChange={e => setChecklist(c => ({ ...c, teleprompter: e.target.checked }))} /> Teleprompter Listo
+                  </label>
+                  <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                    <input type="checkbox" checked={checklist.mic} onChange={e => setChecklist(c => ({ ...c, mic: e.target.checked }))} /> Audio / Mic OK
+                  </label>
                 </div>
               </div>
             );
@@ -1564,6 +1617,21 @@ export default function Page() {
             >
               Guardar actual
             </button>
+            {savedProfiles.length > 0 && (
+              <button
+                className="btn-action mono"
+                style={{ padding: "0 10px", height: 36, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", fontWeight: 600, borderRadius: 8 }}
+                title="Borrar perfiles guardados"
+                onClick={() => {
+                  if (confirm("¿Borrar todos los perfiles guardados?")) {
+                    setSavedProfiles([]);
+                    localStorage.removeItem("loro-saved-profiles");
+                  }
+                }}
+              >
+                🗑️
+              </button>
+            )}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label className="mono form-mini-label">
@@ -1715,9 +1783,19 @@ export default function Page() {
                         </button>
                       </div>
                     )}
-                    <div className="answer-card-q-row">
-                      <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
-                      <span className="answer-card-question">{a.question}</span>
+                    <div className="answer-card-q-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
+                        <span className="answer-card-question">{a.question}</span>
+                      </div>
+                      {(() => {
+                        const cat = classifyQuestion(a.question);
+                        return (
+                          <span className="mono" style={{ fontSize: "0.75em", padding: "2px 8px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: `1px solid ${cat.color}`, color: cat.color, whiteSpace: "nowrap" }}>
+                            {cat.label}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {a.alert && (
