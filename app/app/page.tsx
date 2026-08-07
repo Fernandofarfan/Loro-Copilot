@@ -41,6 +41,8 @@ type Answer = {
   alert: string;
   snippet: string;
   cleanText: string;
+  latencyMs?: number;
+  modelName?: string;
 };
 
 function fmtTime(ts: number): string {
@@ -455,6 +457,48 @@ export default function Page() {
   const modelRef = useRef(selectedModel);
   modelRef.current = selectedModel;
 
+  // Atajos de teclado globales (Ctrl+Enter: Responder | Alt+P: Pausar)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (status === "live") answerNowRef.current();
+      }
+      if (e.altKey && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        togglePause();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [status, togglePause]);
+
+  // Exportar sesión como Markdown (.md)
+  const exportSessionMarkdown = useCallback(() => {
+    if (answersRef.current.length === 0 && !transcriptRef.current) {
+      alert("No hay transcripción ni respuestas registradas para exportar.");
+      return;
+    }
+    let md = `# Informe de Entrevista — ${company || "General"} (${role || "Puesto"})\n\n`;
+    md += `**Fecha:** ${new Date().toLocaleString("es-AR")}\n\n`;
+    if (profile) md += `## Perfil del Candidato\n${profile}\n\n`;
+    md += `## Respuestas Sugeridas\n\n`;
+    answersRef.current.forEach((a, i) => {
+      md += `### ${i + 1}. Pregunta: ${a.question}\n\n${a.cleanText || a.text}\n\n`;
+      if (a.latencyMs) md += `*Latencia de generación: ${a.latencyMs} ms | Modelo: ${a.modelName || "IA"}*\n\n`;
+    });
+    if (transcriptRef.current) {
+      md += `## Transcripción de la Conversación\n\n${transcriptRef.current}\n\n`;
+    }
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `entrevista-${(company || "session").toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [company, role, profile]);
+
   // ---------- Detección de mobile / Safari ----------
   // "Pestaña" (captura de audio vía getDisplayMedia) no tiene sentido en dos
   // casos: en mobile (iOS y Android) no hay pestañas de Meet/Zoom que
@@ -582,12 +626,17 @@ export default function Page() {
         const reader = res.body.getReader();
         const dec = new TextDecoder();
         let acc = "";
+        let firstTokenTs: number | null = null;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          if (!firstTokenTs && value && value.length > 0) {
+            firstTokenTs = Date.now();
+          }
           acc += dec.decode(value, { stream: true });
+          const latencyMs = firstTokenTs ? firstTokenTs - startedAt : Date.now() - startedAt;
           const parsed = parseBlocks(acc);
-          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed } : a)));
+          setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed, latencyMs, modelName: modelRef.current.label } : a)));
         }
         // El modelo a veces devuelve el placeholder "(esperando pregunta)" (o
         // texto vacío) en la primera respuesta, aunque la pregunta sea real.
@@ -1313,20 +1362,29 @@ export default function Page() {
       )}
 
       {/* Resumen Post-Entrevista */}
-      {!live && lines.length > 0 && (
+      {!live && (lines.length > 0 || answers.length > 0) && (
         <div className="panel" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span className="mono" style={{ fontWeight: 600, fontSize: "1.1em" }}>📊 Análisis de Entrevista</span>
-            {!summary && (
+            <div style={{ display: "flex", gap: 8 }}>
               <button 
-                onClick={generateSummary}
-                disabled={generatingSummary}
+                onClick={exportSessionMarkdown}
                 className="btn-action mono" 
-                style={{ background: "var(--loro-green)", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600 }}
+                style={{ background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--line-strong)", padding: "6px 14px", borderRadius: 8, fontWeight: 600 }}
               >
-                {generatingSummary ? "Analizando..." : "Generar Feedback"}
+                📥 Exportar (.md)
               </button>
-            )}
+              {!summary && (
+                <button 
+                  onClick={generateSummary}
+                  disabled={generatingSummary}
+                  className="btn-action mono" 
+                  style={{ background: "var(--loro-green)", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 8, fontWeight: 600 }}
+                >
+                  {generatingSummary ? "Analizando..." : "Generar Feedback"}
+                </button>
+              )}
+            </div>
           </div>
           {summary && (
             <div className="answer-card-text" style={{ marginTop: 12, padding: 12, background: "var(--bg)", borderRadius: 8, border: "1px solid var(--line-strong)", fontSize: "0.95em", whiteSpace: "pre-wrap" }}>
@@ -1391,14 +1449,31 @@ export default function Page() {
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-            <label className="mono form-mini-label">
-              <DocIcon /> Descripción del puesto
-              <InfoTip text="Pegá el aviso o el rol al que aplicás: responsabilidades, requisitos, seniority. Cuanto más completo, mejores las respuestas." />
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+              <label className="mono form-mini-label" style={{ marginTop: 0 }}>
+                <DocIcon /> Descripción del puesto
+                <InfoTip text="Pegá el aviso o subí un PDF con los requisitos del puesto." />
+              </label>
+              <label className="btn-action mono" style={{ cursor: "pointer", fontSize: 11, padding: "2px 8px", background: "var(--bg)", border: "1px solid var(--line-strong)", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                📄 Subir PDF
+                <input type="file" accept="application/pdf" style={{ display: "none" }} onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const { extractTextFromPdf } = await import("../lib/pdf");
+                    const text = await extractTextFromPdf(file);
+                    setRole((prev) => prev ? prev + "\n\n" + text.trim() : text.trim());
+                  } catch (err) {
+                    alert("Error al leer el PDF del puesto.");
+                  }
+                  e.target.value = "";
+                }} disabled={connecting} />
+              </label>
+            </div>
             <textarea
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              placeholder="Pegá la descripción del puesto: responsabilidades, requisitos, seniority."
+              placeholder="Pegá la descripción del puesto o subí un PDF con la vacante."
               className="form-textarea form-textarea-sm"
               disabled={connecting}
             />
@@ -1591,7 +1666,9 @@ export default function Page() {
                     )}
                     {a.text && (
                       <div className="answer-footer">
-                        <span className="answer-footer-meta mono">Respuesta · {fmtTime(a.ts)}</span>
+                        <span className="answer-footer-meta mono">
+                          Respuesta · {fmtTime(a.ts)} {a.latencyMs ? `· ⚡ ${a.latencyMs}ms (${a.modelName || "IA"})` : ""}
+                        </span>
                         <div className="fb-btns">
                           <button
                             className={`fb-btn ${a.feedback === "up" ? "fb-up" : ""}`}
@@ -1619,6 +1696,12 @@ export default function Page() {
 
         {live && tab === "transcript" && (
           <div className="panel" style={{ flex: 1, minHeight: 0 }}>
+            {lines.length > 0 && (
+              <div style={{ padding: "6px 12px", background: "rgba(16,185,129,0.08)", borderBottom: "1px solid var(--line-strong)", fontSize: "0.85em", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "8px 8px 0 0" }}>
+                <span className="mono">🎙️ Muletillas detectadas: <strong>{(lines.map(l => l.text).join(" ").toLowerCase().match(/\b(eh|este|o sea|bueno|digamos|nada|tipo|viste)\b/g) || []).length}</strong></span>
+                <span className="mono" style={{ color: "var(--ink-dim)" }}>⌨️ Ctrl+Enter: Responder | Alt+P: Pausar</span>
+              </div>
+            )}
             <div ref={scrollT} className="transcript-container">
               {lines.length === 0 ? (
                 <p className="placeholder" style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.6, textAlign: "center", fontStyle: "italic", padding: "8px" }}>
