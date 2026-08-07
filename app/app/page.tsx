@@ -446,6 +446,77 @@ export default function Page() {
       return next;
     });
   }, []);
+
+  // Dialecto / Registro de respuesta (Rioplatense / Neutro / English)
+  const [dialect, setDialect] = useState<"rioplatense" | "neutro" | "english">("rioplatense");
+
+  // Ventana flotante (Teleprompter Ghost Pop-out)
+  const popoutRef = useRef<Window | null>(null);
+
+  const updateTeleprompter = useCallback((question: string, text: string) => {
+    if (!popoutRef.current || popoutRef.current.closed) return;
+    const doc = popoutRef.current.document;
+    if (!doc) return;
+    const qEl = doc.getElementById("teleprompter-q");
+    const aEl = doc.getElementById("teleprompter-a");
+    if (qEl) qEl.innerText = question || "";
+    if (aEl) aEl.innerText = text || "Generando respuesta...";
+    popoutRef.current.scrollTo(0, popoutRef.current.document.body.scrollHeight);
+  }, []);
+
+  const openTeleprompter = useCallback(() => {
+    if (popoutRef.current && !popoutRef.current.closed) {
+      popoutRef.current.focus();
+      return;
+    }
+    const win = window.open(
+      "",
+      "TeleprompterLoro",
+      "width=460,height=340,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no"
+    );
+    if (!win) {
+      alert("Permití las ventanas emergentes (pop-ups) para abrir el Teleprompter Flotante.");
+      return;
+    }
+    popoutRef.current = win;
+    const lastAns = answersRef.current[answersRef.current.length - 1];
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>🦜 Teleprompter — Loro Copilot</title>
+          <meta charset="utf-8">
+          <style>
+            body {
+              background: #09090b;
+              color: #f4f4f5;
+              font-family: system-ui, -apple-system, sans-serif;
+              margin: 0;
+              padding: 16px;
+              font-size: 17px;
+              line-height: 1.6;
+            }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 8px; margin-bottom: 12px; }
+            .badge { background: #10b981; color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; }
+            .q-box { color: #a1a1aa; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+            .q-text { color: #38bdf8; font-weight: 600; font-size: 15px; margin-bottom: 14px; }
+            .a-text { color: #f4f4f5; white-space: pre-wrap; font-weight: 500; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <span style="font-weight:700; font-size:14px; color:#10b981;">🦜 Teleprompter Flotante</span>
+            <span class="badge">EN VIVO</span>
+          </div>
+          <div class="q-box">💬 Pregunta</div>
+          <div id="teleprompter-q" class="q-text">${lastAns?.question || "Esperando pregunta..."}</div>
+          <div class="q-box">⭐ Respuesta</div>
+          <div id="teleprompter-a" class="a-text">${lastAns?.cleanText || lastAns?.text || "Las sugerencias aparecerán acá..."}</div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+  }, []);
   // Debounce para evitar dobles disparos de UtteranceEnd.
   const utteranceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -637,6 +708,7 @@ export default function Page() {
           const latencyMs = firstTokenTs ? firstTokenTs - startedAt : Date.now() - startedAt;
           const parsed = parseBlocks(acc);
           setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed, latencyMs, modelName: modelRef.current.label } : a)));
+          updateTeleprompter(question, parsed.cleanText || acc);
         }
         // El modelo a veces devuelve el placeholder "(esperando pregunta)" (o
         // texto vacío) en la primera respuesta, aunque la pregunta sea real.
@@ -1277,7 +1349,15 @@ export default function Page() {
           {!live && connecting && <span className="status-chip">conectando…</span>}
           {!live && status === "error" && <span className="status-chip">error</span>}
           {live && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={openTeleprompter}
+                className="btn-action mono"
+                style={{ fontSize: 12, padding: "4px 10px", background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)", borderRadius: 6, fontWeight: 600 }}
+                title="Abrir ventana flotante para colocar debajo de la webcam"
+              >
+                🪟 Teleprompter
+              </button>
               <div className="status-chip" style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.2)" }} title="Idioma detectado (Auto-Bilingual)">
                 <span style={{ fontSize: "1.2em", lineHeight: 1 }}>{detectedLang === "en" ? "🇺🇸" : "🇪🇸"}</span>
                 <span style={{ fontWeight: 600 }}>{detectedLang.toUpperCase()}</span>
@@ -1397,9 +1477,59 @@ export default function Page() {
       {/* Contexto de la entrevista (solo antes de arrancar) */}
       {!live && (
         <div className="panel">
-          <label className="mono form-label">
-            Contexto de la entrevista
-          </label>
+          {/* Score de Preparación del Candidato */}
+          {(() => {
+            let score = 0;
+            if (company.trim()) score += 20;
+            if (role.trim().length > 20) score += 30;
+            if (profile.trim().length > 50) score += 30;
+            if (extraInstructions.trim()) score += 10;
+            if (answers.length > 0) score += 10;
+            const level = score >= 80 ? "Sólido 🔥" : score >= 50 ? "Aceptable 🟡" : "Inicial ⚪";
+            return (
+              <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--line-strong)", borderRadius: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span className="mono" style={{ fontSize: "0.9em", fontWeight: 600 }}>📊 Score de Preparación: <strong style={{ color: score >= 80 ? "var(--loro-green)" : "var(--ink)" }}>{score}% ({level})</strong></span>
+                  <button 
+                    className="btn-action mono" 
+                    style={{ fontSize: 11, padding: "3px 10px", background: "var(--loro-green)", color: "#fff", border: "none", borderRadius: 6, fontWeight: 600 }}
+                    onClick={() => {
+                      if (!role && !company) return alert("Ingresá la empresa o descripción del puesto primero.");
+                      const q = `🎯 [PREPARACIÓN] ¿Cuáles son las 5 preguntas técnicas y de comportamiento más probables para el puesto de ${role || "Desarrollador"} en ${company || "esta empresa"}? Dar también 3 buenas preguntas para hacerle al entrevistador al final.`;
+                      const id = ++ansId.current;
+                      const controller = new AbortController();
+                      turnRef.current = { id, sentText: q, controller };
+                      runGenerate(id, q, controller, 0, "answer");
+                    }}
+                  >
+                    🎯 Predecir Preguntas del Puesto
+                  </button>
+                </div>
+                <div style={{ height: 6, width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${score}%`, background: score >= 80 ? "var(--loro-green)" : score >= 50 ? "#f59e0b" : "var(--ink-dim)", transition: "width 0.3s ease" }} />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Selector de Dialecto / Registro */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <label className="mono form-label" style={{ marginBottom: 0 }}>
+              Contexto de la entrevista
+            </label>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["rioplatense", "neutro", "english"] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDialect(d)}
+                  className={`btn-action mono ${dialect === d ? "btn-primary" : ""}`}
+                  style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line-strong)" }}
+                >
+                  {d === "rioplatense" ? "🇦🇷 Rioplatense" : d === "neutro" ? "🇲🇽 Neutro" : "🇺🇸 English"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             <select
               className="form-input mono"
