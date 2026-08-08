@@ -35,8 +35,11 @@ export function sseTextStream(
           try {
             const text = extract(json);
             if (text) {
-              controller.enqueue(encoder.encode(text));
-              enqueuedAny = true;
+              const cleanChunk = text.replace(/<\/?think>/gi, "");
+              if (cleanChunk) {
+                controller.enqueue(encoder.encode(cleanChunk));
+                enqueuedAny = true;
+              }
             }
           } catch {}
         }
@@ -61,7 +64,6 @@ export async function streamGemini(models: string[], userContent: string, system
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: maxTokens,
-      thinkingConfig: { thinkingBudget: 0 },
     },
   };
   let detail = "";
@@ -183,21 +185,21 @@ export async function streamOpenCode(models: string[], userContent: string, syst
   for (const model of models) {
     if (!model) continue;
     const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
-    const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
+    const maxTokens = 1500;
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,
+      max_tokens: maxTokens,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
     };
     if (isReasoning) {
-      reqBody.max_completion_tokens = systemPrompt.includes("[ES]") ? 1800 : 900;
+      reqBody.max_completion_tokens = maxTokens;
       reqBody.reasoning_effort = "low";
     } else {
-      reqBody.max_tokens = maxTokens;
-      reqBody.temperature = 0.4;
+      reqBody.temperature = 0.3;
     }
     const upstream = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
@@ -210,10 +212,17 @@ export async function streamOpenCode(models: string[], userContent: string, syst
       body: JSON.stringify(reqBody),
     });
     if (upstream.ok && upstream.body) {
+      let sentThinkingMarker = false;
       return textStreamResponse(
         sseTextStream(upstream.body, (json) => {
           const evt = JSON.parse(json);
-          return evt.choices?.[0]?.delta?.content ?? null;
+          const delta = evt.choices?.[0]?.delta;
+          if (delta?.content) return delta.content;
+          if (delta?.reasoning_content && !sentThinkingMarker) {
+            sentThinkingMarker = true;
+            return "🧠 *Analizando estrategia...*\n\n";
+          }
+          return null;
         })
       );
     }

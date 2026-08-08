@@ -122,17 +122,17 @@ const fieldIconProps = {
 type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 const MODELS: ModelOption[] = [
+  { id: "mimo-v25-pro", label: "MiMo V2.5 Pro ⚡", provider: "opencode", model: "mimo-v2.5-pro", tag: "Favorito (Ultra Rápido)" },
   { id: "deepseek-flash", label: "DeepSeek V4 Flash", provider: "opencode", model: "deepseek-v4-flash", tag: "Recomendado" },
+  { id: "gpt-5-luna", label: "GPT 5.6 Luna ⚡", provider: "opencode", model: "gpt-5.6-luna", tag: "OpenAI" },
+  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Rápido" },
+  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Pensamiento (+15s)" },
   { id: "deepseek-pro", label: "DeepSeek V4 Pro", provider: "opencode", model: "deepseek-v4-pro", tag: "Pro" },
   { id: "qwen37-max", label: "Qwen 3.7 Max", provider: "opencode", model: "qwen3.7-max", tag: "Alibaba" },
   { id: "qwen38-max", label: "Qwen 3.8 Max", provider: "opencode", model: "qwen3.8-max", tag: "Alibaba" },
   { id: "glm-5-2", label: "GLM 5.2", provider: "opencode", model: "glm-5.2", tag: "Zhipu" },
-  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Zhipu" },
   { id: "kimi-k3", label: "Kimi K3", provider: "opencode", model: "kimi-k3", tag: "Moonshot" },
   { id: "kimi-k27-code", label: "Kimi K2.7 Code", provider: "opencode", model: "kimi-k2.7-code", tag: "Moonshot" },
-  { id: "mimo-v25-pro", label: "MiMo V2.5 Pro", provider: "opencode", model: "mimo-v2.5-pro", tag: "Xiaomi" },
-  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "MiniMax" },
-  { id: "gpt-5-luna", label: "GPT 5.6 Luna", provider: "opencode", model: "gpt-5.6-luna", tag: "OpenAI" },
   { id: "grok-4-5", label: "Grok 4.5", provider: "opencode", model: "grok-4.5", tag: "xAI" },
   { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Tencent" },
   { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
@@ -349,7 +349,7 @@ function Dropdown({
 
 
 // ---------- Modelos de LLM ----------
-const DEFAULT_MODEL_ID = "deepseek-flash";
+const DEFAULT_MODEL_ID = "mimo-v25-pro";
 
 function buildDgUrl(): string {
   const params = new URLSearchParams({
@@ -382,6 +382,8 @@ export default function Page() {
   const [extraInstructions, setExtraInstructions] = useState("");
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [lines, setLines] = useState<Line[]>([]);
+  const linesRef = useRef<Line[]>([]);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const answersRef = useRef<Answer[]>([]);
   useEffect(() => { answersRef.current = answers; }, [answers]);
@@ -717,7 +719,7 @@ export default function Page() {
             role,
             provider: modelRef.current.provider,
             model: modelRef.current.model,
-            transcript: transcriptRef.current.slice(-4000),
+            transcript: transcriptRef.current.slice(-4000) || linesRef.current.map((l) => l.text).filter(Boolean).join(" ").slice(-4000),
             question,
             type,
             detectedLang: detectedLangRef.current,
@@ -812,6 +814,11 @@ export default function Page() {
     }
     if (snippetMatch) cleanText = cleanText.replace(snippetMatch[0], "");
 
+    // Limpiar etiquetas <think>...</think> si se completaron, o dejar fluir el texto en tiempo real
+    if (cleanText.includes("<think>") && cleanText.includes("</think>")) {
+      cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
+    }
+
     return {
       esText: esMatch ? esMatch[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/g, "").trim() : "",
       enText: enMatch ? enMatch[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/g, "").trim() : "",
@@ -836,9 +843,12 @@ export default function Page() {
     if (prev) {
       setAnswers((list) => list.filter((a) => !(a.id === prev.id && !a.done && !a.text)));
     }
-    const q = questionBufRef.current.trim() || transcriptRef.current.trim().slice(-500);
+    const currentLinesText = linesRef.current.map((l) => l.text).filter(Boolean).join(" ").trim();
+    let q = questionBufRef.current.trim() || currentLinesText.slice(-500) || transcriptRef.current.trim().slice(-500);
     questionBufRef.current = "";
-    if (q.trim().length < 2) return;
+    if (q.trim().length < 2) {
+      q = "Háblame de ti y de tu experiencia para este puesto";
+    }
     const id = ++ansId.current;
     const controller = new AbortController();
     // Registrar el turno en curso: así el próximo toque a "Responder" (o
@@ -1544,48 +1554,6 @@ export default function Page() {
               <div style={{ marginBottom: 16, padding: "12px 14px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--line-strong)", borderRadius: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                   <span className="mono" style={{ fontSize: "0.9em", fontWeight: 600 }}>📊 Score de Preparación: <strong style={{ color: score >= 80 ? "var(--loro-green)" : "var(--ink)" }}>{score}% ({level})</strong></span>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button 
-                      className="btn-action mono" 
-                      style={{ fontSize: 11, padding: "3px 10px", background: "var(--bg)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.3)", borderRadius: 6, fontWeight: 600 }}
-                      onClick={() => {
-                        const q = `🎙️ [ELEVATOR PITCH] Generar una presentación personal impecable de 60 segundos ("Háblame de ti") sintetizando mi perfil de ${role || "Desarrollador"} para la empresa ${company || "esta empresa"}, destacando mis mejores fortalezas y propuesta de valor.`;
-                        const id = ++ansId.current;
-                        const controller = new AbortController();
-                        turnRef.current = { id, sentText: q, controller };
-                        runGenerate(id, q, controller, 0, "answer");
-                      }}
-                    >
-                      🎙️ Presentación 60s
-                    </button>
-                    <button 
-                      className="btn-action mono" 
-                      style={{ fontSize: 11, padding: "3px 10px", background: "var(--bg)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, fontWeight: 600 }}
-                      onClick={() => {
-                        const q = `💰 [SALARIO] ¿Cómo responder de forma elegante y estratégica a las pretensiones salariales para el puesto de ${role || "Desarrollador"} en ${company || "esta empresa"}? Dar una respuesta profesional con rango justificado según mi perfil.`;
-                        const id = ++ansId.current;
-                        const controller = new AbortController();
-                        turnRef.current = { id, sentText: q, controller };
-                        runGenerate(id, q, controller, 0, "answer");
-                      }}
-                    >
-                      💰 Negociar Salario
-                    </button>
-                    <button 
-                      className="btn-action mono" 
-                      style={{ fontSize: 11, padding: "3px 10px", background: "var(--loro-green)", color: "#fff", border: "none", borderRadius: 6, fontWeight: 600 }}
-                      onClick={() => {
-                        if (!role && !company) return alert("Ingresá la empresa o descripción del puesto primero.");
-                        const q = `🎯 [PREPARACIÓN] ¿Cuáles son las 5 preguntas técnicas y de comportamiento más probables para el puesto de ${role || "Desarrollador"} en ${company || "esta empresa"}? Dar también 3 buenas preguntas para hacerle al entrevistador al final.`;
-                        const id = ++ansId.current;
-                        const controller = new AbortController();
-                        turnRef.current = { id, sentText: q, controller };
-                        runGenerate(id, q, controller, 0, "answer");
-                      }}
-                    >
-                      🎯 Predecir Preguntas
-                    </button>
-                  </div>
                 </div>
                 <div style={{ height: 6, width: "100%", background: "rgba(255,255,255,0.1)", borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
                   <div style={{ height: "100%", width: `${score}%`, background: score >= 80 ? "var(--loro-green)" : score >= 50 ? "#f59e0b" : "var(--ink-dim)", transition: "width 0.3s ease" }} />

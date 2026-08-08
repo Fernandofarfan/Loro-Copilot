@@ -100,19 +100,21 @@ Reglas para las preguntas:
 7. (Aplica también la regla del MODO BILINGÜE si se indica).`;
 
 function resolveModel(provider: Provider, requested: string): string {
-  if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
-  if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "opencode" || provider === "openrouter") return OPENCODE_MODEL_OVERRIDE || requested || "deepseek-v4-flash-free";
-  return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
+  if (provider === "anthropic") return requested || ANTHROPIC_MODEL_OVERRIDE || "claude-haiku-4-5";
+  if (provider === "openai") return requested || OPENAI_MODEL_OVERRIDE || "gpt-4o-mini";
+  if (provider === "opencode" || provider === "openrouter") return requested || OPENCODE_MODEL_OVERRIDE || "deepseek-v4-flash";
+  return requested || GEMINI_MODEL_OVERRIDE || "gemini-2.5-flash";
 }
 
 function resolveProvider(requested?: string): Provider {
+  if (requested === "gemini" || requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") {
+    return requested;
+  }
   const envProvider = DEFAULT_PROVIDER_OVERRIDE as Provider;
   if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter" || envProvider === "opencode") {
     return envProvider;
   }
-  if (requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") return requested;
-  return "opencode";
+  return "gemini";
 }
 
 export async function POST(req: Request) {
@@ -235,8 +237,6 @@ function sseTextStream(
   const reader = upstream.getReader();
   let buffer = "";
   return new ReadableStream({
-    // El pull loopea hasta encolar datos reales: si resuelve sin encolar,
-    // Vercel Edge puede pausar el stream (fix redescubierto del historial viejo).
     async pull(controller) {
       while (true) {
         const { done, value } = await reader.read();
@@ -256,8 +256,11 @@ function sseTextStream(
           try {
             const text = extract(json);
             if (text) {
-              controller.enqueue(encoder.encode(text));
-              enqueuedAny = true;
+              const cleanChunk = text.replace(/<\/?think>/gi, "");
+              if (cleanChunk) {
+                controller.enqueue(encoder.encode(cleanChunk));
+                enqueuedAny = true;
+              }
             }
           } catch {
             // ignora fragmentos incompletos
@@ -286,9 +289,6 @@ async function streamGemini(models: string[], userContent: string, systemPrompt 
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: maxTokens,
-      // Desactiva el "thinking" extendido: sin esto piensa varios cientos de ms
-      // antes del primer token, y en vivo eso se nota.
-      thinkingConfig: { thinkingBudget: 0 },
     },
   };
   let detail = "";
@@ -429,7 +429,7 @@ async function streamOpenCode(models: string[], userContent: string, systemPromp
   for (const model of models) {
     if (!model) continue;
     const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
-    const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
+    const maxTokens = 1500;
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,
@@ -439,7 +439,7 @@ async function streamOpenCode(models: string[], userContent: string, systemPromp
       ],
     };
     if (isReasoning) {
-      reqBody.max_completion_tokens = systemPrompt.includes("[ES]") ? 1800 : 900;
+      reqBody.max_completion_tokens = 1800;
       reqBody.reasoning_effort = "low";
     } else {
       reqBody.max_tokens = maxTokens;
