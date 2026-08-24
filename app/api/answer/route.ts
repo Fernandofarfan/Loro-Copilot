@@ -66,25 +66,31 @@ Usá la TRANSCRIPCIÓN para sonar como una conversación real: no repitas algo q
 ## Regla de oro sobre [PREGUNTA]
 Si ese campo tiene CUALQUIER texto —por corto, informal, mal transcrito o inesperado que sea, incluso si el PERFIL o la EMPRESA están vacíos— RESPONDÉLO IGUAL con lo que tengas. Nunca evalúes si "es lo bastante clara". El ÚNICO caso en que devolvés "(esperando pregunta)" es cuando [PREGUNTA] dice literalmente "(ninguna aún)" porque no llegó nada. Nunca lo uses por dudar del contenido.`;
 
-// Sufijo para Detección Automática de Idioma
+// Sufijo para Detección Automática de Idioma y Asistencia Fonética en Vivo (Ultra Rápido)
 const AUTO_LANGUAGE_SUFFIX = `
 
-## DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE
+## DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE CON GUÍA FONÉTICA
 Tu respuesta se va a adaptar automáticamente al idioma en el que habló el entrevistador en su última pregunta.
 
 Si el entrevistador te habló en **ESPAÑOL**:
 - Respondé SOLO en español rioplatense. No uses bloques especiales.
 
 Si el entrevistador te habló en **INGLÉS** (o de repente cambia a inglés):
-- El candidato necesita leer la traducción. Tu respuesta DEBE tener EXACTAMENTE este formato — dos bloques, sin texto fuera de ellos:
-
-[ES]
-<Respuesta completa en español rioplatense, para que el candidato ENTIENDA qué tiene que decir.>
+- El candidato necesita hablar INMEDIATAMENTE en inglés y ver la fonética en tiempo real. Por eso, el orden OBLIGATORIO es [EN] primero, luego [PHO], y al final [ES]:
 
 [EN]
-<Traducción natural al inglés de la respuesta anterior. Lista para leer en voz alta tal cual.>
+<Respuesta directa y natural en inglés (máximo 2 a 3 viñetas cortas, 8-12 palabras por frase, vocabulario simple y directo sin rodeos). Lista para decir en voz alta ya mismo.>
 
-- Mantenés el mismo largo y estructura en ambos bloques.`;
+[PHO]
+<Transcripción fonética simplificada en español de TODO el bloque [EN], línea por línea, con las sílabas acentuadas en MAYÚSCULAS para que el candidato pueda leer en voz alta de corrido en español y sonar en inglés perfecto.
+Ejemplos:
+- "I design scalable microservices using FastAPI" -> "- Ai di-SAIN SKEI-la-bl MAI-kro-ser-vi-sis YU-sing FAST-ei-pi-ai"
+- "I have over eight years of experience" -> "- Ai jav O-ver EIT yiers of eks-PI-ri-ens">
+
+[ES]
+<Traducción concisa en español rioplatense en 1-2 oraciones cortas para entender conceptualmente la idea.>
+
+- Mantenés exactamente la misma correspondencia línea por línea entre [EN] y [PHO].`;
 
 const ICEBREAKER_PROMPT = `Sos un candidato en los minutos finales de una entrevista de trabajo. El entrevistador acaba de preguntar si tenés alguna duda para ellos.
 
@@ -131,6 +137,7 @@ export async function POST(req: Request) {
     provider?: string;
     model?: string;
     bilingualMode?: boolean;
+    simpleEnglish?: boolean;
     type?: "answer" | "icebreaker";
     extraInstructions?: string;
     previousAnswers?: { q: string; a: string }[];
@@ -157,7 +164,7 @@ export async function POST(req: Request) {
   const answerLangLabel = `
 INFO DE SISTEMA DE VOZ: El motor de voz detectó que el entrevistador acaba de hablar en **${detectedLang === "en" ? "INGLÉS" : "ESPAÑOL"}**.
 Teniendo esto en cuenta:
-- Si el idioma detectado es INGLÉS: Respondé usando el formato BILINGÜE (ver sección "DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE").
+- Si el idioma detectado es INGLÉS: Respondé usando el formato BILINGÜE CON GUÍA FONÉTICA [ES], [EN] y [PHO] (ver sección "DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE CON GUÍA FONÉTICA").
 - Si el idioma detectado es ESPAÑOL: Respondé SIEMPRE en Español rioplatense (sin formato especial).`;
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
@@ -281,8 +288,8 @@ async function streamGemini(models: string[], userContent: string, systemPrompt 
   if (!apiKey) {
     return new Response("Falta GEMINI_API_KEY en las variables de entorno.", { status: 500 });
   }
-  // En modo bilingüe las respuestas son más largas (dos bloques completos).
-  const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
+  // En modo bilingüe/fonético las respuestas son más completas (tres bloques).
+  const maxTokens = systemPrompt.includes("[ES]") ? 1500 : 600;
   const payload = {
     contents: [{ role: "user", parts: [{ text: userContent }] }],
     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -324,7 +331,7 @@ async function streamAnthropic(models: string[], userContent: string, systemProm
       { status: 500 }
     );
   }
-  const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
+  const maxTokens = systemPrompt.includes("[ES]") ? 1500 : 600;
   let detail = "";
   for (const model of models) {
     if (!model) continue;
@@ -377,7 +384,7 @@ async function streamOpenAI(models: string[], userContent: string, systemPrompt 
     // rechazan temperature custom y permiten bajar el esfuerzo de razonamiento
     // (clave para latencia en vivo). Los clásicos (gpt-4.x) usan max_tokens.
     const isReasoning = /^(gpt-5|o[0-9])/.test(model);
-    const maxTokens = systemPrompt.includes("[ES]") ? 1024 : 512;
+    const maxTokens = systemPrompt.includes("[ES]") ? 1500 : 600;
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,

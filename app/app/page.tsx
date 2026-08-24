@@ -33,6 +33,7 @@ type Answer = {
   text: string;
   esText: string;
   enText: string;
+  phoText?: string;
   done: boolean;
   ts: number;
   feedback: Feedback;
@@ -44,6 +45,33 @@ type Answer = {
   latencyMs?: number;
   modelName?: string;
 };
+
+const RESCUE_PHRASES = [
+  {
+    icon: "⏳",
+    label: "Ganar tiempo",
+    en: "That's a great question, let me organize my thoughts for a second.",
+    pho: "Dats a greit KUES-chon, let mi OR-ga-nais mai zots for a SE-kond.",
+  },
+  {
+    icon: "🔁",
+    label: "Pedir repetición",
+    en: "Could you please repeat that last part?",
+    pho: "Kud yu plis ri-PIT dat last part?",
+  },
+  {
+    icon: "🎯",
+    label: "Clarificar",
+    en: "To make sure I understand, are you asking about...?",
+    pho: "Tu meik shur ai an-der-STAND, ar yu AS-king a-BAUT...?",
+  },
+  {
+    icon: "🤝",
+    label: "Cierre seguro",
+    en: "Does that cover what you were looking for?",
+    pho: "Das dat KO-ver wat yu wer LUK-ing for?",
+  },
+];
 
 function fmtTime(ts: number): string {
   try {
@@ -402,6 +430,10 @@ export default function Page() {
   const [fontSize, setFontSize] = useState<number>(14);
   const [savedProfiles, setSavedProfiles] = useState<{name: string, company: string, role: string, profile: string, extraInstructions?: string}[]>([]);
 
+  // Simple English & Asistencia Fonética en vivo
+  const [simpleEnglish, setSimpleEnglish] = useState<boolean>(true);
+  const [activeRescue, setActiveRescue] = useState<typeof RESCUE_PHRASES[0] | null>(null);
+
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -508,14 +540,23 @@ export default function Page() {
   // Ventana flotante (Teleprompter Ghost Pop-out)
   const popoutRef = useRef<Window | null>(null);
 
-  const updateTeleprompter = useCallback((question: string, text: string) => {
+  const updateTeleprompter = useCallback((question: string, text: string, enText?: string, phoText?: string) => {
     if (!popoutRef.current || popoutRef.current.closed) return;
     const doc = popoutRef.current.document;
     if (!doc) return;
     const qEl = doc.getElementById("teleprompter-q");
     const aEl = doc.getElementById("teleprompter-a");
+    const phoEl = doc.getElementById("teleprompter-pho");
     if (qEl) qEl.innerText = question || "";
-    if (aEl) aEl.innerText = text || "Generando respuesta...";
+    if (aEl) aEl.innerText = enText || text || "Generando respuesta...";
+    if (phoEl) {
+      if (phoText) {
+        phoEl.innerText = phoText;
+        phoEl.style.display = "block";
+      } else {
+        phoEl.style.display = "none";
+      }
+    }
     popoutRef.current.scrollTo(0, popoutRef.current.document.body.scrollHeight);
   }, []);
 
@@ -527,7 +568,7 @@ export default function Page() {
     const win = window.open(
       "",
       "TeleprompterLoro",
-      "width=460,height=340,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no"
+      "width=480,height=360,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no"
     );
     if (!win) {
       alert("Permití las ventanas emergentes (pop-ups) para abrir el Teleprompter Flotante.");
@@ -548,14 +589,15 @@ export default function Page() {
               font-family: system-ui, -apple-system, sans-serif;
               margin: 0;
               padding: 16px;
-              font-size: 17px;
-              line-height: 1.6;
+              font-size: 16px;
+              line-height: 1.5;
             }
             .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 8px; margin-bottom: 12px; }
             .badge { background: #10b981; color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; }
-            .q-box { color: #a1a1aa; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-            .q-text { color: #38bdf8; font-weight: 600; font-size: 15px; margin-bottom: 14px; }
-            .a-text { color: #f4f4f5; white-space: pre-wrap; font-weight: 500; }
+            .q-box { color: #a1a1aa; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+            .q-text { color: #38bdf8; font-weight: 600; font-size: 14px; margin-bottom: 12px; }
+            .a-text { color: #f4f4f5; white-space: pre-wrap; font-weight: 600; font-size: 16px; margin-bottom: 10px; }
+            .pho-text { color: #fbbf24; background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 14px; white-space: pre-wrap; line-height: 1.6; }
           </style>
         </head>
         <body>
@@ -565,8 +607,9 @@ export default function Page() {
           </div>
           <div class="q-box">💬 Pregunta</div>
           <div id="teleprompter-q" class="q-text">${lastAns?.question || "Esperando pregunta..."}</div>
-          <div class="q-box">⭐ Respuesta</div>
-          <div id="teleprompter-a" class="a-text">${lastAns?.cleanText || lastAns?.text || "Las sugerencias aparecerán acá..."}</div>
+          <div class="q-box">⭐ Lo que decís (Inglés)</div>
+          <div id="teleprompter-a" class="a-text">${lastAns?.enText || lastAns?.cleanText || lastAns?.text || "Las sugerencias aparecerán acá..."}</div>
+          <div id="teleprompter-pho" class="pho-text" style="${lastAns?.phoText ? "" : "display:none;"}">${lastAns?.phoText || ""}</div>
         </body>
       </html>
     `);
@@ -702,7 +745,7 @@ export default function Page() {
     async (id: number, question: string, controller: AbortController, attempt = 0, type: "answer" | "icebreaker" = "answer") => {
       // Crea/resetea la tarjeta (en un reintento la vaciamos para re-streamear).
       setAnswers((prev) => {
-        const card: Answer = { id, question, text: "", esText: "", enText: "", done: false, ts: Date.now(), feedback: null, bilingual: false, cheats: [], alert: "", snippet: "", cleanText: "" };
+        const card: Answer = { id, question, text: "", esText: "", enText: "", phoText: "", done: false, ts: Date.now(), feedback: null, bilingual: false, cheats: [], alert: "", snippet: "", cleanText: "" };
         return prev.some((a) => a.id === id)
           ? prev.map((a) => (a.id === id ? card : a))
           : [...prev, card].slice(-20); // cronológico: nuevas abajo
@@ -723,6 +766,7 @@ export default function Page() {
             question,
             type,
             detectedLang: detectedLangRef.current,
+            simpleEnglish,
             extraInstructions,
             previousAnswers: answersRef.current
               .filter(a => a.done && a.text)
@@ -742,7 +786,7 @@ export default function Page() {
           setAnswers((prev) =>
             prev.map((a) =>
               a.id === id
-                ? { ...a, text: detail ? `⚠️ ${detail}` : "· Error generando respuesta.", esText: "", enText: "", done: true, cheats: [], alert: "", snippet: "", cleanText: "" }
+                ? { ...a, text: detail ? `⚠️ ${detail}` : "· Error generando respuesta.", esText: "", enText: "", phoText: "", done: true, cheats: [], alert: "", snippet: "", cleanText: "" }
                 : a
             )
           );
@@ -764,7 +808,7 @@ export default function Page() {
           const latencyMs = firstTokenTs ? firstTokenTs - startedAt : Date.now() - startedAt;
           const parsed = parseBlocks(acc);
           setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed, latencyMs, modelName: modelRef.current.label } : a)));
-          updateTeleprompter(question, parsed.cleanText || acc);
+          updateTeleprompter(question, parsed.cleanText || acc, parsed.enText, parsed.phoText);
         }
         // El modelo a veces devuelve el placeholder "(esperando pregunta)" (o
         // texto vacío) en la primera respuesta, aunque la pregunta sea real.
@@ -777,6 +821,7 @@ export default function Page() {
         }
         const finalParsed = parseBlocks(acc);
         setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...finalParsed, done: true } : a)));
+        updateTeleprompter(question, finalParsed.cleanText || acc, finalParsed.enText, finalParsed.phoText);
         track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt });
       } catch (err: any) {
         if (err?.name === "AbortError") return;
@@ -786,27 +831,28 @@ export default function Page() {
         track("answer_failed", { reason: err?.message || "network_error", duration_ms: Date.now() - startedAt });
       }
     },
-    [profile, company, role, autoMode, modelId, extraInstructions]
+    [profile, company, role, autoMode, modelId, extraInstructions, simpleEnglish]
   );
 
-  // Parsea todos los bloques especiales (Bilingüe, Cheats, Alert, Snippet)
-  // Funciona con el stream a medias.
+  // Parsea todos los bloques especiales (Bilingüe con Fonética, Cheats, Alert, Snippet)
+  // Funciona con el stream a medias desde el token 1.
   function parseBlocks(raw: string) {
-    const esMatch = raw.match(/\[ES\]([\s\S]*?)(?:\[EN\]|$)/);
-    const enMatch = raw.match(/\[EN\]([\s\S]*)$/);
+    const enMatch = raw.match(/\[EN\]([\s\S]*?)(?=\[(?:PHO|ES|ALERT|CHEATS|SNIPPET)\]|$)/i);
+    const phoMatch = raw.match(/\[PHO\]([\s\S]*?)(?=\[(?:EN|ES|ALERT|CHEATS|SNIPPET)\]|$)/i);
+    const esMatch = raw.match(/\[ES\]([\s\S]*?)(?=\[(?:EN|PHO|ALERT|CHEATS|SNIPPET)\]|$)/i);
     
     // Remover las etiquetas para que no se muestren en el texto principal
     let cleanText = raw;
     
-    const alertMatch = cleanText.match(/\[ALERT\]([\s\S]*?)(?:\[\/ALERT\]|$)/);
+    const alertMatch = cleanText.match(/\[ALERT\]([\s\S]*?)(?:\[\/ALERT\]|$)/i);
     const alert = alertMatch ? alertMatch[1].trim() : "";
     if (alertMatch) cleanText = cleanText.replace(alertMatch[0], "");
 
-    const cheatsMatch = cleanText.match(/\[CHEATS\]([\s\S]*?)(?:\[\/CHEATS\]|$)/);
+    const cheatsMatch = cleanText.match(/\[CHEATS\]([\s\S]*?)(?:\[\/CHEATS\]|$)/i);
     const cheats = cheatsMatch ? cheatsMatch[1].trim().split("|").map(s => s.trim()).filter(Boolean) : [];
     if (cheatsMatch) cleanText = cleanText.replace(cheatsMatch[0], "");
 
-    const snippetMatch = cleanText.match(/\[SNIPPET\]([\s\S]*?)(?:\[\/SNIPPET\]|$)/);
+    const snippetMatch = cleanText.match(/\[SNIPPET\]([\s\S]*?)(?:\[\/SNIPPET\]|$)/i);
     let snippet = snippetMatch ? snippetMatch[1].trim() : "";
     if (snippet.startsWith("```") && snippet.endsWith("```")) {
       // Limpiar backticks si el LLM los mete adentro del SNIPPET
@@ -819,9 +865,18 @@ export default function Page() {
       cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
     }
 
+    const cleanBlock = (m: RegExpMatchArray | null) =>
+      m ? m[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/gi, "").trim() : "";
+
+    const enText = cleanBlock(enMatch);
+    const phoText = cleanBlock(phoMatch);
+    const esText = cleanBlock(esMatch);
+
     return {
-      esText: esMatch ? esMatch[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/g, "").trim() : "",
-      enText: enMatch ? enMatch[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/g, "").trim() : "",
+      bilingual: !!(enMatch || esMatch),
+      esText,
+      enText,
+      phoText,
       cleanText: cleanText.trim(),
       alert,
       cheats,
@@ -1446,6 +1501,36 @@ export default function Page() {
       {!live && (
         <div>
           <div className="selectors-row">
+            <div className="field">
+              <label className="mono form-label">Asistencia de Inglés</label>
+              <button
+                type="button"
+                onClick={() => setSimpleEnglish((s) => !s)}
+                className="mono"
+                style={{
+                  height: 38,
+                  padding: "0 12px",
+                  borderRadius: 8,
+                  border: simpleEnglish ? "1px solid var(--loro-green)" : "1px solid var(--line-strong)",
+                  background: simpleEnglish ? "rgba(16, 185, 129, 0.12)" : "var(--bg)",
+                  color: simpleEnglish ? "var(--loro-green)" : "var(--ink-dim)",
+                  fontWeight: 600,
+                  fontSize: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+                title="Activa oraciones cortas y guía fonética simplificada en español para leer fluido"
+              >
+                <span>{simpleEnglish ? "🗣️ Guía Fonética & Simple" : "🌐 Inglés Estándar"}</span>
+                <span style={{ fontSize: 10, background: simpleEnglish ? "var(--loro-green)" : "var(--line-strong)", color: simpleEnglish ? "#000" : "var(--ink-dim)", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>
+                  {simpleEnglish ? "ON" : "OFF"}
+                </span>
+              </button>
+            </div>
 
             <div className="field">
               <label className="mono form-label">Modelo de IA</label>
@@ -1773,6 +1858,84 @@ export default function Page() {
       <section style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 4 }}>
         {live && tab === "answer" && (
           <div className="panel" style={{ flex: 1, minHeight: 0, padding: compactUi ? "8px" : undefined }}>
+            
+            {/* Barra de Frases de Emergencia / Rescate en Vivo */}
+            <div style={{ marginBottom: 10, background: "rgba(245, 158, 11, 0.05)", border: "1px solid rgba(245, 158, 11, 0.2)", borderRadius: 10, padding: "8px 12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.5px" }}>
+                  ⚡ FRASES DE RESCATE (GANAR TIEMPO & CLARIFICAR)
+                </span>
+                <button
+                  onClick={() => setSimpleEnglish((s) => !s)}
+                  className="mono"
+                  style={{
+                    fontSize: 10.5,
+                    padding: "2px 8px",
+                    borderRadius: 6,
+                    border: simpleEnglish ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid var(--line-strong)",
+                    background: simpleEnglish ? "rgba(16, 185, 129, 0.15)" : "transparent",
+                    color: simpleEnglish ? "var(--loro-green)" : "var(--ink-dim)",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                  title="Forzar respuestas cortas y guía fonética simplificada"
+                >
+                  {simpleEnglish ? "✓ Inglés Simple & Fonética ON" : "Inglés Simple OFF"}
+                </button>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {RESCUE_PHRASES.map((r, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveRescue(activeRescue?.label === r.label ? null : r)}
+                    className="mono"
+                    style={{
+                      fontSize: 11.5,
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      border: activeRescue?.label === r.label ? "1px solid #f59e0b" : "1px solid var(--line-strong)",
+                      background: activeRescue?.label === r.label ? "rgba(245, 158, 11, 0.2)" : "var(--bg)",
+                      color: activeRescue?.label === r.label ? "#fbbf24" : "var(--ink)",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span>{r.icon}</span>
+                    <span>{r.label}</span>
+                  </button>
+                ))}
+              </div>
+              {activeRescue && (
+                <div style={{ marginTop: 8, padding: "10px 12px", background: "var(--panel)", borderRadius: 8, border: "1px solid #f59e0b", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>🇺🇸 {activeRescue.en}</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => playTTS(activeRescue.en)}
+                        style={{ background: "rgba(56, 189, 248, 0.15)", color: "#0284c7", border: "1px solid rgba(56, 189, 248, 0.3)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+                        title="Escuchar pronunciación"
+                      >
+                        🔊 Escuchar
+                      </button>
+                      <button
+                        onClick={() => copyAnswer(99999, activeRescue.en)}
+                        style={{ background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--line-strong)", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 12 }}
+                        title="Copiar"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ padding: "6px 10px", background: "rgba(245, 158, 11, 0.1)", borderRadius: 6, border: "1px solid rgba(245, 158, 11, 0.25)", fontSize: 12.5, color: "#b45309", fontFamily: "monospace", fontWeight: 700 }}>
+                    🗣️ {activeRescue.pho}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {answers.length > 0 && (
               <div style={{ marginBottom: 8 }}>
                 <input
@@ -1854,48 +2017,80 @@ export default function Page() {
                     )}
 
                     {a.bilingual ? (
-                      // Modo bilingüe: dos bloques
-                      <>
-                        <div className="answer-card-a-row" style={{ marginTop: 8 }}>
-                          <span className="answer-card-label answer-card-label-a">🇦🇷 Entendé</span>
-                          <div className="answer-card-text" style={{ color: "var(--ink-dim)", fontSize: "0.95em" }}>
+                      // Modo bilingüe con 3 bloques bien definidos y visibles
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+                        {/* 1. ESPAÑOL: PARA ENTENDER */}
+                        <div style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--loro-green-bright)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                              🇦🇷 1. Entendé la idea (Español)
+                            </span>
+                          </div>
+                          <div className="answer-card-text" style={{ color: "var(--ink-dim)", fontSize: "0.95em", lineHeight: 1.5 }}>
                             {a.esText ? (
                               <MarkdownText text={a.esText} />
                             ) : (
-                              <span className="mono answer-card-loading">generando…</span>
+                              <span className="mono answer-card-loading">generando resumen en español…</span>
                             )}
                           </div>
                         </div>
-                        <div className="answer-card-a-row" style={{ marginTop: 8, background: "rgba(59,130,246,0.06)", borderRadius: 8, padding: "8px 0" }}>
-                          <span className="answer-card-label answer-card-label-a" style={{ color: "#3b82f6", display: "flex", alignItems: "center", gap: 8 }}>
-                            🇺🇸 Decí esto
+
+                        {/* 2. INGLÉS: LO QUE DECÍS EN LA ENTREVISTA */}
+                        <div style={{ background: "rgba(59, 130, 246, 0.05)", border: "1.5px solid rgba(59, 130, 246, 0.3)", borderRadius: 10, padding: "12px 14px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#0284c7", letterSpacing: "0.5px", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
+                              🇺🇸 2. Decí esto en la llamada (Inglés)
+                            </span>
                             {a.enText && (
-                              <button
-                                onClick={() => playTTS(a.enText)}
-                                className="tts-button"
-                                style={{ background: "rgba(59,130,246,0.1)", border: "none", cursor: "pointer", padding: "2px 6px", fontSize: 16, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}
-                                title="Escuchar pronunciación"
-                              >
-                                🔊
-                              </button>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={() => playTTS(a.enText)}
+                                  className="tts-button"
+                                  style={{ background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.3)", cursor: "pointer", padding: "3px 10px", fontSize: 12, borderRadius: 6, display: "flex", alignItems: "center", gap: 4, color: "#0284c7", fontWeight: 700 }}
+                                  title="Escuchar cómo se pronuncia"
+                                >
+                                  🔊 Escuchar
+                                </button>
+                                <button
+                                  onClick={() => copyAnswer(a.id, a.enText)}
+                                  style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", cursor: "pointer", padding: "3px 8px", fontSize: 12, borderRadius: 6, display: "flex", alignItems: "center", color: "var(--ink)" }}
+                                  title="Copiar texto en inglés"
+                                >
+                                  📋
+                                </button>
+                              </div>
                             )}
-                          </span>
-                          <div className="answer-card-text" style={{ fontWeight: 500, whiteSpace: "pre-wrap", fontSize: "1.05em" }}>
+                          </div>
+                          <div className="answer-card-text" style={{ fontWeight: 600, whiteSpace: "pre-wrap", fontSize: "1.1em", color: "var(--ink)", lineHeight: 1.6 }}>
                             {a.enText ? (
                               <MarkdownText text={a.enText} />
                             ) : a.esText ? (
-                              <span className="mono answer-card-loading">esperando al traductor…</span>
+                              <span className="mono answer-card-loading">traduciendo al inglés…</span>
                             ) : (
                               <span className="mono answer-card-loading">generando…</span>
                             )}
                           </div>
                         </div>
-                      </>
+
+                        {/* 3. FONÉTICA: CÓMO LEERLO EN VOZ ALTA */}
+                        {a.phoText && (
+                          <div style={{ background: "rgba(245, 158, 11, 0.08)", border: "1.5px solid rgba(245, 158, 11, 0.35)", borderRadius: 10, padding: "12px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontSize: 11.5, fontWeight: 800, color: "#b45309", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                                🗣️ 3. Pronunciación fonética (Leé esto en voz alta):
+                              </span>
+                            </div>
+                            <div style={{ color: "#92400e", background: "rgba(255, 255, 255, 0.7)", padding: "10px 12px", borderRadius: 6, border: "1px solid rgba(245, 158, 11, 0.2)", fontFamily: "monospace", fontSize: "0.98em", lineHeight: 1.7, whiteSpace: "pre-wrap", fontWeight: 600, letterSpacing: "0.3px" }}>
+                              {a.phoText}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       // Modo normal: un solo bloque
                       <div className="answer-card-a-row" style={{ marginTop: 8 }}>
                         <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
-                        <div className="answer-card-text" style={{ fontSize: "1.05em", fontWeight: 500 }}>
+                        <div className="answer-card-text" style={{ fontSize: "1.05em", fontWeight: 500, color: "var(--ink)" }}>
                           {a.text ? (
                             <MarkdownText text={a.cleanText || a.text} />
                           ) : (
