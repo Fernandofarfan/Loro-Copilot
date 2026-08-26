@@ -277,8 +277,8 @@ function buildDgUrl(): string {
     language: "multi",
     smart_format: "true",
     interim_results: "true",
-    endpointing: "500",
-    utterance_end_ms: "800", // Optimizado a 800ms para latencia mínima al fin de turno
+    endpointing: "300",
+    utterance_end_ms: "1000", // Mínimo soportado por Deepgram para detección ultra-rápida de fin de turno
     vad_events: "true",
     diarize: "true",
     encoding: "linear16",
