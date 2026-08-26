@@ -5,7 +5,7 @@ import { track, identify } from "../lib/track";
 import { BrandLogo } from "../lib/BrandLogo";
 import { MarkdownText } from "../components/MarkdownText";
 import { AnswerCard } from "../components/AnswerCard";
-import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer, checkInstantGreeting, type MasterAnswer } from "../lib/interviewHelpers";
+import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer, checkInstantGreeting, DEFAULT_EPAM_MASTER_ANSWERS, type MasterAnswer } from "../lib/interviewHelpers";
 import {
   SparkleIcon,
   OpenAIMark,
@@ -554,7 +554,12 @@ export default function Page() {
       if (sp) setSavedProfiles(JSON.parse(sp));
 
       const storedMaster = localStorage.getItem(LS_ANSWERS_KEY);
-      if (storedMaster) setMasterAnswers(JSON.parse(storedMaster));
+      if (storedMaster && JSON.parse(storedMaster).length > 0) {
+        setMasterAnswers(JSON.parse(storedMaster));
+      } else {
+        setMasterAnswers(DEFAULT_EPAM_MASTER_ANSWERS);
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(DEFAULT_EPAM_MASTER_ANSWERS));
+      }
       
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
@@ -1652,6 +1657,13 @@ Devolvé un JSON array con objetos: [{"question": "...", "enText": "...", "esTex
                   "EPAM SENIOR RUBRIC: Seguir esquema Context -> Assumptions -> Approach -> Trade-offs -> Validation. En coding/algoritmos: plantear edge cases, complejidad Big-O y código Python 3.11+ limpio y tipado (sin clever one-liners). Anclar a experiencia real en Reforest Latam, FastAPI y PostgreSQL."
                 );
                 setSimpleEnglish(true);
+                setMasterAnswers((prev) => {
+                  const merged = [...DEFAULT_EPAM_MASTER_ANSWERS, ...prev.filter(p => !DEFAULT_EPAM_MASTER_ANSWERS.some(d => d.id === p.id))];
+                  try {
+                    localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(merged));
+                  } catch {}
+                  return merged;
+                });
               }}
             >
               ⚡ Preset EPAM (Senior Python)

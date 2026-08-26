@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MasterAnswer } from "../lib/interviewHelpers";
+import { MasterAnswer, DEFAULT_EPAM_MASTER_ANSWERS } from "../lib/interviewHelpers";
 
 export interface SavedProfile {
   name: string;
@@ -15,7 +15,7 @@ const LS_KEY = "copiloto:context:v1";
 const LS_PROFILES_KEY = "loro-saved-profiles";
 const LS_ANSWERS_KEY = "loro-master-answers:v1";
 
-export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", availableModelIds: string[] = []) {
+export function useInterviewContext(defaultModelId: string = "deepseek-flash", availableModelIds: string[] = []) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState("");
@@ -35,8 +35,11 @@ export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", ava
       }
 
       const storedAnswers = localStorage.getItem(LS_ANSWERS_KEY);
-      if (storedAnswers) {
+      if (storedAnswers && JSON.parse(storedAnswers).length > 0) {
         setMasterAnswers(JSON.parse(storedAnswers));
+      } else {
+        setMasterAnswers(DEFAULT_EPAM_MASTER_ANSWERS);
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(DEFAULT_EPAM_MASTER_ANSWERS));
       }
 
       const raw = localStorage.getItem(LS_KEY);
@@ -153,6 +156,13 @@ export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", ava
     setExtraInstructions(
       "EPAM SENIOR RUBRIC: Seguir esquema Context -> Assumptions -> Approach -> Trade-offs -> Validation. En coding/algoritmos: plantear edge cases, complejidad Big-O y código Python 3.11+ limpio y tipado (sin clever one-liners). Anclar a experiencia real en Reforest Latam, FastAPI y PostgreSQL."
     );
+    setMasterAnswers((prev) => {
+      const merged = [...DEFAULT_EPAM_MASTER_ANSWERS, ...prev.filter(p => !DEFAULT_EPAM_MASTER_ANSWERS.some(d => d.id === p.id))];
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(merged));
+      } catch {}
+      return merged;
+    });
   }, []);
 
   return {
