@@ -22,6 +22,29 @@ export function detectTrickQuestion(q: string): string | null {
   return null;
 }
 
+/**
+ * Reconoce saludos y small talk de apertura para responder en <10ms sin llamar al LLM
+ */
+export function checkInstantGreeting(q: string, company = ""): { enText: string; esText: string; cleanText: string } | null {
+  const lower = (q || "").trim().toLowerCase();
+  // Validar si es saludo o pregunta de bienestar corta (<50 chars)
+  const isGreeting = /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|c[oó]mo est[aá]s?|qu[eé] tal|todo bien|qu[eé] onda|hi|hello|hey|how are you|how is it going|how are you doing|can you hear me|me escuchas|me escuch[aá]s)\b/i.test(lower) && lower.length < 60;
+
+  if (!isGreeting) return null;
+
+  const comp = company ? `el equipo de ${company}` : "ustedes";
+  const compEn = company ? `the team at ${company}` : "everyone";
+
+  const es = `¡Hola! Muy bien, gracias por preguntar. Un gusto enorme estar acá charlando con ${comp} hoy, listo para arrancar.`;
+  const en = `Hi! I'm doing great, thank you for asking. It's a pleasure to be here and I'm really excited to chat with ${compEn} today.`;
+
+  return {
+    enText: en,
+    esText: es,
+    cleanText: es,
+  };
+}
+
 export function fmtTime(ts: number): string {
   const d = new Date(ts);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });

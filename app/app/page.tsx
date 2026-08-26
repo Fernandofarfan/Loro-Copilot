@@ -5,7 +5,7 @@ import { track, identify } from "../lib/track";
 import { BrandLogo } from "../lib/BrandLogo";
 import { MarkdownText } from "../components/MarkdownText";
 import { AnswerCard } from "../components/AnswerCard";
-import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer, type MasterAnswer } from "../lib/interviewHelpers";
+import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer, checkInstantGreeting, type MasterAnswer } from "../lib/interviewHelpers";
 import {
   SparkleIcon,
   OpenAIMark,
@@ -98,10 +98,10 @@ function ProviderIcon({ provider }: { provider: Provider }) {
 
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 const MODELS: ModelOption[] = [
-  { id: "mimo-v25-pro", label: "MiMo V2.5 Pro ⚡", provider: "opencode", model: "mimo-v2.5-pro", tag: "Favorito (Ultra Rápido)" },
-  { id: "deepseek-flash", label: "DeepSeek V4 Flash", provider: "opencode", model: "deepseek-v4-flash", tag: "Recomendado" },
-  { id: "gpt-5-luna", label: "GPT 5.6 Luna ⚡", provider: "opencode", model: "gpt-5.6-luna", tag: "OpenAI" },
-  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Rápido" },
+  { id: "deepseek-flash", label: "DeepSeek V4 Flash ⚡", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido (Recomendado)" },
+  { id: "gemini-flash", label: "Gemini 3.6 Flash ⚡", provider: "gemini", model: "gemini-3.6-flash", tag: "Google (Ultra Rápido)" },
+  { id: "mimo-v25-pro", label: "MiMo V2.5 Pro 🧠", provider: "opencode", model: "mimo-v2.5-pro", tag: "Razonamiento Profundo (+10s)" },
+  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Pensamiento (+10s)" },
   { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Pensamiento (+15s)" },
   { id: "deepseek-pro", label: "DeepSeek V4 Pro", provider: "opencode", model: "deepseek-v4-pro", tag: "Pro" },
   { id: "qwen37-max", label: "Qwen 3.7 Max", provider: "opencode", model: "qwen3.7-max", tag: "Alibaba" },
@@ -111,7 +111,6 @@ const MODELS: ModelOption[] = [
   { id: "kimi-k27-code", label: "Kimi K2.7 Code", provider: "opencode", model: "kimi-k2.7-code", tag: "Moonshot" },
   { id: "grok-4-5", label: "Grok 4.5", provider: "opencode", model: "grok-4.5", tag: "xAI" },
   { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Tencent" },
-  { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
 ];
 
 function ClockIcon() {
@@ -269,7 +268,7 @@ function Dropdown({
 
 
 // ---------- Modelos de LLM ----------
-const DEFAULT_MODEL_ID = "mimo-v25-pro";
+const DEFAULT_MODEL_ID = "deepseek-flash";
 
 function buildDgUrl(): string {
   const params = new URLSearchParams({
@@ -787,8 +786,40 @@ Devolvé un JSON array con objetos: [{"question": "...", "enText": "...", "esTex
       q = "Tell me about yourself and your experience for this role";
     }
 
-    // ⚡ 1. Comprobación de Memoria Inteligente Instantánea (<50ms)
-    const matchRes = findMatchingAnswer(q, masterAnswersRef.current, 0.48);
+    // ⚡ 1. Saludos y Aperturas Inmediatas (<10ms)
+    const instantGreeting = checkInstantGreeting(q, company);
+    if (instantGreeting) {
+      const id = ++ansId.current;
+      playChimeSound();
+      const isEnglishInterview = detectedLangRef.current === "en";
+      const mainText = isEnglishInterview ? instantGreeting.enText : instantGreeting.esText;
+      const card: Answer = {
+        id,
+        question: q,
+        text: mainText,
+        enText: instantGreeting.enText,
+        esText: instantGreeting.esText,
+        cleanText: mainText,
+        done: true,
+        ts: Date.now(),
+        feedback: null,
+        bilingual: true,
+        cheats: ["Saludo cordial", "Actitud positiva"],
+        alert: "",
+        snippet: "",
+        latencyMs: 8,
+        modelName: "Respuesta Inmediata ⚡",
+        fromMemory: true,
+      };
+      setAnswers((prev) => [...prev, card].slice(-20));
+      setTab("answer");
+      updateTeleprompter(q, mainText, instantGreeting.enText, instantGreeting.esText, false, true);
+      track("greeting_instant_served");
+      return;
+    }
+
+    // ⚡ 2. Comprobación de Memoria Inteligente Instantánea (<50ms)
+    const matchRes = findMatchingAnswer(q, masterAnswersRef.current, 0.35);
     if (matchRes) {
       const match = matchRes.match;
       const id = ++ansId.current;
@@ -818,12 +849,12 @@ Devolvé un JSON array con objetos: [{"question": "...", "enText": "...", "esTex
       return;
     }
 
-    // ⚡ 2. Generación LLM Streaming si no está en memoria
+    // ⚡ 3. Generación LLM Streaming si no está en memoria
     const id = ++ansId.current;
     const controller = new AbortController();
     turnRef.current = { id, sentText: q, controller };
     runGenerate(id, q, controller, 0, "answer");
-  }, [runGenerate, updateTeleprompter]);
+  }, [runGenerate, updateTeleprompter, company]);
 
   const askIcebreaker = useCallback(() => {
     if (isGeneratingRef.current) return;

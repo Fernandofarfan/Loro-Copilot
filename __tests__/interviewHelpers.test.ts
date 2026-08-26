@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer } from "../app/lib/interviewHelpers";
+import { classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer, checkInstantGreeting } from "../app/lib/interviewHelpers";
 
 describe("interviewHelpers", () => {
   describe("classifyQuestion", () => {
@@ -21,6 +21,26 @@ describe("interviewHelpers", () => {
     it("debe clasificar preguntas generales como fallback", () => {
       const res = classifyQuestion("¿Cómo estás hoy?");
       expect(res.label).toContain("General");
+    });
+  });
+
+  describe("checkInstantGreeting", () => {
+    it("debe reconocer saludos en español y devolver respuesta inmediata", () => {
+      const res = checkInstantGreeting("Hola buenas, cómo estás?", "EPAM Systems");
+      expect(res).not.toBeNull();
+      expect(res?.esText).toContain("EPAM Systems");
+      expect(res?.enText).toContain("EPAM Systems");
+    });
+
+    it("debe reconocer saludos en inglés", () => {
+      const res = checkInstantGreeting("Hi, how is it going?", "Google");
+      expect(res).not.toBeNull();
+      expect(res?.enText).toContain("Google");
+    });
+
+    it("debe devolver null para preguntas técnicas o no-saludos", () => {
+      const res = checkInstantGreeting("Explicame el GIL en Python", "EPAM");
+      expect(res).toBeNull();
     });
   });
 
