@@ -1,72 +1,68 @@
 # AGENTS.md
 
-Contexto para agentes de IA (Claude Code, Cursor, etc.) que trabajen en este repo.
+Contexto para agentes de IA (Claude Code, Cursor, Antigravity, etc.) que trabajen en este repo.
 
 ## Qué es esto
 
-**Interview Copilot** — asistente profesional de entrevistas con IA en tiempo real. Escucha
-la entrevista por mic o audio de pestaña (Meet/Zoom), transcribe en vivo con Deepgram y,
-al tocar "Responder", genera una respuesta con un LLM ancladas al CV/empresa/puesto que
-cargó el usuario. Producto en español, sin login, sin fricción — pensado para viralizar
-por WhatsApp.
+**Loro Copilot** — asistente profesional de entrevistas con IA en tiempo real. Escucha la entrevista por micrófono o audio de pestaña (Meet/Zoom), transcribe en vivo con Deepgram y, al dispararse el turno ("Responder"), genera respuestas inmediatas con LLM ancladas al CV, empresa y puesto del usuario.
 
-Deploy: Next.js 14 (App Router) en Vercel. Proyecto de Vercel: `interview-copilot`. URL de
-producción: `https://loro-copilot.vercel.app`.
+Incluye modo de **Teleprompter HUD pop-out**, **asistencia fonética bilingüe (`[EN]`, `[PHO]`, `[ES]`)**, **simulador de entrevistas con evaluación automatizada** y soporte multi-modelo (`opencode`, `gemini`, `anthropic`, `openai`).
 
-## Cómo correrlo
+Deploy: Next.js 14 (App Router) en Vercel. Proyecto: `loro-copilot`. URL de producción: `https://loro-copilot.vercel.app`.
+
+## Cómo correrlo y probarlo
 
 ```bash
 npm install
-cp .env.example .env.local   # completar DEEPGRAM_API_KEY y GEMINI_API_KEY como mínimo
+cp .env.example .env.local   # Completar al menos DEEPGRAM_API_KEY y OPENCODE_API_KEY / GEMINI_API_KEY
 npm run dev
 ```
 
-No hay `lint` ni `test` en `package.json` — no hay suite de tests ni linter configurado
-en este proyecto. Para chequear tipos: `npx tsc --noEmit` (requiere `npm install` primero,
-si no vas a ver ruido de módulos faltantes que no tiene que ver con tu cambio).
+### Comandos de Validación
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa en `__tests__/`).
+- **Chequeo de tipos:** `npx tsc --noEmit`.
+- **Build de producción:** `npm run build`.
 
-## Estructura
+## Estructura de Archivos
 
-- `app/app/page.tsx` — **toda** la UI y lógica de cliente en un solo componente grande
-  (estado, WebSocket a Deepgram, generación de respuestas).
-  Es el archivo que más se toca.
-- `app/api/deepgram-token/route.ts` — emite un token temporal (grant, 60s) de Deepgram.
-  La API key permanente nunca llega al browser.
-- `app/api/answer/route.ts` — genera la respuesta con streaming. Soporta tres providers
-  (`gemini` | `anthropic` | `openai`) aunque la UI hoy solo expone modelos Gemini.
-- `app/lib/track.ts` — wrapper de analytics (`track()`, `identify()`), fail-safe (nunca
-  rompe la UI). Todo evento nuevo se agrega al union type `FunnelEvent` acá.
+- `app/app/page.tsx` — Vista principal del Copiloto en vivo (estado de audio, WebSocket a Deepgram, renderizado en streaming, VAD híbrido, sincronización con Teleprompter).
+- `app/simulador/page.tsx` — Simulador interactivo de entrevistas (Avatar, TTS con Web Speech API, reporte de métricas y feedback).
+- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; sincronizado vía `BroadcastChannel` y `localStorage`.
+- `app/components/` — Componentes modulares de UI (`AnswerCard`, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
+- `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles y contexto de entrevista.
+- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE y soporte multi-modelo (`MiMo`, `DeepSeek`, `GLM`, `GPT`, `Gemini`, `Claude`).
+- `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
+- `app/api/simulador/route.ts` — Generador de preguntas dinámicas y feedback estructurado JSON.
+- `app/api/summary/route.ts` — Generador de resumen post-entrevista en Markdown.
+- `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider con timeouts (`AbortController`) y fallback inteligente.
+- `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria.
+- `app/lib/interviewHelpers.ts` — Clasificador de preguntas, detector de preguntas trampa y parser de bloques (`[EN]`, `[PHO]`, `[ES]`).
+- `app/lib/track.ts` — Wrapper fail-safe de analytics (`track()`, `identify()`).
+- `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a Int16 (PCM16 16kHz).
+- `__tests__/` — Tests unitarios automatizados (`interviewHelpers`, `llm`, `parseBlocks`, `security`).
 
-## Convenciones del código
+## Convenciones de Código
 
-- Comentarios en **español**, solo para el "por qué" no obvio (constraints, decisiones de
-  producto, workarounds). No comentar lo que el código ya dice.
-- Analytics: siempre a través de `track()`/`identify()` de `app/lib/track.ts`. Nombrar eventos en snake_case
-  (`answer_requested`, no `answerRequested`).
-- El generar respuesta es **siempre manual** (botón "Responder"), nunca automático
-  mientras la persona habla — es una decisión de producto explícita, no la cambies sin
-  que te lo pidan.
-- Runtime `edge` en las rutas de API (`export const runtime = "edge"`) — ojo con APIs de
-  Node que no existen en Edge.
+- **Comentarios en español**: Solo para el "por qué" no obvio (constraints, decisiones de producto, workarounds). No comentar lo evidente.
+- **Analytics**: Siempre a través de `track()` / `identify()` de `app/lib/track.ts`. Nombres de eventos en `snake_case` (ej. `answer_requested`).
+- **Disparo de respuestas**: Tanto manual como automático por detección de fin de turno (`UtteranceEnd`), controlado por el usuario.
+- **Runtime `edge`**: Mantener `export const runtime = "edge"` en todas las rutas de `app/api/`. Evitar módulos exclusivos de Node.js (como `fs` o `net`).
+- **Seguridad**: Toda nueva ruta de API debe invocar `verifyOrigin(req)` y `checkRateLimit(req)`.
 
-## Variables de entorno
-
-Ver `.env.example` para la lista completa y comentarios. Resumen:
+## Variables de Entorno
 
 | Variable | Requerida | Qué hace |
-|---|---|---|
-| `DEEPGRAM_API_KEY` | Sí | Transcripción streaming |
-| `GEMINI_API_KEY` | Sí | Generación de respuestas (provider default) |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | No | Providers alternativos, soportados en backend, sin UI hoy |
-| `GEMINI_MODEL` / `ANTHROPIC_MODEL` / `OPENAI_MODEL` | No | Override de modelo por provider |
+|---|:---:|---|
+| `DEEPGRAM_API_KEY` | Sí | Transcripción en streaming con Deepgram Nova-2. |
+| `OPENCODE_API_KEY` / `OPENROUTER_API_KEY` | No | Modelos de OpenCode / OpenRouter (MiMo, DeepSeek, GLM, GPT Luna). |
+| `GEMINI_API_KEY` | No | Modelos Google Gemini Flash. |
+| `ANTHROPIC_API_KEY` | No | Modelos Anthropic Claude. |
+| `OPENAI_API_KEY` | No | Modelos OpenAI GPT. |
+| `LLM_PROVIDER` | No | Override de proveedor predeterminado (`opencode`, `gemini`, etc.). |
+| `NEXT_PUBLIC_POSTHOG_KEY` | No | Telemetría PostHog en cliente. |
 
+## Flujo de Deploy
 
-Las `NEXT_PUBLIC_*` se leen en build time — cambiarlas en Vercel requiere redeploy.
+- La rama `main` despliega automáticamente a producción en Vercel al hacer `git push`.
+- Asegurarse de correr `npm test` y `npx tsc --noEmit` antes de pushear cambios a `main`.
 
-## Deploy y ramas
-
-- `main` se deployea solo a producción en Vercel al hacer push (Git integration).
-- Flujo típico: rama de trabajo → commit → PR → merge (squash) a `main` → Vercel
-  redeploya solo.
-- No hay CI configurado (`.github/workflows` no existe) — el único check automático en
-  los PRs es el deployment de preview de Vercel.

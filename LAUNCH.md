@@ -104,7 +104,7 @@ en vez de vender, y UN solo link. Adaptar el tono a cada comunidad — nunca
 pegar el mismo texto dos veces (los mods y los usuarios lo huelen).
 
 **Tracking por canal**: agregar `?ref=nombre` al link en cada lugar
-(ej. `https://loreado.vercel.app?ref=devsarg`). PostHog captura la URL
+(ej. `https://loro-copilot.vercel.app?ref=devsarg`). PostHog captura la URL
 completa del pageview, así que se ve qué comunidad convierte sin tocar código.
 
 **Secuencia**: un canal por vez. Semana 1: r/devsarg (lunes 10-12hs, quedarse
@@ -118,7 +118,7 @@ no, se abandona.
 
 Título (elegir uno):
 - *"Me cansé de quedarme en blanco en las entrevistas en inglés, así que me hice un copiloto de IA en tiempo real. Es gratis y sin registro — vengan a romperlo"*
-- *"Weekend build: una IA que escucha tu entrevista y te sopla las respuestas en ~1.5s. Gratis, la pago yo, busco feedback"*
+- *"Weekend build: una IA que escucha tu entrevista y te sopla las respuestas en ~1.5s con fonética simplificada. Gratis, la pago yo, busco feedback"*
 
 > Hola gente. Estuve en búsqueda hace unos meses y me pasaba siempre lo
 > mismo: sabía la respuesta, pero en el momento —sobre todo en las
@@ -127,16 +127,17 @@ Título (elegir uno):
 > Así que me armé esto y lo dejo abierto: escucha la entrevista en vivo
 > (mic del celu o audio de la pestaña del Meet), transcribe en streaming,
 > y cuando el entrevistador termina la pregunta tocás un botón y te
-> aparece la respuesta armada con TU CV. No inventa experiencia: tiene
-> prohibido bluffear, responde con lo tuyo o te sugiere reconocer lo que
-> no sabés y puentear.
+> aparece la respuesta armada con TU CV.
+>
+> Si la entrevista es en inglés, te devuelve la respuesta técnica, una
+> guía fonética en español para leer de corrido con acento natural y el
+> resumen en español. Además tiene un Teleprompter flotante para poner
+> abajo de la cámara y no desviar la mirada.
 >
 > Stack por si les interesa: AudioWorklet → WebSocket a Deepgram Nova-2 →
-> Gemini Flash streameando bullets. Sin base de datos, sin login: el CV
-> vive en tu localStorage y el audio no se guarda en ningún lado. Lo
-> divertido fue la latencia: fin de pregunta → primera palabra en pantalla
-> en menos de 2 segundos, porque una respuesta que llega tarde es peor
-> que nada.
+> LLMs (MiMo V2.5 / DeepSeek / Gemini Flash) streameando en Edge. Sin base
+> de datos, sin login: el CV vive en tu localStorage y el audio no se guarda
+> en ningún lado. Latencia promedio: ~1.5 segundos.
 >
 > Limitaciones honestas: es una web común (no es "indetectable" ni
 > pretende serlo), anda mejor en Chrome, y hay cuota gratis porque las
@@ -146,7 +147,7 @@ Título (elegir uno):
 > tengo mi postura pero es válido el debate.
 >
 > Si tenés una entrevista esta semana, probalo en serio y contame qué
-> respondió mal: https://loreado.vercel.app?ref=devsarg
+> respondió mal: https://loro-copilot.vercel.app?ref=devsarg
 
 Cuándo: lunes 10-12hs. Quedarse las primeras 2 horas respondiendo TODO.
 
@@ -156,10 +157,11 @@ Tono de mensaje al pasar, no de lanzamiento. Si preguntan, ahí se desarrolla.
 
 > Che, me hice una herramienta para no quedarme en blanco en las
 > entrevistas (las de inglés sobre todo): escucha la llamada y te va
-> soplando las respuestas en tiempo real, ancladas en tu CV. Gratis, sin
+> soplando las respuestas en tiempo real, ancladas en tu CV. Trae teleprompter
+> flotante para la webcam y fonética si es en inglés. Gratis, sin
 > registro, el costo lo banco yo así que hay cuota. Si alguno está en
 > proceso y la quiere probar en una entrevista real, me sirve muchísimo el
-> feedback: https://loreado.vercel.app?ref=sysarmy
+> feedback: https://loro-copilot.vercel.app?ref=sysarmy
 
 ## 3. Grupos de Facebook/Telegram de empleo — semana 2, cero jerga (`?ref=empleos`)
 
@@ -168,31 +170,31 @@ Tono de mensaje al pasar, no de lanzamiento. Si preguntan, ahí se desarrolla.
 > momento los nervios me ganaban y me olvidaba de todo.
 >
 > Es una página gratis (no hay que instalar nada ni registrarse): le pegás
-> tu CV, la dejás escuchando la entrevista desde el celular, y cuando te
-> hacen una pregunta apretás un botón y te muestra una respuesta armada
-> con tu propia experiencia, para que la leas con tus palabras. Funciona
-> en español y también si la entrevista es en inglés.
+> tu CV, la dejás escuchando la entrevista desde el celular o pestaña, y
+> cuando te hacen una pregunta apretás un botón y te muestra una respuesta armada
+> con tu propia experiencia, para que la leas con tus palabras. Si la entrevista
+> es en inglés, te escribe la pronunciación tal cual suena en español.
 >
 > No guarda nada tuyo: ni el CV ni el audio quedan en ningún lado. La hice
 > yo solo y la pago yo, por eso las sesiones gratis son limitadas.
 >
 > Si la usan en una entrevista de verdad me encantaría que me cuenten cómo
-> les fue: https://loreado.vercel.app?ref=empleos
+> les fue: https://loro-copilot.vercel.app?ref=empleos
 
 ## 4. Comunidades de egresados de bootcamps (`?ref=bootcamp`)
 
 > Para los que están en su primer proceso de selección: hice una
 > herramienta gratis que te acompaña EN la entrevista. Escucha la llamada
 > en tiempo real y cuando te preguntan algo te arma la respuesta con tu CV
-> y el aviso del puesto — incluida la temida "contame de vos" y las
-> entrevistas en inglés (te sopla en inglés si la entrevista es en inglés).
+> y el aviso del puesto — incluida la temida "contame de vos", detector de
+> preguntas trampa y teleprompter para la cámara.
 >
 > Sin registro, sin instalar nada, tu CV no sale de tu navegador. La hice
 > porque a un amigo le pasaba que sabía todo pero se bloqueaba. Las
 > sesiones gratis son limitadas porque las APIs las pago yo.
 >
 > Ojo: no reemplaza prepararse — es la red de seguridad para el bloqueo.
-> https://loreado.vercel.app?ref=bootcamp
+> https://loro-copilot.vercel.app?ref=bootcamp
 
 ## 5. Plantilla de comentario para hilos existentes (`?ref=hilo`)
 
@@ -202,8 +204,8 @@ adaptando la primera frase al hilo concreto:
 
 > Me pasaba igual, y terminé haciéndome una herramienta para eso (aviso:
 > la hice yo, es gratis y sin registro). Escucha la entrevista y te va
-> soplando las respuestas armadas con tu CV en tiempo real. Por si te
-> sirve para la próxima: https://loreado.vercel.app?ref=hilo
+> soplando las respuestas armadas con tu CV en tiempo real con fonética. Por si te
+> sirve para la próxima: https://loro-copilot.vercel.app?ref=hilo
 
 ## FAQ defensivo — respuestas para los comentarios que van a venir
 
@@ -231,3 +233,4 @@ adaptando la primera frase al hilo concreto:
 **"Se cayó / no anda."**
 > Probable: el cupo del día se agotó (las APIs las pago de mi bolsillo).
 > Dejá tu email en la lista de espera y te aviso cuando abra la próxima tanda.
+
