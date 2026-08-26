@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
 import { MarkdownText } from "./MarkdownText";
 import { classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
@@ -24,6 +24,7 @@ export interface AnswerItem {
   cleanText: string;
   latencyMs?: number;
   modelName?: string;
+  fromMemory?: boolean;
 }
 
 interface AnswerCardProps {
@@ -34,6 +35,8 @@ interface AnswerCardProps {
   onCopy: (id: number, text: string) => void;
   onFeedback: (id: number, fb: "up" | "down") => void;
   onPlayTTS: (text: string) => void;
+  onSaveToMemory?: (answer: AnswerItem) => void;
+  isSavedInMemory?: boolean;
 }
 
 export function AnswerCard({
@@ -44,9 +47,17 @@ export function AnswerCard({
   onCopy,
   onFeedback,
   onPlayTTS,
+  onSaveToMemory,
+  isSavedInMemory = false,
 }: AnswerCardProps) {
   const warning = detectTrickQuestion(a.question);
   const cat = classifyQuestion(a.question);
+  const [savedLocal, setSavedLocal] = useState(isSavedInMemory);
+
+  const handleSaveMemory = () => {
+    setSavedLocal(true);
+    onSaveToMemory?.(a);
+  };
 
   return (
     <div
@@ -54,12 +65,22 @@ export function AnswerCard({
       style={{ padding: compactUi ? "10px" : undefined }}
     >
       {a.text && (
-        <div className="card-actions">
+        <div className="card-actions flex items-center gap-1.5">
+          {onSaveToMemory && (
+            <button
+              className={`card-btn ${savedLocal ? "text-amber-400 border-amber-500/40 bg-amber-500/10" : ""}`}
+              onClick={handleSaveMemory}
+              aria-label="Guardar en Memoria"
+              title={savedLocal ? "Guardada en el Banco de Memoria" : "Guardar en Banco de Memoria para futuras entrevistas"}
+            >
+              {savedLocal ? "⭐ Guardada" : "⭐ Guardar"}
+            </button>
+          )}
           <button
             className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
             onClick={() => onCopy(a.id, a.bilingual ? a.enText || a.text : a.text)}
             aria-label="Copiar respuesta"
-            title="Copiar respuesta en inglés"
+            title="Copiar respuesta"
           >
             {copiedId === a.id ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
           </button>
@@ -69,7 +90,14 @@ export function AnswerCard({
       {/* Fila de Pregunta y Categoría */}
       <div className="answer-card-q-row flex justify-between items-start gap-2">
         <div className="flex-1 min-w-0">
-          <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
+            {a.fromMemory && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-700/50 flex items-center gap-1">
+                ⚡ Memoria Instantánea
+              </span>
+            )}
+          </div>
           <span className="answer-card-question block font-medium mt-0.5">{a.question}</span>
         </div>
         <span
@@ -136,7 +164,7 @@ export function AnswerCard({
                 className="text-[11px] font-bold tracking-wider uppercase"
                 style={{ color: "var(--loro-green-bright)" }}
               >
-                🇦🇷 1. Entendé la idea (Español)
+                🇦🇷 1. Idea Clave (Español)
               </span>
             </div>
             <div className="answer-card-text text-[0.95em] leading-relaxed" style={{ color: "var(--ink-dim)" }}>
@@ -159,7 +187,7 @@ export function AnswerCard({
                   <button
                     onClick={() => onPlayTTS(a.enText)}
                     className="tts-button bg-sky-500/15 border border-sky-500/30 text-sky-600 font-bold px-2.5 py-0.5 text-xs rounded-md flex items-center gap-1 hover:bg-sky-500/25 transition-colors"
-                    title="Escuchar cómo se pronuncia"
+                    title="Escuchar cómo suena"
                   >
                     🔊 Escuchar
                   </button>
@@ -180,26 +208,12 @@ export function AnswerCard({
               {a.enText ? (
                 <MarkdownText text={a.enText} />
               ) : a.esText ? (
-                <span className="mono answer-card-loading">traduciendo al inglés…</span>
+                <span className="mono answer-card-loading">generando respuesta en inglés…</span>
               ) : (
                 <span className="mono answer-card-loading">generando…</span>
               )}
             </div>
           </div>
-
-          {/* 3. Fonética simplificada */}
-          {a.phoText && (
-            <div className="bg-amber-500/10 border-2 border-amber-500/35 rounded-xl p-3">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[11.5px] font-extrabold text-amber-700 tracking-wide uppercase">
-                  🗣️ 3. Pronunciación fonética (Leé esto en voz alta):
-                </span>
-              </div>
-              <div className="text-amber-900 bg-white/70 p-2.5 rounded-md border border-amber-500/20 font-mono text-[0.98em] leading-relaxed whitespace-pre-wrap font-semibold tracking-wide">
-                {a.phoText}
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div className="answer-card-a-row mt-2">
@@ -243,3 +257,4 @@ export function AnswerCard({
 }
 
 export default AnswerCard;
+

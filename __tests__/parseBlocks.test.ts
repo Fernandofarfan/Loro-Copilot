@@ -2,14 +2,11 @@ import { describe, it, expect } from "vitest";
 import { parseBlocks } from "../app/lib/interviewHelpers";
 
 describe("parseBlocks", () => {
-  it("debe parsear bloques bilingües [EN], [PHO] y [ES]", () => {
+  it("debe parsear bloques bilingües [EN] y [ES]", () => {
     const raw = `[EN]
 In Python, asyncio is single-threaded cooperative multitasking.
 - Use asyncio for I/O-bound tasks.
 - Use multiprocessing for CPU-bound tasks.
-
-[PHO]
-In PAI-zon, ei-SINK-ai-o is SIN-gl zre-ded.
 
 [ES]
 Asyncio sirve para tareas de I/O bloqueante sin usar hilos múltiples.`;
@@ -17,7 +14,6 @@ Asyncio sirve para tareas de I/O bloqueante sin usar hilos múltiples.`;
     const parsed = parseBlocks(raw);
     expect(parsed.bilingual).toBe(true);
     expect(parsed.enText).toContain("asyncio is single-threaded");
-    expect(parsed.phoText).toContain("PAI-zon");
     expect(parsed.esText).toContain("Asyncio sirve para tareas");
   });
 

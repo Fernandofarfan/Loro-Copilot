@@ -10,13 +10,13 @@ interface TeleprompterData {
   cleanText?: string;
   isGenerating?: boolean;
   modelName?: string;
+  fromMemory?: boolean;
 }
 
 export default function TeleprompterPage() {
   const [data, setData] = useState<TeleprompterData>({
     question: "Esperando pregunta de la entrevista...",
-    enText: "Las respuestas generadas aparecerán aquí en vivo.",
-    phoText: "",
+    enText: "Las respuestas sugeridas aparecerán aquí en vivo.",
     esText: "",
   });
   const [fontSize, setFontSize] = useState(15);
@@ -75,6 +75,11 @@ export default function TeleprompterPage() {
       <header className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-2">
         <div className="flex items-center gap-2">
           <span className="font-bold text-xs text-emerald-400">🦜 HUD Stealth</span>
+          {data.fromMemory && (
+            <span className="text-[10px] text-amber-400 font-bold bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-800/40">
+              ⚡ MEMORIA
+            </span>
+          )}
           <span className="text-[10px] text-zinc-500 hidden sm:inline">(Ubicá esta ventana bajo tu webcam)</span>
         </div>
         <div className="flex items-center gap-2">
@@ -110,25 +115,13 @@ export default function TeleprompterPage() {
         </div>
       </section>
 
-      {/* Guía fonética si está presente */}
-      {data.phoText && (
-        <section className="mb-3">
-          <div className="text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-            🗣️ Fonética Simplificada (Leé de corrido en español)
-          </div>
-          <div className="text-amber-300 bg-amber-950/20 border-l-2 border-amber-500 p-2.5 rounded-r-lg font-mono text-[0.88em] leading-relaxed whitespace-pre-wrap">
-            {data.phoText}
-          </div>
-        </section>
-      )}
-
       {/* Resumen conceptual en español si está presente */}
       {data.esText && (
         <section className="mb-8">
           <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-0.5">
             🇦🇷 Sentido en Español
           </div>
-          <div className="text-zinc-400 text-[0.85em] italic">
+          <div className="text-zinc-400 text-[0.88em] bg-zinc-900/20 p-2 rounded border border-zinc-850">
             {data.esText}
           </div>
         </section>

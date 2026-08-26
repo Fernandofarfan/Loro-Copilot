@@ -42,19 +42,16 @@ const AUTO_LANGUAGE_SUFFIX = `
 
 ## DETECCIÓN AUTOMÁTICA DE IDIOMA Y MODO BILINGÜE
 Si el entrevistador habló en **ESPAÑOL**:
-- Respondé SOLO en español rioplatense (voseo profesional).
+- Respondé SOLO en español rioplatense profesional (voseo).
 
 Si el entrevistador habló en **INGLÉS**:
-- Devolvé EXACTAMENTE estos 3 bloques en este orden:
+- Devolvé EXACTAMENTE estos 2 bloques en este orden:
 
 [EN]
-<Respuesta directa en inglés para Senior Engineer (apertura concisa + 2-3 viñetas cortas, 8-14 palabras por frase, vocabulario técnico exacto).>
-
-[PHO]
-<Transcripción fonética simplificada en español de TODO el bloque [EN], línea por línea, con sílabas acentuadas en MAYÚSCULAS para sonar nativo (ej. asyncio -> "ei-SINK-ai-o", GIL -> "YIL", decorator -> "DE-ko-rei-ter", trade-off -> "TREID-of").>
+<Respuesta directa y hablada en inglés (1 frase de apertura contundente + 2-3 viñetas cortas de 8-14 palabras, vocabulario técnico exacto y sin rodeos).>
 
 [ES]
-<Traducción concisa en español en 1-2 oraciones para captar la idea.>
+<Traducción/resumen conceptual en español en 1-2 oraciones cortas para captar la idea al vuelo.>
 `;
 
 const ICEBREAKER_PROMPT = `Sos un candidato en los minutos finales de una entrevista. Te preguntaron si tenés preguntas para ellos.
@@ -127,7 +124,7 @@ export async function POST(req: Request) {
 
   const answerLangLabel = `
 INFO DE SISTEMA: El entrevistador habló en **${detectedLang === "en" ? "INGLÉS" : "ESPAÑOL"}**.
-- Si es INGLÉS: Respondé usando los bloques [EN], [PHO] y [ES].
+- Si es INGLÉS: Respondé usando los bloques [EN] y [ES].
 - Si es ESPAÑOL: Respondé en Español rioplatense natural.`;
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { MasterAnswer } from "../lib/interviewHelpers";
 
 export interface SavedProfile {
   name: string;
@@ -12,6 +13,7 @@ export interface SavedProfile {
 
 const LS_KEY = "copiloto:context:v1";
 const LS_PROFILES_KEY = "loro-saved-profiles";
+const LS_ANSWERS_KEY = "loro-master-answers:v1";
 
 export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", availableModelIds: string[] = []) {
   const [company, setCompany] = useState("");
@@ -21,6 +23,7 @@ export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", ava
   const [modelId, setModelId] = useState<string>(defaultModelId);
   const [fontSize, setFontSize] = useState<number>(14);
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
+  const [masterAnswers, setMasterAnswers] = useState<MasterAnswer[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Carga inicial de localStorage
@@ -29,6 +32,11 @@ export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", ava
       const storedProfiles = localStorage.getItem(LS_PROFILES_KEY);
       if (storedProfiles) {
         setSavedProfiles(JSON.parse(storedProfiles));
+      }
+
+      const storedAnswers = localStorage.getItem(LS_ANSWERS_KEY);
+      if (storedAnswers) {
+        setMasterAnswers(JSON.parse(storedAnswers));
       }
 
       const raw = localStorage.getItem(LS_KEY);
@@ -90,6 +98,53 @@ export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", ava
     }
   }, [savedProfiles]);
 
+  // Gestor del Banco de Respuestas Maestras (Memoria Inteligente)
+  const saveMasterAnswer = useCallback((ans: { question: string; enText: string; esText: string; category?: string; tags?: string[] }) => {
+    if (!ans.question?.trim() || !ans.enText?.trim()) return;
+    setMasterAnswers((prev) => {
+      const existingIdx = prev.findIndex((a) => a.question.toLowerCase().trim() === ans.question.toLowerCase().trim());
+      const newEntry: MasterAnswer = {
+        id: existingIdx >= 0 ? prev[existingIdx].id : `ans_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        question: ans.question.trim(),
+        enText: ans.enText.trim(),
+        esText: ans.esText?.trim() || "",
+        category: ans.category || "General",
+        tags: ans.tags || [],
+        role: role.slice(0, 100),
+        company: company.slice(0, 100),
+        favorite: true,
+        createdAt: Date.now(),
+      };
+      const updated = existingIdx >= 0
+        ? prev.map((a, i) => (i === existingIdx ? newEntry : a))
+        : [newEntry, ...prev];
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, [role, company]);
+
+  const deleteMasterAnswer = useCallback((id: string) => {
+    setMasterAnswers((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const toggleFavoriteMasterAnswer = useCallback((id: string) => {
+    setMasterAnswers((prev) => {
+      const updated = prev.map((a) => a.id === id ? { ...a, favorite: !a.favorite } : a);
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
   const loadPresetEPAM = useCallback(() => {
     setCompany("EPAM Systems");
     setRole(
@@ -117,8 +172,13 @@ export function useInterviewContext(defaultModelId: string = "mimo-v25-pro", ava
     saveProfile,
     removeAllProfiles,
     loadProfile,
+    masterAnswers,
+    saveMasterAnswer,
+    deleteMasterAnswer,
+    toggleFavoriteMasterAnswer,
     loadPresetEPAM,
     persistContext,
     isLoaded,
   };
 }
+

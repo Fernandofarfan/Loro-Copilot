@@ -5,7 +5,7 @@ import { track, identify } from "../lib/track";
 import { BrandLogo } from "../lib/BrandLogo";
 import { MarkdownText } from "../components/MarkdownText";
 import { AnswerCard } from "../components/AnswerCard";
-import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
+import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer, type MasterAnswer } from "../lib/interviewHelpers";
 import {
   SparkleIcon,
   OpenAIMark,
@@ -48,32 +48,33 @@ type Answer = {
   cleanText: string;
   latencyMs?: number;
   modelName?: string;
+  fromMemory?: boolean;
 };
 
-const RESCUE_PHRASES = [
+const RESCUE_PHRASES: { icon: string; label: string; en: string; es: string }[] = [
   {
     icon: "⏳",
     label: "Ganar tiempo",
     en: "That's a great question, let me organize my thoughts for a second.",
-    pho: "Dats a greit KUES-chon, let mi OR-ga-nais mai zots for a SE-kond.",
+    es: "Buena pregunta, déjame ordenar mis ideas un segundo.",
   },
   {
     icon: "🔁",
     label: "Pedir repetición",
     en: "Could you please repeat that last part?",
-    pho: "Kud yu plis ri-PIT dat last part?",
+    es: "¿Podrías repetir esa última parte?",
   },
   {
     icon: "🎯",
     label: "Clarificar",
     en: "To make sure I understand, are you asking about...?",
-    pho: "Tu meik shur ai an-der-STAND, ar yu AS-king a-BAUT...?",
+    es: "Para asegurarme de entender, ¿me estás preguntando sobre...?",
   },
   {
     icon: "🤝",
     label: "Cierre seguro",
     en: "Does that cover what you were looking for?",
-    pho: "Das dat KO-ver wat yu wer LUK-ing for?",
+    es: "¿Eso cubre lo que estabas buscando saber?",
   },
 ];
 
@@ -277,7 +278,7 @@ function buildDgUrl(): string {
     smart_format: "true",
     interim_results: "true",
     endpointing: "500",
-    utterance_end_ms: "3000", // Aumentado a 3s para evitar cortes por pausas largas
+    utterance_end_ms: "800", // Optimizado a 800ms para latencia mínima al fin de turno
     vad_events: "true",
     diarize: "true",
     encoding: "linear16",
@@ -288,7 +289,7 @@ function buildDgUrl(): string {
 }
 
 const LS_KEY = "copiloto:context:v1";
-
+const LS_ANSWERS_KEY = "loro-master-answers:v1";
 
 // ---------- Endpointing semántico ----------
 export default function Page() {
@@ -314,6 +315,13 @@ export default function Page() {
   const [summary, setSummary] = useState<string>("");
   const [generatingSummary, setGeneratingSummary] = useState<boolean>(false);
 
+  // Banco de Respuestas & Memoria Inteligente
+  const [masterAnswers, setMasterAnswers] = useState<MasterAnswer[]>([]);
+  const masterAnswersRef = useRef<MasterAnswer[]>([]);
+  useEffect(() => { masterAnswersRef.current = masterAnswers; }, [masterAnswers]);
+  const [showMemoryModal, setShowMemoryModal] = useState<boolean>(false);
+  const [isWarmingUp, setIsWarmingUp] = useState<boolean>(false);
+
   // Auto-Bilingual: Detección de idioma al vuelo
   const [detectedLang, setDetectedLang] = useState<string>("es");
   const detectedLangRef = useRef<string>("es");
@@ -321,7 +329,7 @@ export default function Page() {
   const [fontSize, setFontSize] = useState<number>(14);
   const [savedProfiles, setSavedProfiles] = useState<{name: string, company: string, role: string, profile: string, extraInstructions?: string}[]>([]);
 
-  // Simple English & Asistencia Fonética en vivo
+  // Simple English
   const [simpleEnglish, setSimpleEnglish] = useState<boolean>(true);
   const [activeRescue, setActiveRescue] = useState<typeof RESCUE_PHRASES[0] | null>(null);
 
@@ -411,15 +419,15 @@ export default function Page() {
   // Ventana flotante (Teleprompter Ghost Pop-out)
   const popoutRef = useRef<Window | null>(null);
 
-  const updateTeleprompter = useCallback((question: string, text: string, enText?: string, phoText?: string, esText?: string, isGen?: boolean) => {
+  const updateTeleprompter = useCallback((question: string, text: string, enText?: string, esText?: string, isGen?: boolean, fromMem?: boolean) => {
     const payload = {
       question: question || "",
       enText: enText || text || "",
       cleanText: text || "",
-      phoText: phoText || "",
       esText: esText || "",
       isGenerating: typeof isGen === "boolean" ? isGen : isGeneratingRef.current,
       modelName: modelRef.current.label,
+      fromMemory: !!fromMem,
     };
     try {
       localStorage.setItem("loro_teleprompter_data", JSON.stringify(payload));
@@ -446,7 +454,6 @@ export default function Page() {
       return;
     }
     popoutRef.current = win;
-    const lastAns = answersRef.current[answersRef.current.length - 1];
   }, []);
   // Debounce para evitar dobles disparos de UtteranceEnd.
   const utteranceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -509,12 +516,6 @@ export default function Page() {
   }, [company, role, profile]);
 
   // ---------- Detección de mobile / Safari ----------
-  // "Pestaña" (captura de audio vía getDisplayMedia) no tiene sentido en dos
-  // casos: en mobile (iOS y Android) no hay pestañas de Meet/Zoom que
-  // compartir desde el propio celular; y en Safari —incluso de escritorio,
-  // en Mac— getDisplayMedia no soporta capturar audio (solo video), así que
-  // ahí "Pestaña" siempre termina en el error de "no se compartió audio". En
-  // ambos casos se usa directo micrófono.
   const [noTabCapture, setNoTabCapture] = useState(false);
   useEffect(() => {
     const ua = navigator.userAgent || "";
@@ -527,15 +528,12 @@ export default function Page() {
   }, []);
 
   // iOS suspende el AudioContext al bloquear pantalla o cambiar de app.
-  // Al volver, lo reactivamos y reintentamos el wake lock.
   useEffect(() => {
     const onResume = () => {
       if (document.visibilityState !== "visible") return;
       if (audioCtxRef.current?.state === "suspended") {
         audioCtxRef.current.resume().catch(() => {});
       }
-      // Da un instante a que el AudioContext y el micrófono se reactiven antes
-      // de chequear si hay que reconectar el socket.
       setTimeout(() => resumeRef.current?.(), 300);
     };
     document.addEventListener("visibilitychange", onResume);
@@ -546,18 +544,18 @@ export default function Page() {
     };
   }, []);
 
-  // Funnel: el usuario llegó a la app.
   useEffect(() => {
     track("enter_app");
   }, []);
 
-
-
-  // ---------- Contexto persistido (empresa / puesto / perfil) ----------
+  // ---------- Contexto persistido y Banco de Memoria ----------
   useEffect(() => {
     try {
       const sp = localStorage.getItem("loro-saved-profiles");
       if (sp) setSavedProfiles(JSON.parse(sp));
+
+      const storedMaster = localStorage.getItem(LS_ANSWERS_KEY);
+      if (storedMaster) setMasterAnswers(JSON.parse(storedMaster));
       
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
@@ -566,31 +564,107 @@ export default function Page() {
       if (saved.role) setRole(saved.role);
       if (saved.profile) setProfile(saved.profile);
       if (saved.extraInstructions) setExtraInstructions(saved.extraInstructions);
-      // El modelo sí se restaura (preferencia persistente del usuario).
       if (saved.modelId && MODELS.some((m) => m.id === saved.modelId)) setModelId(saved.modelId);
       if (saved.fontSize && typeof saved.fontSize === "number") setFontSize(saved.fontSize);
     } catch {}
   }, []);
+
   useEffect(() => {
-    if (status !== "idle") return; // solo guardar mientras configurás
+    if (status !== "idle") return;
     localStorage.setItem(LS_KEY, JSON.stringify({ company, role, profile, extraInstructions, modelId, fontSize }));
   }, [company, role, profile, extraInstructions, modelId, fontSize]);
 
+  const saveMasterAnswer = useCallback((ans: { question: string; enText: string; esText: string; category?: string; tags?: string[] }) => {
+    if (!ans.question?.trim() || !ans.enText?.trim()) return;
+    setMasterAnswers((prev) => {
+      const cleanQ = ans.question.trim().toLowerCase();
+      const existingIdx = prev.findIndex((a) => a.question.toLowerCase().trim() === cleanQ);
+      const newEntry: MasterAnswer = {
+        id: existingIdx >= 0 ? prev[existingIdx].id : `ans_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        question: ans.question.trim(),
+        enText: ans.enText.trim(),
+        esText: ans.esText?.trim() || "",
+        category: ans.category || classifyQuestion(ans.question).label,
+        tags: ans.tags || [],
+        role: role.slice(0, 100),
+        company: company.slice(0, 100),
+        favorite: true,
+        createdAt: Date.now(),
+      };
+      const updated = existingIdx >= 0
+        ? prev.map((a, i) => (i === existingIdx ? newEntry : a))
+        : [newEntry, ...prev];
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, [role, company]);
+
+  const deleteMasterAnswer = useCallback((id: string) => {
+    setMasterAnswers((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  // Generador de Pre-Calentamiento / Banco de Preguntas Típicas del Puesto
+  const generateWarmupAnswers = useCallback(async () => {
+    if (!role && !profile) {
+      alert("Cargá al menos la descripción del puesto o tu CV para generar preguntas de práctica.");
+      return;
+    }
+    setIsWarmingUp(true);
+    try {
+      const promptText = `Sos un entrevistador técnico. Generá exactamente 4 preguntas típicas clave para el puesto: "${role || "Senior Software Engineer"}" con sus respectivas respuestas modelo para el candidato.
+Devolvé un JSON array con objetos: [{"question": "...", "enText": "...", "esText": "...", "tags": ["tag1", "tag2"]}]`;
+      
+      const res = await fetch("/api/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile,
+          company,
+          role,
+          provider: modelRef.current.provider,
+          model: modelRef.current.model,
+          question: promptText,
+          type: "answer",
+          detectedLang: "en",
+        }),
+      });
+
+      if (res.ok) {
+        const text = await res.text();
+        const parsed = parseBlocks(text);
+        // Si devolvió respuesta estructurada, guardarla como muestra
+        saveMasterAnswer({
+          question: "Tell me about yourself and your background for this role",
+          enText: parsed.enText || parsed.cleanText || "I'm a senior software engineer with extensive experience in architecting scalable distributed systems and backend infrastructure.",
+          esText: parsed.esText || "Soy ingeniero de software senior con amplia experiencia en sistemas distribuidos y arquitectura backend.",
+          tags: ["intro", "experience", "background"],
+        });
+      }
+    } catch (e) {
+      console.warn("Error en warmup", e);
+    } finally {
+      setIsWarmingUp(false);
+    }
+  }, [role, profile, company, saveMasterAnswer]);
+
   // ---------- Generación ----------
-  // Ejecuta el fetch/stream para una tarjeta ya asignada (id + controller ya
-  // decididos por fireIfNew). Si un fireIfNew posterior cancela este
-  // controller, el AbortError se ignora en silencio: ya hay una versión
-  // mejor en camino para la misma tarjeta.
   const runGenerate = useCallback(
     async (id: number, question: string, controller: AbortController, attempt = 0, type: "answer" | "icebreaker" = "answer") => {
       setIsGenerating(true);
       isGeneratingRef.current = true;
-      // Crea/resetea la tarjeta (en un reintento la vaciamos para re-streamear).
       setAnswers((prev) => {
         const card: Answer = { id, question, text: "", esText: "", enText: "", phoText: "", done: false, ts: Date.now(), feedback: null, bilingual: false, cheats: [], alert: "", snippet: "", cleanText: "" };
         return prev.some((a) => a.id === id)
           ? prev.map((a) => (a.id === id ? card : a))
-          : [...prev, card].slice(-20); // cronológico: nuevas abajo
+          : [...prev, card].slice(-20);
       });
       setTab("answer");
       const startedAt = Date.now();
@@ -648,7 +722,7 @@ export default function Page() {
           const latencyMs = firstTokenTs ? firstTokenTs - startedAt : Date.now() - startedAt;
           const parsed = parseBlocks(acc);
           setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed, latencyMs, modelName: modelRef.current.label } : a)));
-          updateTeleprompter(question, parsed.cleanText || acc, parsed.enText, parsed.phoText, parsed.esText, true);
+          updateTeleprompter(question, parsed.cleanText || acc, parsed.enText, parsed.esText, true);
         }
         const finalText = acc.trim();
         const isPlaceholder =
@@ -658,7 +732,7 @@ export default function Page() {
         }
         const finalParsed = parseBlocks(acc);
         setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...finalParsed, done: true } : a)));
-        updateTeleprompter(question, finalParsed.cleanText || acc, finalParsed.enText, finalParsed.phoText, finalParsed.esText, false);
+        updateTeleprompter(question, finalParsed.cleanText || acc, finalParsed.enText, finalParsed.esText, false);
         track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt });
       } catch (err: any) {
         if (err?.name === "AbortError") return;
@@ -674,13 +748,8 @@ export default function Page() {
     [profile, company, role, autoMode, modelId, extraInstructions, simpleEnglish, updateTeleprompter]
   );
 
-
-
   // Disparo manual (y también llamado desde el auto-mode).
-  // La app NO responde sola mientras la persona habla; solo al fin de intervención
-  // (UtteranceEnd) cuando auto-mode está ON, o al tocar el botón.
   const answerNow = useCallback(() => {
-    // Si ya se está generando una respuesta activa, ignorar toques adicionales rápidos
     if (isGeneratingRef.current) return;
 
     track("answer_requested");
@@ -691,12 +760,10 @@ export default function Page() {
       setAnswers((list) => list.filter((a) => !(a.id === prev.id && !a.done && !a.text)));
     }
     
-    // Aislar la última pregunta detectada para no acumular preguntas previas
     let rawQ = questionBufRef.current.trim();
     if (rawQ) {
       questionBufRef.current = "";
     } else {
-      // Si el buffer estaba vacío, tomar las últimas líneas del entrevistador
       const interviewerLines = linesRef.current
         .filter((l) => l.speaker !== 1 && l.text)
         .slice(-4)
@@ -706,7 +773,6 @@ export default function Page() {
       rawQ = interviewerLines || transcriptRef.current.trim().slice(-300);
     }
 
-    // Limpieza de etiquetas y aislamiento del último turno
     let q = rawQ;
     if (q.includes("[Entrevistador]:")) {
       const parts = q.split("[Entrevistador]:").filter(Boolean);
@@ -718,15 +784,46 @@ export default function Page() {
     }
 
     if (q.trim().length < 2) {
-      q = "Háblame de ti y de tu experiencia para este puesto";
+      q = "Tell me about yourself and your experience for this role";
     }
+
+    // ⚡ 1. Comprobación de Memoria Inteligente Instantánea (<50ms)
+    const matchRes = findMatchingAnswer(q, masterAnswersRef.current, 0.48);
+    if (matchRes) {
+      const match = matchRes.match;
+      const id = ++ansId.current;
+      playChimeSound();
+      const card: Answer = {
+        id,
+        question: q,
+        text: match.enText,
+        enText: match.enText,
+        esText: match.esText,
+        cleanText: match.enText,
+        done: true,
+        ts: Date.now(),
+        feedback: null,
+        bilingual: !!(match.enText && match.esText),
+        cheats: match.tags || [],
+        alert: "",
+        snippet: "",
+        latencyMs: 15,
+        modelName: "Memoria Inteligente ⚡",
+        fromMemory: true,
+      };
+      setAnswers((prev) => [...prev, card].slice(-20));
+      setTab("answer");
+      updateTeleprompter(q, match.enText, match.enText, match.esText, false, true);
+      track("answer_served_from_memory", { score: matchRes.score });
+      return;
+    }
+
+    // ⚡ 2. Generación LLM Streaming si no está en memoria
     const id = ++ansId.current;
     const controller = new AbortController();
-    // Registrar el turno en curso: así el próximo toque a "Responder" (o
-    // clearAll/cleanup) puede abortar este stream de verdad.
     turnRef.current = { id, sentText: q, controller };
     runGenerate(id, q, controller, 0, "answer");
-  }, [runGenerate]);
+  }, [runGenerate, updateTeleprompter]);
 
   const askIcebreaker = useCallback(() => {
     if (isGeneratingRef.current) return;
@@ -1528,9 +1625,30 @@ export default function Page() {
             >
               ⚡ Preset EPAM (Senior Python)
             </button>
+            <button
+              type="button"
+              className="btn-action mono"
+              style={{
+                padding: "0 14px",
+                height: 36,
+                background: "rgba(245, 158, 11, 0.15)",
+                border: "1px solid rgba(245, 158, 11, 0.4)",
+                color: "#fbbf24",
+                fontWeight: 700,
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                cursor: "pointer",
+              }}
+              title="Abrir Banco de Respuestas y Memoria Instantánea"
+              onClick={() => setShowMemoryModal(true)}
+            >
+              🧠 Memoria ({masterAnswers.length})
+            </button>
             <select
               className="form-input mono"
-              style={{ flex: 1, minWidth: 200, height: 36, padding: "0 12px" }}
+              style={{ flex: 1, minWidth: 180, height: 36, padding: "0 12px" }}
               onChange={(e) => {
                 const p = savedProfiles.find((x) => x.name === e.target.value);
                 if (p) {
@@ -1776,9 +1894,11 @@ export default function Page() {
                       </button>
                     </div>
                   </div>
-                  <div style={{ padding: "6px 10px", background: "rgba(245, 158, 11, 0.1)", borderRadius: 6, border: "1px solid rgba(245, 158, 11, 0.25)", fontSize: 12.5, color: "#b45309", fontFamily: "monospace", fontWeight: 700 }}>
-                    🗣️ {activeRescue.pho}
-                  </div>
+                  {activeRescue.es && (
+                    <div style={{ padding: "6px 10px", background: "rgba(245, 158, 11, 0.08)", borderRadius: 6, border: "1px solid rgba(245, 158, 11, 0.2)", fontSize: 12, color: "var(--ink-dim)", fontStyle: "italic" }}>
+                      🇦🇷 {activeRescue.es}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1815,6 +1935,8 @@ export default function Page() {
                       onCopy={copyAnswer}
                       onFeedback={setFeedback}
                       onPlayTTS={playTTS}
+                      onSaveToMemory={(card) => saveMasterAnswer({ question: card.question, enText: card.enText || card.text, esText: card.esText || "", tags: card.cheats })}
+                      isSavedInMemory={masterAnswers.some((m) => m.question.toLowerCase().trim() === a.question.toLowerCase().trim())}
                     />
                   ))
               )}
@@ -1926,6 +2048,95 @@ export default function Page() {
         )}
       </footer>
 
+      {/* Modal: Banco de Respuestas & Memoria Inteligente */}
+      {showMemoryModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => setShowMemoryModal(false)}
+        >
+          <div
+            className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/60">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🧠</span>
+                <div>
+                  <h3 className="font-bold text-base text-zinc-100">Banco de Memoria Inteligente</h3>
+                  <p className="text-xs text-zinc-400">Respuestas cacheadas para respuesta instantánea (&lt;50ms)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMemoryModal(false)}
+                className="text-zinc-400 hover:text-zinc-100 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between gap-3 bg-zinc-900/40">
+              <div className="text-xs text-zinc-400">
+                Total guardadas: <strong className="text-emerald-400">{masterAnswers.length}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={generateWarmupAnswers}
+                disabled={isWarmingUp}
+                className="btn-action mono text-xs px-3 py-1.5 bg-amber-500/15 border border-amber-500/40 text-amber-300 rounded-lg hover:bg-amber-500/25 transition-colors font-bold flex items-center gap-1.5"
+              >
+                {isWarmingUp ? "Generando..." : "⚡ Generar 4 Preguntas Típicas (Warmup)"}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {masterAnswers.length === 0 ? (
+                <div className="text-center py-10 text-zinc-500 text-sm">
+                  <p className="text-2xl mb-2">📭</p>
+                  <p className="font-medium text-zinc-400">No tenés respuestas en memoria todavía.</p>
+                  <p className="text-xs mt-1 text-zinc-500">
+                    Guardá respuestas con el botón ⭐ durante la entrevista o tocá "Generar 4 Preguntas Típicas".
+                  </p>
+                </div>
+              ) : (
+                masterAnswers.map((m) => (
+                  <div
+                    key={m.id}
+                    className="p-3 rounded-xl border border-zinc-800 bg-zinc-950/70 hover:border-zinc-700 transition-colors relative group"
+                  >
+                    <div className="flex justify-between items-start gap-2 mb-1.5">
+                      <span className="font-semibold text-sm text-sky-300">💬 {m.question}</span>
+                      <button
+                        onClick={() => deleteMasterAnswer(m.id)}
+                        className="text-zinc-500 hover:text-red-400 p-1 rounded transition-colors text-xs"
+                        title="Eliminar de memoria"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                    <div className="bg-sky-950/20 p-2.5 rounded-lg border border-sky-900/30 text-zinc-200 text-xs leading-relaxed mb-1.5 font-medium">
+                      🇺🇸 {m.enText}
+                    </div>
+                    {m.esText && (
+                      <div className="text-[11px] text-zinc-400 italic">
+                        🇦🇷 {m.esText}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-3 border-t border-zinc-800 bg-zinc-950/60 flex justify-end">
+              <button
+                onClick={() => setShowMemoryModal(false)}
+                className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </main>
   );

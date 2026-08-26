@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyQuestion, detectTrickQuestion, fmtTime } from "../app/lib/interviewHelpers";
+import { classifyQuestion, detectTrickQuestion, fmtTime, findMatchingAnswer } from "../app/lib/interviewHelpers";
 
 describe("interviewHelpers", () => {
   describe("classifyQuestion", () => {
@@ -37,6 +37,45 @@ describe("interviewHelpers", () => {
     });
   });
 
+  describe("findMatchingAnswer", () => {
+    const memory = [
+      {
+        id: "1",
+        question: "Tell me about yourself and your experience with Python and FastAPI",
+        enText: "I'm a senior backend engineer specializing in FastAPI, asyncio, and PostgreSQL.",
+        esText: "Soy un ingeniero backend senior especializado en FastAPI, asyncio y PostgreSQL.",
+        favorite: true,
+        createdAt: Date.now(),
+      },
+      {
+        id: "2",
+        question: "How do you handle database migrations with Alembic and PostgreSQL?",
+        enText: "I use Alembic with autogenerate, inspecting revisions and applying zero-downtime migrations.",
+        esText: "Uso Alembic con migraciones controladas y chequeo de bloqueos en PostgreSQL.",
+        favorite: false,
+        createdAt: Date.now(),
+      },
+    ];
+
+    it("debe encontrar coincidencia casi exacta con alta confianza", () => {
+      const res = findMatchingAnswer("Tell me about yourself and your background in Python", memory, 0.4);
+      expect(res).not.toBeNull();
+      expect(res?.match.id).toBe("1");
+      expect(res?.score).toBeGreaterThanOrEqual(0.4);
+    });
+
+    it("debe encontrar coincidencia con variación de palabras clave", () => {
+      const res = findMatchingAnswer("How do you manage db migrations in alembic?", memory, 0.35);
+      expect(res).not.toBeNull();
+      expect(res?.match.id).toBe("2");
+    });
+
+    it("debe devolver null si la pregunta no tiene relación", () => {
+      const res = findMatchingAnswer("What is your expected salary range for this position?", memory, 0.5);
+      expect(res).toBeNull();
+    });
+  });
+
   describe("fmtTime", () => {
     it("debe formatear timestamps correctamente", () => {
       const str = fmtTime(1700000000000);
@@ -44,3 +83,4 @@ describe("interviewHelpers", () => {
     });
   });
 });
+

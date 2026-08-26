@@ -7,7 +7,8 @@ export interface RescuePhrase {
   icon: string;
   label: string;
   en: string;
-  pho: string;
+  pho?: string;
+  es?: string;
 }
 
 export const DEFAULT_RESCUE_PHRASES: RescuePhrase[] = [
@@ -15,25 +16,25 @@ export const DEFAULT_RESCUE_PHRASES: RescuePhrase[] = [
     icon: "⏳",
     label: "Ganar tiempo",
     en: "That's a great question, let me organize my thoughts for a second.",
-    pho: "Dats a greit KUES-chon, let mi OR-ga-nais mai zots for a SE-kond.",
+    es: "Buena pregunta, déjame ordenar mis ideas un segundo.",
   },
   {
     icon: "🔁",
     label: "Pedir repetición",
     en: "Could you please repeat that last part?",
-    pho: "Kud yu plis ri-PIT dat last part?",
+    es: "¿Podrías repetir esa última parte?",
   },
   {
     icon: "🎯",
     label: "Clarificar",
     en: "To make sure I understand, are you asking about...?",
-    pho: "Tu meik shur ai an-der-STAND, ar yu AS-king a-BAUT...?",
+    es: "Para asegurarme de entender, ¿me estás preguntando sobre...?",
   },
   {
     icon: "🤝",
     label: "Cierre seguro",
     en: "Does that cover what you were looking for?",
-    pho: "Das dat KO-ver wat yu wer LUK-ing for?",
+    es: "¿Eso cubre lo que estabas buscando saber?",
   },
 ];
 
@@ -72,8 +73,10 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
                 {isCopied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-200 font-medium leading-tight line-clamp-2">{phrase.en}</p>
-            <p className="text-[10px] text-amber-400/90 font-mono mt-1 tracking-tight truncate">{phrase.pho}</p>
+            <p className="text-[11px] text-zinc-100 font-semibold leading-tight line-clamp-2">{phrase.en}</p>
+            {phrase.es && (
+              <p className="text-[10px] text-zinc-400 mt-1 italic truncate">{phrase.es}</p>
+            )}
           </button>
         );
       })}
@@ -82,3 +85,4 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
 }
 
 export default RescuePhrases;
+

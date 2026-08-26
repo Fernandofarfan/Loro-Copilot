@@ -6,7 +6,7 @@ Contexto para agentes de IA (Claude Code, Cursor, Antigravity, etc.) que trabaje
 
 **Loro Copilot** — asistente profesional de entrevistas con IA en tiempo real. Escucha la entrevista por micrófono o audio de pestaña (Meet/Zoom), transcribe en vivo con Deepgram y, al dispararse el turno ("Responder"), genera respuestas inmediatas con LLM ancladas al CV, empresa y puesto del usuario.
 
-Incluye modo de **Teleprompter HUD pop-out**, **asistencia fonética bilingüe (`[EN]`, `[PHO]`, `[ES]`)**, **simulador de entrevistas con evaluación automatizada** y soporte multi-modelo (`opencode`, `gemini`, `anthropic`, `openai`).
+Incluye modo de **Teleprompter HUD pop-out**, **asistencia bilingüe directa (`[EN]`, `[ES]`)**, **Banco de Memoria Inteligente y Caché Instantánea (<50ms)**, **simulador de entrevistas con evaluación automatizada** y soporte multi-modelo (`opencode`, `gemini`, `anthropic`, `openai`).
 
 Deploy: Next.js 14 (App Router) en Vercel. Proyecto: `loro-copilot`. URL de producción: `https://loro-copilot.vercel.app`.
 
@@ -25,18 +25,18 @@ npm run dev
 
 ## Estructura de Archivos
 
-- `app/app/page.tsx` — Vista principal del Copiloto en vivo (estado de audio, WebSocket a Deepgram, renderizado en streaming, VAD híbrido, sincronización con Teleprompter).
+- `app/app/page.tsx` — Vista principal del Copiloto en vivo (estado de audio, WebSocket a Deepgram con endpointing rápido de 800ms, renderizado en streaming, banco de memoria instantánea, sincronización con Teleprompter).
 - `app/simulador/page.tsx` — Simulador interactivo de entrevistas (Avatar, TTS con Web Speech API, reporte de métricas y feedback).
 - `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; sincronizado vía `BroadcastChannel` y `localStorage`.
 - `app/components/` — Componentes modulares de UI (`AnswerCard`, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
-- `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles y contexto de entrevista.
+- `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles, contexto y banco de respuestas maestras (`masterAnswers`).
 - `app/api/answer/route.ts` — Generación de respuestas con streaming SSE y soporte multi-modelo (`MiMo`, `DeepSeek`, `GLM`, `GPT`, `Gemini`, `Claude`).
 - `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
 - `app/api/simulador/route.ts` — Generador de preguntas dinámicas y feedback estructurado JSON.
 - `app/api/summary/route.ts` — Generador de resumen post-entrevista en Markdown.
 - `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider con timeouts (`AbortController`) y fallback inteligente.
 - `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria.
-- `app/lib/interviewHelpers.ts` — Clasificador de preguntas, detector de preguntas trampa y parser de bloques (`[EN]`, `[PHO]`, `[ES]`).
+- `app/lib/interviewHelpers.ts` — Clasificador de preguntas, detector de preguntas trampa, parser de bloques (`[EN]`, `[ES]`) y motor de búsqueda de memoria `findMatchingAnswer()`.
 - `app/lib/track.ts` — Wrapper fail-safe de analytics (`track()`, `identify()`).
 - `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a Int16 (PCM16 16kHz).
 - `__tests__/` — Tests unitarios automatizados (`interviewHelpers`, `llm`, `parseBlocks`, `security`).
