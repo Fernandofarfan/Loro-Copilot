@@ -1,12 +1,25 @@
+import { verifyOrigin, checkRateLimit } from "../../lib/security";
+
 export const runtime = "edge";
 
 // Emite un TOKEN TEMPORAL de Deepgram (grant), no la API key permanente.
 // El token expira a los 60s: alcanza para abrir el WebSocket y después es
 // inútil. La key permanente NUNCA llega al navegador.
-//
-// El navegador abre el WS con el subprotocolo ["bearer", access_token]
-// (los access tokens de grant usan esquema Bearer; las API keys usaban "token").
 export async function POST(req: Request) {
+  // 1. Verificación de Origin / Referer
+  const originCheck = verifyOrigin(req);
+  if (!originCheck.ok) {
+    return Response.json({ error: originCheck.error || "No autorizado" }, { status: originCheck.status || 403 });
+  }
+
+  // 2. Rate limiting (20 tokens por minuto por IP)
+  const rl = checkRateLimit(req, { limit: 20, windowMs: 60_000, keyPrefix: "deepgram-token" });
+  if (!rl.allowed) {
+    return Response.json(
+      { error: "Límite de solicitudes excedido. Por favor, esperá un momento." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
 
   const rawKey = process.env.DEEPGRAM_API_KEY;
   if (!rawKey) {
@@ -28,6 +41,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({ ttl_seconds: 60 }),
     });
+
     if (r.ok) {
       const j: any = await r.json().catch(() => ({}));
       const token = j.access_token || j.key;
@@ -35,13 +49,12 @@ export async function POST(req: Request) {
         return Response.json({ token, scheme: "bearer", expires_in: j.expires_in ?? 60 });
       }
     }
-    // Fallback: si la key NO puede emitir grants ("Insufficient permissions"),
-    // devolvemos la key directa para no romper la app. Sigue protegido por
-    // mismo-origen + rate-limit, pero la key llega al navegador. Para el camino
-    // seguro, crear en Deepgram una key con permiso de grant.
-  } catch {
-    // red caída al pedir grant → también caemos al fallback
-  }
 
-  return Response.json({ token: apiKey, scheme: "token", fallback: true });
+    // Si la key de Deepgram no tiene permisos de emitir grants (403 Forbidden),
+    // hacemos fallback al esquema 'token' directo para que la transcripción en vivo funcione.
+    return Response.json({ token: apiKey, scheme: "token", fallback: true });
+  } catch (err: any) {
+    // Si hay error de red al llamar a Deepgram, también permitimos fallback al token directo
+    return Response.json({ token: apiKey, scheme: "token", fallback: true });
+  }
 }

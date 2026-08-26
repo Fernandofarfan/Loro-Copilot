@@ -3,25 +3,29 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { track, identify } from "../lib/track";
 import { BrandLogo } from "../lib/BrandLogo";
-
-const MarkdownText = ({ text }: { text: string }) => {
-  if (!text) return null;
-  // Limpiamos los saltos de línea extra y partimos por las negritas (**texto**)
-  const parts = text.replace(/\n{3,}/g, "\n\n").trim().split(/\*\*(.*?)\*\*/g);
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <strong key={i} style={{ color: "var(--loro-green)", fontWeight: 700 }}>
-            {part}
-          </strong>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </>
-  );
-};
+import { MarkdownText } from "../components/MarkdownText";
+import { AnswerCard } from "../components/AnswerCard";
+import { parseBlocks, classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
+import {
+  SparkleIcon,
+  OpenAIMark,
+  AnthropicMark,
+  GoogleMark,
+  DeepSeekMark,
+  BriefcaseIcon,
+  DocIcon,
+  UserIcon,
+  CopyIcon,
+  ThumbUpIcon,
+  ThumbDownIcon,
+  CheckIcon,
+  VolumeIcon,
+  MicIcon,
+  SettingsIcon,
+  ChevronDownIcon,
+  ExternalLinkIcon,
+  TrashIcon,
+} from "../components/Icons";
 
 type Status = "idle" | "connecting" | "live" | "error";
 type Mode = "mic" | "tab";
@@ -73,52 +77,6 @@ const RESCUE_PHRASES = [
   },
 ];
 
-function fmtTime(ts: number): string {
-  try {
-    return new Date(ts).toLocaleTimeString("es-AR", { hour: "numeric", minute: "2-digit" });
-  } catch {
-    return "";
-  }
-}
-
-// Ícono "mágico" (sparkle / auto-awesome) del botón de respuesta, como Parakeet.
-function SparkleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.5l1.9 4.9 4.9 1.9-4.9 1.9L12 16l-1.9-4.8L5.2 9.3l4.9-1.9L12 2.5z" />
-      <path d="M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" />
-    </svg>
-  );
-}
-
-// Logos de proveedor para el selector de modelo (como Parakeet).
-function OpenAIMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="#000" aria-hidden="true">
-      <path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-3.99 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.98 5.98 0 0 0 13.26 22a6.05 6.05 0 0 0 5.77-4.21 5.99 5.99 0 0 0 3.99-2.9 6.05 6.05 0 0 0-.75-7.07zm-9.02 12.6a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.09 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06L9.74 21a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.34-1.97V11.6a.77.77 0 0 0 .39.68l5.82 3.36-2.02 1.17a.08.08 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86-5.84-3.39L15.11 7.2a.08.08 0 0 1 .07 0l4.83 2.78a4.49 4.49 0 0 1-.68 8.1v-5.68a.79.79 0 0 0-.39-.68zm2.01-3.02-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.42 7.24V4.91a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.32 12.9 6.3 11.73a.08.08 0 0 1-.04-.06V6.1a4.5 4.5 0 0 1 7.38-3.45l-.14.08L8.72 5.49a.79.79 0 0 0-.39.68zm1.1-2.36L12 9.06l2.6 1.5v3l-2.6 1.5-2.6-1.5z" />
-    </svg>
-  );
-}
-function AnthropicMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" stroke="#CC785C" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-      <line x1="12" y1="3" x2="12" y2="21" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-      <line x1="18.4" y1="5.6" x2="5.6" y2="18.4" />
-    </svg>
-  );
-}
-function GeminiMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
-      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
-    </svg>
-  );
-}
 function OpenCodeMark() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -126,28 +84,17 @@ function OpenCodeMark() {
     </svg>
   );
 }
+
+type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
+
 function ProviderIcon({ provider }: { provider: Provider }) {
   return (
     <span className="dd-icon">
-      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : provider === "opencode" || provider === "openrouter" ? <OpenCodeMark /> : <GeminiMark />}
+      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : provider === "opencode" || provider === "openrouter" ? <OpenCodeMark /> : <GoogleMark />}
     </span>
   );
 }
 
-// Iconos de los campos de contexto (estilo Parakeet: outline al lado del label).
-const fieldIconProps = {
-  width: 13,
-  height: 13,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
-type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 const MODELS: ModelOption[] = [
   { id: "mimo-v25-pro", label: "MiMo V2.5 Pro ⚡", provider: "opencode", model: "mimo-v2.5-pro", tag: "Favorito (Ultra Rápido)" },
@@ -166,62 +113,6 @@ const MODELS: ModelOption[] = [
   { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
 ];
 
-function BriefcaseIcon() {
-  return (
-    <svg {...fieldIconProps}>
-      <rect x="2" y="7" width="20" height="14" rx="2" />
-      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-function DocIcon() {
-  return (
-    <svg {...fieldIconProps}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8M8 17h8" />
-    </svg>
-  );
-}
-function UserIcon() {
-  return (
-    <svg {...fieldIconProps}>
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-function CopyIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-function ThumbUpIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M7 10v12" />
-      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a2.5 2.5 0 0 1 3 3z" />
-    </svg>
-  );
-}
-function ThumbDownIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M17 14V2" />
-      <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a2.5 2.5 0 0 1-3-3z" />
-    </svg>
-  );
-}
-function CheckIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
 function ClockIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -434,6 +325,10 @@ export default function Page() {
   const [simpleEnglish, setSimpleEnglish] = useState<boolean>(true);
   const [activeRescue, setActiveRescue] = useState<typeof RESCUE_PHRASES[0] | null>(null);
 
+  // Estado de generación y protección contra doble-click
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const isGeneratingRef = useRef<boolean>(false);
+
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -496,15 +391,6 @@ export default function Page() {
   const [searchFilter, setSearchFilter] = useState("");
   const [compactUi, setCompactUi] = useState(false);
 
-  // Detector de Preguntas Trampa
-  function detectTrickQuestion(q: string) {
-    const lower = (q || "").toLowerCase();
-    if (/defecto|debilidad|peor|error|fracaso|por qu[eé] dej|motivo de salida|conflict|problema con tu jefe|desacuerdo con manager/i.test(lower)) {
-      return "⚠️ Pregunta Delicada: Mantener actitud positiva, enfocar defectos en aprendizaje continuo y evitar hablar mal de empleadores anteriores.";
-    }
-    return null;
-  }
-
   // Tono de audio sutil al comenzar respuesta
   const playChimeSound = useCallback(() => {
     try {
@@ -522,42 +408,27 @@ export default function Page() {
     } catch {}
   }, []);
 
-  // Clasificador de preguntas
-  function classifyQuestion(q: string) {
-    const lower = (q || "").toLowerCase();
-    if (/salario|sueldo|pretensi|cu[aá]nto quer|cu[aá]nto gan/i.test(lower)) {
-      return { label: "💰 Pretensión Salarial", color: "#f59e0b" };
-    }
-    if (/contame|cu[eé]ntame|alguna vez|situaci[oó]n|conflicto|desaf[ií]o|ejemplo|fracaso|logro|compa[nñ]ero|equipo/i.test(lower)) {
-      return { label: "🧠 Comportamental · Usar STAR", color: "#8b5cf6" };
-    }
-    if (/c[oó]digo|arquitectura|base de datos|react|node|sql|aws|diferencia|funciona|api|escalab/i.test(lower)) {
-      return { label: "🛠️ Pregunta Técnica", color: "#38bdf8" };
-    }
-    return { label: "💬 General", color: "#10b981" };
-  }
-
   // Ventana flotante (Teleprompter Ghost Pop-out)
   const popoutRef = useRef<Window | null>(null);
 
-  const updateTeleprompter = useCallback((question: string, text: string, enText?: string, phoText?: string) => {
-    if (!popoutRef.current || popoutRef.current.closed) return;
-    const doc = popoutRef.current.document;
-    if (!doc) return;
-    const qEl = doc.getElementById("teleprompter-q");
-    const aEl = doc.getElementById("teleprompter-a");
-    const phoEl = doc.getElementById("teleprompter-pho");
-    if (qEl) qEl.innerText = question || "";
-    if (aEl) aEl.innerText = enText || text || "Generando respuesta...";
-    if (phoEl) {
-      if (phoText) {
-        phoEl.innerText = phoText;
-        phoEl.style.display = "block";
-      } else {
-        phoEl.style.display = "none";
+  const updateTeleprompter = useCallback((question: string, text: string, enText?: string, phoText?: string, esText?: string, isGen?: boolean) => {
+    const payload = {
+      question: question || "",
+      enText: enText || text || "",
+      cleanText: text || "",
+      phoText: phoText || "",
+      esText: esText || "",
+      isGenerating: typeof isGen === "boolean" ? isGen : isGeneratingRef.current,
+      modelName: modelRef.current.label,
+    };
+    try {
+      localStorage.setItem("loro_teleprompter_data", JSON.stringify(payload));
+      if (typeof BroadcastChannel !== "undefined") {
+        const bc = new BroadcastChannel("loro_teleprompter_channel");
+        bc.postMessage(payload);
+        bc.close();
       }
-    }
-    popoutRef.current.scrollTo(0, popoutRef.current.document.body.scrollHeight);
+    } catch {}
   }, []);
 
   const openTeleprompter = useCallback(() => {
@@ -566,9 +437,9 @@ export default function Page() {
       return;
     }
     const win = window.open(
-      "",
+      "/teleprompter",
       "TeleprompterLoro",
-      "width=480,height=360,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no"
+      "width=520,height=360,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no"
     );
     if (!win) {
       alert("Permití las ventanas emergentes (pop-ups) para abrir el Teleprompter Flotante.");
@@ -576,44 +447,6 @@ export default function Page() {
     }
     popoutRef.current = win;
     const lastAns = answersRef.current[answersRef.current.length - 1];
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>🦜 Teleprompter — Loro Copilot</title>
-          <meta charset="utf-8">
-          <style>
-            body {
-              background: #09090b;
-              color: #f4f4f5;
-              font-family: system-ui, -apple-system, sans-serif;
-              margin: 0;
-              padding: 16px;
-              font-size: 16px;
-              line-height: 1.5;
-            }
-            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #27272a; padding-bottom: 8px; margin-bottom: 12px; }
-            .badge { background: #10b981; color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; }
-            .q-box { color: #a1a1aa; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-            .q-text { color: #38bdf8; font-weight: 600; font-size: 14px; margin-bottom: 12px; }
-            .a-text { color: #f4f4f5; white-space: pre-wrap; font-weight: 600; font-size: 16px; margin-bottom: 10px; }
-            .pho-text { color: #fbbf24; background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 14px; white-space: pre-wrap; line-height: 1.6; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <span style="font-weight:700; font-size:14px; color:#10b981;">🦜 Teleprompter Flotante</span>
-            <span class="badge">EN VIVO</span>
-          </div>
-          <div class="q-box">💬 Pregunta</div>
-          <div id="teleprompter-q" class="q-text">${lastAns?.question || "Esperando pregunta..."}</div>
-          <div class="q-box">⭐ Lo que decís (Inglés)</div>
-          <div id="teleprompter-a" class="a-text">${lastAns?.enText || lastAns?.cleanText || lastAns?.text || "Las sugerencias aparecerán acá..."}</div>
-          <div id="teleprompter-pho" class="pho-text" style="${lastAns?.phoText ? "" : "display:none;"}">${lastAns?.phoText || ""}</div>
-        </body>
-      </html>
-    `);
-    win.document.close();
   }, []);
   // Debounce para evitar dobles disparos de UtteranceEnd.
   const utteranceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -626,12 +459,19 @@ export default function Page() {
   const modelRef = useRef(selectedModel);
   modelRef.current = selectedModel;
 
-  // Atajos de teclado globales (Ctrl+Enter: Responder | Alt+P: Pausar)
+  // Atajos de teclado globales:
+  // - Ctrl+Enter / Ctrl+Espacio / Alt+Enter: Responder en vivo
+  // - Alt+T: Abrir / Enfocar Teleprompter
+  // - Alt+P: Pausar / Reanudar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      if (((e.ctrlKey || e.metaKey) && (e.key === "Enter" || e.code === "Space")) || (e.altKey && e.key === "Enter")) {
         e.preventDefault();
         if (status === "live") answerNowRef.current();
+      }
+      if (e.altKey && (e.key === "t" || e.key === "T")) {
+        e.preventDefault();
+        openTeleprompter();
       }
       if (e.altKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
@@ -640,7 +480,7 @@ export default function Page() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [status, togglePause]);
+  }, [status, togglePause, openTeleprompter]);
 
   // Exportar sesión como Markdown (.md)
   const exportSessionMarkdown = useCallback(() => {
@@ -743,6 +583,8 @@ export default function Page() {
   // mejor en camino para la misma tarjeta.
   const runGenerate = useCallback(
     async (id: number, question: string, controller: AbortController, attempt = 0, type: "answer" | "icebreaker" = "answer") => {
+      setIsGenerating(true);
+      isGeneratingRef.current = true;
       // Crea/resetea la tarjeta (en un reintento la vaciamos para re-streamear).
       setAnswers((prev) => {
         const card: Answer = { id, question, text: "", esText: "", enText: "", phoText: "", done: false, ts: Date.now(), feedback: null, bilingual: false, cheats: [], alert: "", snippet: "", cleanText: "" };
@@ -762,7 +604,7 @@ export default function Page() {
             role,
             provider: modelRef.current.provider,
             model: modelRef.current.model,
-            transcript: transcriptRef.current.slice(-4000) || linesRef.current.map((l) => l.text).filter(Boolean).join(" ").slice(-4000),
+            transcript: transcriptRef.current.slice(-2500) || linesRef.current.map((l) => l.text).filter(Boolean).join(" ").slice(-2500),
             question,
             type,
             detectedLang: detectedLangRef.current,
@@ -770,15 +612,13 @@ export default function Page() {
             extraInstructions,
             previousAnswers: answersRef.current
               .filter(a => a.done && a.text)
-              .slice(-3)
+              .slice(-2)
               .map(a => ({ q: a.question, a: a.bilingual ? a.enText || a.esText : a.text })),
           }),
           signal: controller.signal,
         });
         if (!res.ok || !res.body) {
           let detail = (await res.text().catch(() => "")).slice(0, 300);
-          // El kill switch (y otros errores JSON) devuelven { error }: mostramos
-          // el mensaje limpio en vez del JSON crudo.
           try {
             const j = JSON.parse(detail);
             if (j?.error) detail = j.error;
@@ -808,11 +648,8 @@ export default function Page() {
           const latencyMs = firstTokenTs ? firstTokenTs - startedAt : Date.now() - startedAt;
           const parsed = parseBlocks(acc);
           setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...parsed, latencyMs, modelName: modelRef.current.label } : a)));
-          updateTeleprompter(question, parsed.cleanText || acc, parsed.enText, parsed.phoText);
+          updateTeleprompter(question, parsed.cleanText || acc, parsed.enText, parsed.phoText, parsed.esText, true);
         }
-        // El modelo a veces devuelve el placeholder "(esperando pregunta)" (o
-        // texto vacío) en la primera respuesta, aunque la pregunta sea real.
-        // Reintentamos UNA vez automáticamente en vez de dejar la tarjeta así.
         const finalText = acc.trim();
         const isPlaceholder =
           !finalText || /esperando pregunta|ninguna a[uú]n/i.test(finalText);
@@ -821,7 +658,7 @@ export default function Page() {
         }
         const finalParsed = parseBlocks(acc);
         setAnswers((prev) => prev.map((a) => (a.id === id ? { ...a, text: acc, ...finalParsed, done: true } : a)));
-        updateTeleprompter(question, finalParsed.cleanText || acc, finalParsed.enText, finalParsed.phoText);
+        updateTeleprompter(question, finalParsed.cleanText || acc, finalParsed.enText, finalParsed.phoText, finalParsed.esText, false);
         track("answer_generated", { model: modelRef.current.model, duration_ms: Date.now() - startedAt });
       } catch (err: any) {
         if (err?.name === "AbortError") return;
@@ -829,78 +666,57 @@ export default function Page() {
           prev.map((a) => (a.id === id ? { ...a, text: "· Error de red.", done: true } : a))
         );
         track("answer_failed", { reason: err?.message || "network_error", duration_ms: Date.now() - startedAt });
+      } finally {
+        setIsGenerating(false);
+        isGeneratingRef.current = false;
       }
     },
-    [profile, company, role, autoMode, modelId, extraInstructions, simpleEnglish]
+    [profile, company, role, autoMode, modelId, extraInstructions, simpleEnglish, updateTeleprompter]
   );
 
-  // Parsea todos los bloques especiales (Bilingüe con Fonética, Cheats, Alert, Snippet)
-  // Funciona con el stream a medias desde el token 1.
-  function parseBlocks(raw: string) {
-    const enMatch = raw.match(/\[EN\]([\s\S]*?)(?=\[(?:PHO|ES|ALERT|CHEATS|SNIPPET)\]|$)/i);
-    const phoMatch = raw.match(/\[PHO\]([\s\S]*?)(?=\[(?:EN|ES|ALERT|CHEATS|SNIPPET)\]|$)/i);
-    const esMatch = raw.match(/\[ES\]([\s\S]*?)(?=\[(?:EN|PHO|ALERT|CHEATS|SNIPPET)\]|$)/i);
-    
-    // Remover las etiquetas para que no se muestren en el texto principal
-    let cleanText = raw;
-    
-    const alertMatch = cleanText.match(/\[ALERT\]([\s\S]*?)(?:\[\/ALERT\]|$)/i);
-    const alert = alertMatch ? alertMatch[1].trim() : "";
-    if (alertMatch) cleanText = cleanText.replace(alertMatch[0], "");
 
-    const cheatsMatch = cleanText.match(/\[CHEATS\]([\s\S]*?)(?:\[\/CHEATS\]|$)/i);
-    const cheats = cheatsMatch ? cheatsMatch[1].trim().split("|").map(s => s.trim()).filter(Boolean) : [];
-    if (cheatsMatch) cleanText = cleanText.replace(cheatsMatch[0], "");
-
-    const snippetMatch = cleanText.match(/\[SNIPPET\]([\s\S]*?)(?:\[\/SNIPPET\]|$)/i);
-    let snippet = snippetMatch ? snippetMatch[1].trim() : "";
-    if (snippet.startsWith("```") && snippet.endsWith("```")) {
-      // Limpiar backticks si el LLM los mete adentro del SNIPPET
-      snippet = snippet.replace(/^```[\w]*\n/, "").replace(/```$/, "").trim();
-    }
-    if (snippetMatch) cleanText = cleanText.replace(snippetMatch[0], "");
-
-    // Limpiar etiquetas <think>...</think> si se completaron, o dejar fluir el texto en tiempo real
-    if (cleanText.includes("<think>") && cleanText.includes("</think>")) {
-      cleanText = cleanText.replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
-    }
-
-    const cleanBlock = (m: RegExpMatchArray | null) =>
-      m ? m[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?(\[\/\1\]|$)/gi, "").trim() : "";
-
-    const enText = cleanBlock(enMatch);
-    const phoText = cleanBlock(phoMatch);
-    const esText = cleanBlock(esMatch);
-
-    return {
-      bilingual: !!(enMatch || esMatch),
-      esText,
-      enText,
-      phoText,
-      cleanText: cleanText.trim(),
-      alert,
-      cheats,
-      snippet
-    };
-  }
 
   // Disparo manual (y también llamado desde el auto-mode).
   // La app NO responde sola mientras la persona habla; solo al fin de intervención
   // (UtteranceEnd) cuando auto-mode está ON, o al tocar el botón.
   const answerNow = useCallback(() => {
+    // Si ya se está generando una respuesta activa, ignorar toques adicionales rápidos
+    if (isGeneratingRef.current) return;
+
     track("answer_requested");
-    // Aborta una respuesta en curso para no encimar dos generaciones. Si esa
-    // respuesta todavía estaba vacía (no llegó ni el primer token), sacamos su
-    // tarjeta para que no quede colgada en pantalla al reintentar.
     const prev = turnRef.current;
     prev?.controller?.abort();
     turnRef.current = null;
     if (prev) {
       setAnswers((list) => list.filter((a) => !(a.id === prev.id && !a.done && !a.text)));
     }
-    const currentLinesText = linesRef.current.map((l) => l.text).filter(Boolean).join(" ").trim();
-    let q = questionBufRef.current.trim() || currentLinesText.slice(-500) || transcriptRef.current.trim().slice(-500);
-    questionBufRef.current = "";
+    
+    // Aislar la última pregunta detectada para no acumular preguntas previas
+    let rawQ = questionBufRef.current.trim();
+    if (rawQ) {
+      questionBufRef.current = "";
+    } else {
+      // Si el buffer estaba vacío, tomar las últimas líneas del entrevistador
+      const interviewerLines = linesRef.current
+        .filter((l) => l.speaker !== 1 && l.text)
+        .slice(-4)
+        .map((l) => l.text)
+        .join(" ")
+        .trim();
+      rawQ = interviewerLines || transcriptRef.current.trim().slice(-300);
+    }
+
+    // Limpieza de etiquetas y aislamiento del último turno
+    let q = rawQ;
+    if (q.includes("[Entrevistador]:")) {
+      const parts = q.split("[Entrevistador]:").filter(Boolean);
+      q = parts[parts.length - 1].trim();
+    }
+    if (q.includes("[Yo]:")) {
+      const parts = q.split("[Yo]:");
+      q = parts[0].trim();
+    }
+
     if (q.trim().length < 2) {
       q = "Háblame de ti y de tu experiencia para este puesto";
     }
@@ -913,6 +729,7 @@ export default function Page() {
   }, [runGenerate]);
 
   const askIcebreaker = useCallback(() => {
+    if (isGeneratingRef.current) return;
     track("icebreaker_requested");
     const prev = turnRef.current;
     prev?.controller?.abort();
@@ -1680,10 +1497,40 @@ export default function Page() {
               ))}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn-action mono"
+              style={{
+                padding: "0 14px",
+                height: 36,
+                background: "rgba(16, 185, 129, 0.15)",
+                border: "1px solid var(--loro-green)",
+                color: "var(--loro-green)",
+                fontWeight: 700,
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                cursor: "pointer",
+              }}
+              title="Cargar configuración completa para entrevista técnica de EPAM (Senior Python)"
+              onClick={() => {
+                setCompany("EPAM Systems");
+                setRole(
+                  "Senior Python Engineer (Backend & Cloud-Native)\n\n• Formato: 80% teórica / arquitectura, 20% live coding / algoritmos.\n• Core Python: Data model, mutability, shallow vs deep copy, iterators/generators (lazy eval), context managers, exceptions design, typing, dataclasses.\n• Concurrency: Asyncio vs threads vs multiprocessing (I/O vs CPU bound), async cancellation/timeouts, avoiding blocking calls with asyncio.to_thread, GIL mechanics.\n• Quality & Testing: Pytest fixtures & parametrization, Clean Architecture, DDD, CI linters/formatters.\n• Debugging: Workflow reproduce -> measure (cProfile/tracemalloc) -> isolate -> optimize -> verify regression. Structured logging & OpenTelemetry."
+                );
+                setExtraInstructions(
+                  "EPAM SENIOR RUBRIC: Seguir esquema Context -> Assumptions -> Approach -> Trade-offs -> Validation. En coding/algoritmos: plantear edge cases, complejidad Big-O y código Python 3.11+ limpio y tipado (sin clever one-liners). Anclar a experiencia real en Reforest Latam, FastAPI y PostgreSQL."
+                );
+                setSimpleEnglish(true);
+              }}
+            >
+              ⚡ Preset EPAM (Senior Python)
+            </button>
             <select
               className="form-input mono"
-              style={{ flex: 1, height: 36, padding: "0 12px" }}
+              style={{ flex: 1, minWidth: 200, height: 36, padding: "0 12px" }}
               onChange={(e) => {
                 const p = savedProfiles.find((x) => x.name === e.target.value);
                 if (p) {
@@ -1958,175 +1805,18 @@ export default function Page() {
               ) : (
                 answers
                   .filter((a) => !searchFilter || a.question.toLowerCase().includes(searchFilter.toLowerCase()) || a.text.toLowerCase().includes(searchFilter.toLowerCase()))
-                  .map((a, index) => {
-                    const warning = detectTrickQuestion(a.question);
-                    return (
-                      <div key={a.id} className={`answer-card ${index === answers.length - 1 ? "answer-card-current" : ""}`} style={{ padding: compactUi ? "10px" : undefined }}>
-                        {a.text && (
-                          <div className="card-actions">
-                            <button
-                              className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
-                              onClick={() => copyAnswer(a.id, a.bilingual ? (a.enText || a.text) : a.text)}
-                              aria-label="Copiar respuesta"
-                              title="Copiar respuesta en inglés"
-                            >
-                              {copiedId === a.id ? <CheckIcon /> : <CopyIcon />}
-                            </button>
-                          </div>
-                        )}
-                        <div className="answer-card-q-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div>
-                            <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
-                            <span className="answer-card-question">{a.question}</span>
-                          </div>
-                          {(() => {
-                            const cat = classifyQuestion(a.question);
-                            return (
-                              <span className="mono" style={{ fontSize: "0.75em", padding: "2px 8px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: `1px solid ${cat.color}`, color: cat.color, whiteSpace: "nowrap" }}>
-                                {cat.label}
-                              </span>
-                            );
-                          })()}
-                        </div>
-
-                        {warning && (
-                          <div style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b", padding: "6px 10px", borderRadius: 6, fontSize: "0.85em", marginTop: 6, border: "1px solid rgba(245,158,11,0.3)" }}>
-                            <strong>{warning}</strong>
-                          </div>
-                        )}
-
-                    {a.alert && (
-                      <div className="alert-banner" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", padding: "8px 12px", borderRadius: 8, fontSize: "0.9em", marginTop: 8, border: "1px solid rgba(239,68,68,0.2)" }}>
-                        <strong>⚠️ {a.alert}</strong>
-                      </div>
-                    )}
-                    {a.cheats && a.cheats.length > 0 && (
-                      <div className="cheats-container" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                        {a.cheats.map((c, i) => (
-                          <button key={i} className="cheat-btn" style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", padding: "4px 10px", borderRadius: 16, fontSize: "0.85em", color: "var(--text)", cursor: "pointer" }} onClick={() => copyAnswer(a.id, c)}>
-                            ⚡ {c}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {a.snippet && (
-                      <div className="snippet-container" style={{ background: "#1e1e1e", color: "#d4d4d4", padding: "12px", borderRadius: 8, marginTop: 8, fontFamily: "monospace", fontSize: "0.85em", whiteSpace: "pre-wrap", overflowX: "auto", position: "relative" }}>
-                        <button style={{ position: "absolute", top: 8, right: 8, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, cursor: "pointer", fontSize: "0.8em" }} onClick={() => copyAnswer(a.id, a.snippet)}>Copiar</button>
-                        {a.snippet}
-                      </div>
-                    )}
-
-                    {a.bilingual ? (
-                      // Modo bilingüe con 3 bloques bien definidos y visibles
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-                        {/* 1. ESPAÑOL: PARA ENTENDER */}
-                        <div style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", borderRadius: 8, padding: "10px 12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--loro-green-bright)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
-                              🇦🇷 1. Entendé la idea (Español)
-                            </span>
-                          </div>
-                          <div className="answer-card-text" style={{ color: "var(--ink-dim)", fontSize: "0.95em", lineHeight: 1.5 }}>
-                            {a.esText ? (
-                              <MarkdownText text={a.esText} />
-                            ) : (
-                              <span className="mono answer-card-loading">generando resumen en español…</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 2. INGLÉS: LO QUE DECÍS EN LA ENTREVISTA */}
-                        <div style={{ background: "rgba(59, 130, 246, 0.05)", border: "1.5px solid rgba(59, 130, 246, 0.3)", borderRadius: 10, padding: "12px 14px" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "#0284c7", letterSpacing: "0.5px", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}>
-                              🇺🇸 2. Decí esto en la llamada (Inglés)
-                            </span>
-                            {a.enText && (
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button
-                                  onClick={() => playTTS(a.enText)}
-                                  className="tts-button"
-                                  style={{ background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.3)", cursor: "pointer", padding: "3px 10px", fontSize: 12, borderRadius: 6, display: "flex", alignItems: "center", gap: 4, color: "#0284c7", fontWeight: 700 }}
-                                  title="Escuchar cómo se pronuncia"
-                                >
-                                  🔊 Escuchar
-                                </button>
-                                <button
-                                  onClick={() => copyAnswer(a.id, a.enText)}
-                                  style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", cursor: "pointer", padding: "3px 8px", fontSize: 12, borderRadius: 6, display: "flex", alignItems: "center", color: "var(--ink)" }}
-                                  title="Copiar texto en inglés"
-                                >
-                                  📋
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="answer-card-text" style={{ fontWeight: 600, whiteSpace: "pre-wrap", fontSize: "1.1em", color: "var(--ink)", lineHeight: 1.6 }}>
-                            {a.enText ? (
-                              <MarkdownText text={a.enText} />
-                            ) : a.esText ? (
-                              <span className="mono answer-card-loading">traduciendo al inglés…</span>
-                            ) : (
-                              <span className="mono answer-card-loading">generando…</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 3. FONÉTICA: CÓMO LEERLO EN VOZ ALTA */}
-                        {a.phoText && (
-                          <div style={{ background: "rgba(245, 158, 11, 0.08)", border: "1.5px solid rgba(245, 158, 11, 0.35)", borderRadius: 10, padding: "12px 14px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                              <span style={{ fontSize: 11.5, fontWeight: 800, color: "#b45309", letterSpacing: "0.5px", textTransform: "uppercase" }}>
-                                🗣️ 3. Pronunciación fonética (Leé esto en voz alta):
-                              </span>
-                            </div>
-                            <div style={{ color: "#92400e", background: "rgba(255, 255, 255, 0.7)", padding: "10px 12px", borderRadius: 6, border: "1px solid rgba(245, 158, 11, 0.2)", fontFamily: "monospace", fontSize: "0.98em", lineHeight: 1.7, whiteSpace: "pre-wrap", fontWeight: 600, letterSpacing: "0.3px" }}>
-                              {a.phoText}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      // Modo normal: un solo bloque
-                      <div className="answer-card-a-row" style={{ marginTop: 8 }}>
-                        <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
-                        <div className="answer-card-text" style={{ fontSize: "1.05em", fontWeight: 500, color: "var(--ink)" }}>
-                          {a.text ? (
-                            <MarkdownText text={a.cleanText || a.text} />
-                          ) : (
-                            <span className="mono answer-card-loading">
-                              generando…
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {a.text && (
-                      <div className="answer-footer">
-                        <span className="answer-footer-meta mono">
-                          Respuesta · {fmtTime(a.ts)} {a.latencyMs ? `· ⚡ ${a.latencyMs}ms (${a.modelName || "IA"})` : ""}
-                        </span>
-                        <div className="fb-btns">
-                          <button
-                            className={`fb-btn ${a.feedback === "up" ? "fb-up" : ""}`}
-                            onClick={() => setFeedback(a.id, "up")}
-                            aria-label="Respuesta útil"
-                          >
-                            <ThumbUpIcon />
-                          </button>
-                          <button
-                            className={`fb-btn ${a.feedback === "down" ? "fb-down" : ""}`}
-                            onClick={() => setFeedback(a.id, "down")}
-                            aria-label="Respuesta no útil"
-                          >
-                            <ThumbDownIcon />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  .map((a, index) => (
+                    <AnswerCard
+                      key={a.id}
+                      answer={a}
+                      isCurrent={index === answers.length - 1}
+                      compactUi={compactUi}
+                      copiedId={copiedId}
+                      onCopy={copyAnswer}
+                      onFeedback={setFeedback}
+                      onPlayTTS={playTTS}
+                    />
+                  ))
               )}
             </div>
           </div>
@@ -2205,13 +1895,23 @@ export default function Page() {
               </button>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={answerNow} className="btn-action btn-primary btn-answer" style={{ flex: 2 }}>
+              <button
+                onClick={answerNow}
+                disabled={isGenerating}
+                className={`btn-action btn-primary btn-answer ${isGenerating ? "opacity-75 cursor-not-allowed" : ""}`}
+                style={{ flex: 2 }}
+              >
                 <span className="btn-answer-inner">
                   <SparkleIcon />
-                  Responder
+                  {isGenerating ? "Generando respuesta..." : "Responder"}
                 </span>
               </button>
-              <button onClick={askIcebreaker} className="btn-action" style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--line-strong)", color: "var(--ink)", fontWeight: 600 }}>
+              <button
+                onClick={askIcebreaker}
+                disabled={isGenerating}
+                className="btn-action"
+                style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--line-strong)", color: "var(--ink)", fontWeight: 600, opacity: isGenerating ? 0.6 : 1 }}
+              >
                 💡 Preguntas para ellos
               </button>
             </div>

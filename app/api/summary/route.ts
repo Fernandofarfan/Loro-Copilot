@@ -1,7 +1,7 @@
+import { streamAnthropic, streamOpenRouter, streamOpenAI, streamGemini, streamOpenCode } from "../../lib/llm";
+import { verifyOrigin, checkRateLimit } from "../../lib/security";
+
 export const runtime = "edge";
-
-
-import { streamAnthropic, streamOpenRouter, streamOpenAI, streamGemini } from "../../lib/llm";
 
 const SYSTEM_PROMPT = `Sos un experto en entrevistas técnicas y de Recursos Humanos. Tu tarea es analizar la transcripción completa de una entrevista de trabajo que acaba de terminar y darle feedback estructurado al candidato.
 
@@ -28,26 +28,37 @@ const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
 const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
 const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
 const OPENROUTER_MODEL_OVERRIDE = process.env.OPENROUTER_MODEL || "";
+const OPENCODE_MODEL_OVERRIDE = process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || "";
 const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
 
 function resolveModel(provider: string, requested: string): string {
   if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
   if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "opencode" || provider === "openrouter") return process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || requested || "deepseek-v4-flash-free";
+  if (provider === "opencode" || provider === "openrouter") return OPENCODE_MODEL_OVERRIDE || requested || "deepseek-v4-flash-free";
   return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
 }
 
 function resolveProvider(requested?: string): string {
   const envProvider = DEFAULT_PROVIDER_OVERRIDE;
-  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter") {
+  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter" || envProvider === "opencode") {
     return envProvider;
   }
-  if (requested === "anthropic" || requested === "openai" || requested === "openrouter") return requested;
-  return "gemini";
+  if (requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") return requested;
+  return "opencode";
 }
 
 export async function POST(req: Request) {
-  // No rate limits nor origin checks for local instance
+  // 1. Verificación de Origin
+  const originCheck = verifyOrigin(req);
+  if (!originCheck.ok) {
+    return new Response(originCheck.error || "No autorizado", { status: originCheck.status || 403 });
+  }
+
+  // 2. Rate Limiting (20 summaries por minuto por IP)
+  const rl = checkRateLimit(req, { limit: 20, windowMs: 60_000, keyPrefix: "summary" });
+  if (!rl.allowed) {
+    return new Response("Límite de solicitudes excedido. Aguardá un momento.", { status: 429 });
+  }
 
   let body: {
     profile?: string;
@@ -65,10 +76,10 @@ export async function POST(req: Request) {
 
   const provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
-  const profile = (body.profile || "").slice(0, 8000);
+  const profile = (body.profile || "").slice(0, 6000);
   const company = (body.company || "").slice(0, 200);
-  const role = (body.role || "").slice(0, 2000);
-  const transcript = (body.transcript || "").slice(0, 15000); // transcript más largo permitido
+  const role = (body.role || "").slice(0, 1500);
+  const transcript = (body.transcript || "").slice(0, 12000);
 
   const userContent = `## EMPRESA\n${company}\n\n## ROL\n${role}\n\n## PERFIL\n${profile}\n\n## TRANSCRIPCIÓN\n${transcript}`;
 
@@ -77,12 +88,13 @@ export async function POST(req: Request) {
     openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
     openai: ["gpt-4.1-mini", "gpt-4o-mini"],
     anthropic: ["claude-haiku-4-5"],
-    gemini: ["gemini-3.6-flash"],
+    gemini: ["gemini-3.6-flash", "gemini-2.5-flash"],
   };
-  const candidates = [model, ...FALLBACK[provider].filter((m) => m !== model)];
+  const candidates = [model, ...(FALLBACK[provider] || ["gemini-3.6-flash"]).filter((m) => m !== model)];
 
   try {
     if (provider === "anthropic") return await streamAnthropic(candidates, userContent, SYSTEM_PROMPT);
+    if (provider === "opencode") return await streamOpenCode(candidates, userContent, SYSTEM_PROMPT);
     if (provider === "openrouter") return await streamOpenRouter(candidates, userContent, SYSTEM_PROMPT);
     if (provider === "openai") return await streamOpenAI(candidates, userContent, SYSTEM_PROMPT);
     return await streamGemini(candidates, userContent, SYSTEM_PROMPT);

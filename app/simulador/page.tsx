@@ -5,6 +5,25 @@ import { track, identify } from "../lib/track";
 import Avatar, { type AvatarState } from "./Avatar";
 import { TtsQueue, extractSentences } from "./tts";
 import { BrandLogo } from "../lib/BrandLogo";
+import {
+  OpenAIMark,
+  AnthropicMark,
+  GoogleMark,
+  BriefcaseIcon,
+  DocIcon,
+  UserIcon,
+  CopyIcon,
+  CheckIcon,
+  SparkleIcon,
+} from "../components/Icons";
+import {
+  FeedbackReportView,
+  type FeedbackReport,
+  type FeedbackQuestion,
+  type FeedbackIndicator,
+  scoreColor,
+  scoreInk,
+} from "./FeedbackReportView";
 
 type Line = { id: number; text: string; final: boolean };
 type Lang = "es" | "en";
@@ -30,38 +49,6 @@ type HistoryItem = {
   answer: string;
 };
 
-type FeedbackQuestion = {
-  question: string;
-  answer: string;
-  score?: number;
-  analysis: string;
-  suggestion: string;
-};
-
-type FeedbackIndicator = { name: string; score: number };
-
-type FeedbackReport = {
-  score: number;
-  level?: string;
-  verdict?: string;
-  topPriority?: string;
-  nextStep?: string;
-  summary: string;
-  indicators?: FeedbackIndicator[];
-  strengths: string[];
-  improvements: string[];
-  questions: FeedbackQuestion[];
-};
-
-// Colores de semáforo según score. Vivo para barras/íconos; "ink" (más oscuro)
-// para texto chico, donde el vivo no llega al contraste AA 4.5:1.
-function scoreColor(score: number): string {
-  return score >= 75 ? "#10b981" : score >= 50 ? "#f59e0b" : "#ef4444";
-}
-function scoreInk(score: number): string {
-  return score >= 75 ? "#047857" : score >= 50 ? "#b45309" : "#dc2626";
-}
-
 // El modelo puede devolver un JSON válido pero incompleto; normalizamos para
 // que el render nunca reviente por un campo faltante (mapear sobre undefined).
 function normalizeReport(raw: any): FeedbackReport {
@@ -81,79 +68,6 @@ function normalizeReport(raw: any): FeedbackReport {
   };
 }
 
-// Velocímetro estilo tablero de auto para el puntaje general.
-function polarPoint(cx: number, cy: number, r: number, deg: number) {
-  const rad = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
-}
-function arcPath(cx: number, cy: number, r: number, fromDeg: number, toDeg: number): string {
-  const a = polarPoint(cx, cy, r, fromDeg);
-  const b = polarPoint(cx, cy, r, toDeg);
-  return `M ${a.x.toFixed(1)} ${a.y.toFixed(1)} A ${r} ${r} 0 0 1 ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
-}
-function ScoreGauge({ score }: { score: number }) {
-  const clamped = Math.max(0, Math.min(100, Math.round(score)));
-  // La aguja arranca en 0 y barre hasta el score al montar.
-  const [needle, setNeedle] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setNeedle(clamped), 150);
-    return () => clearTimeout(t);
-  }, [clamped]);
-  const needleDeg = needle * 1.8 - 90;
-  const R = 82;
-  return (
-    <div className="sim-gauge" role="img" aria-label={`Puntaje ${clamped} de 100`}>
-      <svg viewBox="0 0 200 122" className="sim-gauge-svg">
-        {/* Arcos de fondo: rojo / ámbar / verde con pequeños gaps */}
-        <path d={arcPath(100, 104, R, 180, 111)} stroke="#fecaca" strokeWidth="14" fill="none" strokeLinecap="round" />
-        <path d={arcPath(100, 104, R, 107, 57)} stroke="#fde68a" strokeWidth="14" fill="none" strokeLinecap="round" />
-        <path d={arcPath(100, 104, R, 53, 0)} stroke="#a7f3d0" strokeWidth="14" fill="none" strokeLinecap="round" />
-        {/* Ticks */}
-        {[0, 25, 50, 75, 100].map((v) => {
-          const a = polarPoint(100, 104, R - 14, 180 - v * 1.8);
-          const b = polarPoint(100, 104, R - 20, 180 - v * 1.8);
-          return <line key={v} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#cbd5e1" strokeWidth="2" />;
-        })}
-        {/* Aguja */}
-        <g
-          className="sim-gauge-needle"
-          style={{
-            transform: `rotate(${needleDeg}deg)`,
-            transformOrigin: "100px 104px",
-            transition: "transform 1.3s cubic-bezier(0.3, 1.3, 0.45, 1)",
-          }}
-        >
-          <line x1="100" y1="104" x2="100" y2="36" stroke="#17181a" strokeWidth="4" strokeLinecap="round" />
-          <circle cx="100" cy="104" r="8" fill="#17181a" />
-          <circle cx="100" cy="104" r="3" fill="#fff" />
-        </g>
-      </svg>
-      <div className="sim-gauge-value" style={{ color: scoreInk(clamped) }}>
-        {clamped}
-        <span className="sim-gauge-total">/100</span>
-      </div>
-      <div className="sim-score-label">PUNTAJE GENERAL</div>
-    </div>
-  );
-}
-
-// Semáforo de tres luces: se enciende la que corresponde al score.
-function TrafficLight({ score }: { score: number }) {
-  const level = score >= 75 ? 2 : score >= 50 ? 1 : 0;
-  const colors = ["#ef4444", "#f59e0b", "#10b981"];
-  return (
-    <span className="sim-traffic" aria-hidden="true">
-      {colors.map((c, i) => (
-        <span
-          key={c}
-          className="sim-traffic-dot"
-          style={i === level ? { background: c, boxShadow: `0 0 8px ${c}88` } : undefined}
-        />
-      ))}
-    </span>
-  );
-}
-
 const STT_LANG: Record<Lang, string> = { es: "es", en: "en" };
 
 const MODELS: ModelOption[] = [
@@ -161,102 +75,11 @@ const MODELS: ModelOption[] = [
 ];
 const DEFAULT_MODEL_ID = "gemini-flash";
 
-// Destello del botón "mágico" (mismo que el "Responder" de /app).
-function SparkleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.5l1.9 4.9 4.9 1.9-4.9 1.9L12 16l-1.9-4.8L5.2 9.3l4.9-1.9L12 2.5z" />
-      <path d="M18.5 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" />
-    </svg>
-  );
-}
-
-// Provider Marks
-function OpenAIMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="#000" aria-hidden="true">
-      <path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-3.99 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.98 5.98 0 0 0 13.26 22a6.05 6.05 0 0 0 5.77-4.21 5.99 5.99 0 0 0 3.99-2.9 6.05 6.05 0 0 0-.75-7.07zm-9.02 12.6a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.05v5.58a4.5 4.5 0 0 1-4.49 4.5zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.09 4.78 2.76a.77.77 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.06L9.74 21a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.34-1.97V11.6a.77.77 0 0 0 .39.68l5.82 3.36-2.02 1.17a.08.08 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86-5.84-3.39L15.11 7.2a.08.08 0 0 1 .07 0l4.83 2.78a4.49 4.49 0 0 1-.68 8.1v-5.68a.79.79 0 0 0-.39-.68zm2.01-3.02-.14-.09-4.77-2.78a.78.78 0 0 0-.79 0L9.42 7.24V4.91a.07.07 0 0 1 .03-.06l4.83-2.79a4.5 4.5 0 0 1 6.68 4.66zM8.32 12.9 6.3 11.73a.08.08 0 0 1-.04-.06V6.1a4.5 4.5 0 0 1 7.38-3.45l-.14.08L8.72 5.49a.79.79 0 0 0-.39.68zm1.1-2.36L12 9.06l2.6 1.5v3l-2.6 1.5-2.6-1.5z" />
-    </svg>
-  );
-}
-function AnthropicMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" stroke="#CC785C" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-      <line x1="12" y1="3" x2="12" y2="21" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-      <line x1="18.4" y1="5.6" x2="5.6" y2="18.4" />
-    </svg>
-  );
-}
-function GeminiMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
-      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
-    </svg>
-  );
-}
 function ProviderIcon({ provider }: { provider: Provider }) {
   return (
     <span className="dd-icon">
-      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : <GeminiMark />}
+      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : <GoogleMark />}
     </span>
-  );
-}
-
-// Field icons
-const fieldIconProps = {
-  width: 13,
-  height: 13,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-function BriefcaseIcon() {
-  return (
-    <svg {...fieldIconProps}>
-      <rect x="2" y="7" width="20" height="14" rx="2" />
-      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-function DocIcon() {
-  return (
-    <svg {...fieldIconProps}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8M8 17h8" />
-    </svg>
-  );
-}
-function UserIcon() {
-  return (
-    <svg {...fieldIconProps}>
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-function CopyIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-function CheckIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
   );
 }
 
@@ -1582,7 +1405,33 @@ export default function SimuladorPage() {
           {error && <div className="mono sim-error-box" style={{ marginTop: 10 }}>⚠️ {error}</div>}
 
           <div className="panel" style={{ marginTop: 12 }}>
-            <label className="mono form-label">Contexto del Puesto</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+              <label className="mono form-label" style={{ marginBottom: 0 }}>Contexto del Puesto</label>
+              <button
+                type="button"
+                className="btn-action mono"
+                style={{
+                  padding: "2px 10px",
+                  fontSize: 11,
+                  background: "rgba(16, 185, 129, 0.15)",
+                  border: "1px solid var(--loro-green)",
+                  color: "var(--loro-green)",
+                  fontWeight: 700,
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setCompany("EPAM Systems");
+                  setRole(
+                    "Senior Python Engineer (EPAM Technical Interview - 100% English).\nFocus: Python Core (LEGB scope, iterators/generators, context managers, mutability, copy vs deepcopy), Concurrency & Async (Asyncio vs multiprocessing vs threading, GIL), Debugging/Profiling (cProfile, tracemalloc), Testing (pytest fixtures), Live Coding & Algorithms."
+                  );
+                  setLang("en");
+                  setInterviewType("technical");
+                }}
+              >
+                ⚡ Preset EPAM (Inglés / Técnico)
+              </button>
+            </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label className="mono form-mini-label">
@@ -1853,196 +1702,21 @@ export default function SimuladorPage() {
               </button>
             </div>
           ) : (
-            <>
-              {!emailGatePassed && (
-                <div className="paywall-overlay">
-                  <div className="paywall">
-                    <div className="paywall-title">¡Simulación completada! 🦜</div>
-                    <p className="paywall-text">
-                      La IA terminó de analizar tu entrevista completa. Ingresá tu email para
-                      desbloquear tu puntaje y ver tus correcciones exactas en este momento:
-                    </p>
-                    <div className="paywall-form">
-                      <input
-                        type="email"
-                        inputMode="email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (emailError) setEmailError("");
-                        }}
-                        onKeyDown={(e) => e.key === "Enter" && submitEmail()}
-                        placeholder="tu@email.com"
-                        className="form-input"
-                      />
-                      <button
-                        className="btn-action btn-primary"
-                        onClick={submitEmail}
-                        disabled={!email.trim() || emailSending}
-                      >
-                        {emailSending ? "Enviando…" : "Ver mi Resultado Ahora"}
-                      </button>
-                      {emailError && <div className="paywall-error">{emailError}</div>}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="sim-score-circle-wrapper">
-                <ScoreGauge score={feedbackReport?.score ?? 0} />
-                {(feedbackReport?.level || feedbackReport?.verdict) && (
-                  <div className="sim-verdict">
-                    {feedbackReport?.level && (
-                      <span
-                        className="sim-verdict-level"
-                        style={{
-                          color: scoreInk(feedbackReport.score ?? 0),
-                          borderColor: scoreColor(feedbackReport.score ?? 0),
-                        }}
-                      >
-                        Nivel: {feedbackReport.level}
-                      </span>
-                    )}
-                    {feedbackReport?.verdict && <p className="sim-verdict-text">{feedbackReport.verdict}</p>}
-                  </div>
-                )}
-              </div>
-
-              {(feedbackReport?.topPriority || feedbackReport?.nextStep) && (
-                <div className="sim-priority">
-                  <div className="sim-priority-label">👉 Enfocate en esto</div>
-                  {feedbackReport?.topPriority && (
-                    <p className="sim-priority-text">{feedbackReport.topPriority}</p>
-                  )}
-                  {feedbackReport?.nextStep && (
-                    <p className="sim-priority-step">
-                      <span>Próximo paso:</span> {feedbackReport.nextStep}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {feedbackReport?.indicators && feedbackReport.indicators.length > 0 && (
-                <div className="sim-indicators">
-                  {feedbackReport.indicators.map((ind, i) => {
-                    const s = Math.max(0, Math.min(100, Math.round(ind.score)));
-                    return (
-                      <div className="sim-ind-card" key={i}>
-                        <div className="sim-ind-top">
-                          <span className="sim-ind-name">{ind.name}</span>
-                          <TrafficLight score={s} />
-                        </div>
-                        <div className="sim-ind-score" style={{ color: scoreInk(s) }}>{s}</div>
-                        <div className="sim-ind-bar">
-                          <div className="sim-ind-bar-fill" style={{ width: `${s}%`, background: scoreColor(s) }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="sim-card">
-                <div className="sim-card-header">📊 Resumen del feedback</div>
-                <div className="sim-card-body">
-                  <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--ink)" }}>{feedbackReport?.summary}</p>
-                </div>
-              </div>
-
-              <div className="sim-columns-layout">
-                <div className="sim-feedback-card" style={{ borderColor: "#a7f3d0" }}>
-                  <div className="sim-feedback-card-title" style={{ color: "var(--loro-green-bright)" }}>
-                    👍 Fortalezas
-                  </div>
-                  <ul className="sim-strengths-list">
-                    {(feedbackReport?.strengths ?? []).map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="sim-feedback-card" style={{ borderColor: "#fde68a" }}>
-                  <div className="sim-feedback-card-title" style={{ color: "#d97706" }}>
-                    💡 Áreas de Mejora
-                  </div>
-                  <ul className="sim-improvements-list">
-                    {(feedbackReport?.improvements ?? []).map((imp, i) => (
-                      <li key={i}>{imp}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <h3 className="mono" style={{ fontSize: 14, fontWeight: 700, marginTop: 12, color: "var(--loro-green-deep)" }}>
-                ANÁLISIS PREGUNTA POR PREGUNTA
-              </h3>
-
-              <div>
-                {(feedbackReport?.questions ?? []).map((q, i) => (
-                  <div key={i} className="sim-question-report-card">
-                    <div className="sim-report-q-header">
-                      <span>
-                        Pregunta {i + 1}: {q.question}
-                      </span>
-                      {typeof q.score === "number" && (
-                        <span
-                          className="sim-qscore"
-                          style={{ color: scoreInk(q.score), borderColor: scoreColor(q.score) }}
-                        >
-                          {Math.round(q.score)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="sim-report-row">
-                      <span className="sim-report-label">Tu Respuesta</span>
-                      <p className="sim-report-val" style={{ color: "var(--ink-dim)" }}>{q.answer}</p>
-                    </div>
-                    <div className="sim-report-row">
-                      <span className="sim-report-label">Análisis del asistente</span>
-                      <p className="sim-report-val">{q.analysis}</p>
-                    </div>
-                    <div className="sim-report-row">
-                      <span className="sim-report-label">Sugerencia del asistente (Cómo responder mejor)</span>
-                      <div className="sim-report-val-suggestion">
-                        <p>{q.suggestion}</p>
-                        <button
-                          className="sim-copy-suggested-btn"
-                          onClick={() => copyOptimalAnswer(i, q.suggestion)}
-                          aria-label="Copiar sugerencia"
-                          title="Copiar sugerencia"
-                        >
-                          {copiedIndex === i ? <CheckIcon /> : <CopyIcon />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Cross-sell al copiloto en vivo (acción primaria) + compartir el
-                  simulador. Una sola dirección dominante (Luhmann). */}
-              <div className="sim-cross">
-                <div className="sim-cross-eyebrow">Esto fue práctica. La entrevista real, no. 🦜</div>
-                <div className="sim-cross-title">En la entrevista real, el asistente entra contigo.</div>
-                <div className="sim-cross-text">
-                  Escucha la pregunta y te sopla la respuesta al instante —armada con tu CV, la empresa y el
-                  puesto—. Vos solo la leés. Nadie se entera.
-                </div>
-                <button onClick={goToCopilot} className="btn-action btn-primary btn-answer sim-cross-btn">
-                  <span className="btn-answer-inner">
-                    <SparkleIcon />
-                    Activar Interview Copilot en tu entrevista →
-                  </span>
-                </button>
-                <button onClick={shareSimulator} className="btn-action btn-whatsapp">
-                  Compartíselo a alguien que tiene una entrevista pronto 🦜
-                </button>
-              </div>
-
-              <button onClick={() => setPhaseBoth("setup")} className="sim-restart-link">
-                🔄 Otra simulación
-              </button>
-            </>
+            <FeedbackReportView
+              feedbackReport={feedbackReport}
+              emailGatePassed={emailGatePassed}
+              email={email}
+              setEmail={setEmail}
+              emailError={emailError}
+              setEmailError={setEmailError}
+              emailSending={emailSending}
+              submitEmail={submitEmail}
+              copiedIndex={copiedIndex}
+              copyOptimalAnswer={copyOptimalAnswer}
+              goToCopilot={goToCopilot}
+              shareSimulator={shareSimulator}
+              onRestart={() => setPhaseBoth("setup")}
+            />
           )}
         </div>
       )}

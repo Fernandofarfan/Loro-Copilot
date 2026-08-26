@@ -1,0 +1,245 @@
+"use client";
+
+import React from "react";
+import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
+import { MarkdownText } from "./MarkdownText";
+import { classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
+
+export type Feedback = "up" | "down" | null;
+
+export interface AnswerItem {
+  id: number;
+  question: string;
+  text: string;
+  esText: string;
+  enText: string;
+  phoText?: string;
+  done: boolean;
+  ts: number;
+  feedback: Feedback;
+  bilingual: boolean;
+  cheats: string[];
+  alert: string;
+  snippet: string;
+  cleanText: string;
+  latencyMs?: number;
+  modelName?: string;
+}
+
+interface AnswerCardProps {
+  answer: AnswerItem;
+  isCurrent?: boolean;
+  compactUi?: boolean;
+  copiedId: number | null;
+  onCopy: (id: number, text: string) => void;
+  onFeedback: (id: number, fb: "up" | "down") => void;
+  onPlayTTS: (text: string) => void;
+}
+
+export function AnswerCard({
+  answer: a,
+  isCurrent,
+  compactUi,
+  copiedId,
+  onCopy,
+  onFeedback,
+  onPlayTTS,
+}: AnswerCardProps) {
+  const warning = detectTrickQuestion(a.question);
+  const cat = classifyQuestion(a.question);
+
+  return (
+    <div
+      className={`answer-card ${isCurrent ? "answer-card-current" : ""}`}
+      style={{ padding: compactUi ? "10px" : undefined }}
+    >
+      {a.text && (
+        <div className="card-actions">
+          <button
+            className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
+            onClick={() => onCopy(a.id, a.bilingual ? a.enText || a.text : a.text)}
+            aria-label="Copiar respuesta"
+            title="Copiar respuesta en inglés"
+          >
+            {copiedId === a.id ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+          </button>
+        </div>
+      )}
+
+      {/* Fila de Pregunta y Categoría */}
+      <div className="answer-card-q-row flex justify-between items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <span className="answer-card-label answer-card-label-q">💬 Pregunta</span>
+          <span className="answer-card-question block font-medium mt-0.5">{a.question}</span>
+        </div>
+        <span
+          className="mono text-[0.75em] px-2 py-0.5 rounded-full whitespace-nowrap border self-start"
+          style={{ background: "rgba(255,255,255,0.06)", borderColor: cat.color, color: cat.color }}
+        >
+          {cat.label}
+        </span>
+      </div>
+
+      {/* Alerta de Pregunta Trampa / Delicada */}
+      {warning && (
+        <div className="bg-amber-500/10 text-amber-500 p-2 rounded-lg text-[0.85em] mt-2 border border-amber-500/30">
+          <strong>{warning}</strong>
+        </div>
+      )}
+
+      {/* Banner de Alerta del Modelo */}
+      {a.alert && (
+        <div className="alert-banner bg-red-500/10 text-red-500 p-2.5 rounded-lg text-[0.9em] mt-2 border border-red-500/20">
+          <strong>⚠️ {a.alert}</strong>
+        </div>
+      )}
+
+      {/* Cheats / Puntos Clave */}
+      {a.cheats && a.cheats.length > 0 && (
+        <div className="cheats-container flex flex-wrap gap-2 mt-2">
+          {a.cheats.map((c, i) => (
+            <button
+              key={i}
+              className="cheat-btn text-[0.85em] px-2.5 py-1 rounded-full cursor-pointer hover:bg-zinc-800 transition-colors"
+              style={{ background: "var(--bg)", border: "1px solid var(--line-strong)", color: "var(--text)" }}
+              onClick={() => onCopy(a.id, c)}
+            >
+              ⚡ {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Snippet de Código */}
+      {a.snippet && (
+        <div className="snippet-container bg-zinc-950 text-zinc-300 p-3 rounded-lg mt-2 font-mono text-[0.85em] whitespace-pre-wrap overflow-x-auto relative border border-zinc-800">
+          <button
+            className="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded text-[0.8em] transition-colors"
+            onClick={() => onCopy(a.id, a.snippet)}
+          >
+            Copiar
+          </button>
+          {a.snippet}
+        </div>
+      )}
+
+      {/* Contenido Principal (Bilingüe vs Estándar) */}
+      {a.bilingual ? (
+        <div className="flex flex-col gap-2.5 mt-2.5">
+          {/* 1. Resumen en Español */}
+          <div
+            className="rounded-lg p-2.5 border"
+            style={{ background: "var(--bg)", borderColor: "var(--line-strong)" }}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <span
+                className="text-[11px] font-bold tracking-wider uppercase"
+                style={{ color: "var(--loro-green-bright)" }}
+              >
+                🇦🇷 1. Entendé la idea (Español)
+              </span>
+            </div>
+            <div className="answer-card-text text-[0.95em] leading-relaxed" style={{ color: "var(--ink-dim)" }}>
+              {a.esText ? (
+                <MarkdownText text={a.esText} />
+              ) : (
+                <span className="mono answer-card-loading">generando resumen en español…</span>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Respuesta en Inglés */}
+          <div className="bg-sky-500/5 border-2 border-sky-500/30 rounded-xl p-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-sky-600 tracking-wider uppercase flex items-center gap-1.5">
+                🇺🇸 2. Decí esto en la llamada (Inglés)
+              </span>
+              {a.enText && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => onPlayTTS(a.enText)}
+                    className="tts-button bg-sky-500/15 border border-sky-500/30 text-sky-600 font-bold px-2.5 py-0.5 text-xs rounded-md flex items-center gap-1 hover:bg-sky-500/25 transition-colors"
+                    title="Escuchar cómo se pronuncia"
+                  >
+                    🔊 Escuchar
+                  </button>
+                  <button
+                    onClick={() => onCopy(a.id, a.enText)}
+                    className="border border-zinc-700/50 bg-zinc-800/80 text-zinc-200 px-2 py-0.5 text-xs rounded-md hover:bg-zinc-700 transition-colors"
+                    title="Copiar texto en inglés"
+                  >
+                    📋
+                  </button>
+                </div>
+              )}
+            </div>
+            <div
+              className="answer-card-text font-semibold text-[1.08em] leading-relaxed"
+              style={{ color: "var(--ink)" }}
+            >
+              {a.enText ? (
+                <MarkdownText text={a.enText} />
+              ) : a.esText ? (
+                <span className="mono answer-card-loading">traduciendo al inglés…</span>
+              ) : (
+                <span className="mono answer-card-loading">generando…</span>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Fonética simplificada */}
+          {a.phoText && (
+            <div className="bg-amber-500/10 border-2 border-amber-500/35 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[11.5px] font-extrabold text-amber-700 tracking-wide uppercase">
+                  🗣️ 3. Pronunciación fonética (Leé esto en voz alta):
+                </span>
+              </div>
+              <div className="text-amber-900 bg-white/70 p-2.5 rounded-md border border-amber-500/20 font-mono text-[0.98em] leading-relaxed whitespace-pre-wrap font-semibold tracking-wide">
+                {a.phoText}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="answer-card-a-row mt-2">
+          <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
+          <div className="answer-card-text text-[1.05em] font-medium" style={{ color: "var(--ink)" }}>
+            {a.text ? (
+              <MarkdownText text={a.cleanText || a.text} />
+            ) : (
+              <span className="mono answer-card-loading">generando…</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Footer de Tarjeta con Latencia y Feedback */}
+      {a.text && (
+        <div className="answer-footer flex justify-between items-center mt-3 pt-2 border-t border-zinc-800/40">
+          <span className="answer-footer-meta mono text-[11px] text-zinc-500">
+            Respuesta · {fmtTime(a.ts)} {a.latencyMs ? `· ⚡ ${a.latencyMs}ms (${a.modelName || "IA"})` : ""}
+          </span>
+          <div className="fb-btns flex gap-1">
+            <button
+              className={`fb-btn ${a.feedback === "up" ? "fb-up" : ""}`}
+              onClick={() => onFeedback(a.id, "up")}
+              aria-label="Respuesta útil"
+            >
+              <ThumbUpIcon size={13} />
+            </button>
+            <button
+              className={`fb-btn ${a.feedback === "down" ? "fb-down" : ""}`}
+              onClick={() => onFeedback(a.id, "down")}
+              aria-label="Respuesta no útil"
+            >
+              <ThumbDownIcon size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default AnswerCard;

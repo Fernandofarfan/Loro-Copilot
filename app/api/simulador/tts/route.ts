@@ -1,12 +1,11 @@
-export const runtime = "edge";
+import { verifyOrigin, checkRateLimit } from "../../../lib/security";
 
+export const runtime = "edge";
 
 // Voz del entrevistador del simulador. gpt-4o-mini-tts soporta `instructions`
 // (tono/acento); tts-1 no, por eso el retry lo omite.
 const TTS_MODEL = "gpt-4o-mini-tts";
 const TTS_MODEL_FALLBACK = "tts-1";
-// nova = voz femenina; el acento y el ritmo se piden por instructions (el
-// modelo nuevo no soporta `speed`, el fallback tts-1 sí).
 const TTS_VOICE = "nova";
 const FALLBACK_SPEED = 1.25;
 
@@ -38,7 +37,17 @@ async function requestSpeech(apiKey: string, model: string, text: string, lang: 
 }
 
 export async function POST(req: Request) {
+  // 1. Origin Check
+  const originCheck = verifyOrigin(req);
+  if (!originCheck.ok) {
+    return new Response(originCheck.error || "No autorizado", { status: originCheck.status || 403 });
+  }
 
+  // 2. Rate Limiting (60 TTS por minuto por IP)
+  const rl = checkRateLimit(req, { limit: 60, windowMs: 60_000, keyPrefix: "tts" });
+  if (!rl.allowed) {
+    return new Response("Límite de solicitudes excedido.", { status: 429 });
+  }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
