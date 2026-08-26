@@ -882,18 +882,27 @@ Devolvé un JSON array con objetos: [{"question": "...", "enText": "...", "esTex
   const answerNowRef = useRef(answerNow);
   answerNowRef.current = answerNow;
 
-  // Feedback 👍/👎 por respuesta. Togglea el estado visual y manda el evento a
-  // analytics (única señal de calidad de respuestas que tenemos).
+  // Feedback 👍/👎 por respuesta. Togglea el estado visual, auto-aprende en el
+  // Banco de Memoria si es 👍 y manda el evento a analytics.
   const setFeedback = useCallback((id: number, fb: "up" | "down") => {
     setAnswers((prev) =>
       prev.map((a) => {
         if (a.id !== id) return a;
         const next = a.feedback === fb ? null : fb;
         if (next) track("answer_feedback", { rating: next, model: modelRef.current.model });
+        if (next === "up" && a.text) {
+          // Auto-guardado en memoria inteligente al dar feedback positivo 👍
+          saveMasterAnswer({
+            question: a.question,
+            enText: a.enText || a.text,
+            esText: a.esText || "",
+            tags: a.cheats || [],
+          });
+        }
         return { ...a, feedback: next };
       })
     );
-  }, []);
+  }, [saveMasterAnswer]);
 
   // ---------- Resumen Post-Entrevista ----------
   const generateSummary = async () => {
