@@ -289,7 +289,7 @@ export function parseInterviewMarkdownToMasterAnswers(
   }
 
   const results: MasterAnswer[] = [];
-  const qSections = mdText.split(/###\s+\d+\.\s+Pregunta:\s*/i);
+  const qSections = mdText.split(/###\s+(?:\d+[\.\)]\s*)?(?:Pregunta|Question|Q):\s*/i);
 
   for (let i = 1; i < qSections.length; i++) {
     const rawSection = qSections[i];
