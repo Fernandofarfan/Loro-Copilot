@@ -1,4 +1,5 @@
-import { verifyOrigin, checkRateLimit } from "../../../lib/security";
+import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../../lib/security";
+import { fetchWithTimeout } from "../../../lib/llm";
 
 export const runtime = "edge";
 
@@ -26,17 +27,27 @@ async function requestSpeech(apiKey: string, model: string, text: string, lang: 
   } else {
     body.speed = FALLBACK_SPEED;
   }
-  return fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+  return fetchWithTimeout(
+    "https://api.openai.com/v1/audio/speech",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    30_000
+  );
 }
 
 export async function POST(req: Request) {
+  // 0. Kill switch de capacidad
+  const capacity = checkCapacity();
+  if (!capacity.ok) {
+    return new Response(capacity.error, { status: capacity.status || 503 });
+  }
+
   // 1. Origin Check
   const originCheck = verifyOrigin(req);
   if (!originCheck.ok) {
@@ -44,9 +55,12 @@ export async function POST(req: Request) {
   }
 
   // 2. Rate Limiting (60 TTS por minuto por IP)
-  const rl = checkRateLimit(req, { limit: 60, windowMs: 60_000, keyPrefix: "tts" });
+  const rl = await checkRateLimitAsync(req, { limit: 60, windowMs: 60_000, keyPrefix: "tts" });
   if (!rl.allowed) {
-    return new Response("Límite de solicitudes excedido.", { status: 429 });
+    return new Response("Límite de solicitudes excedido.", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfterSeconds) },
+    });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -58,28 +72,32 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return new Response("Body inválido.", { status: 400 });
+    return new Response("Body inválido", { status: 400 });
   }
 
-  const text = (body.text || "").trim().slice(0, 600);
+  const text = (body.text || "").trim().slice(0, 1000);
   if (!text) {
-    return new Response("Texto vacío.", { status: 400 });
+    return new Response("Texto vacío", { status: 400 });
   }
   const lang: "es" | "en" = body.lang === "en" ? "en" : "es";
 
-  let upstream = await requestSpeech(apiKey, TTS_MODEL, text, lang);
-  if (!upstream.ok && upstream.status >= 400 && upstream.status < 500) {
-    upstream = await requestSpeech(apiKey, TTS_MODEL_FALLBACK, text, lang);
+  try {
+    let res = await requestSpeech(apiKey, TTS_MODEL, text, lang);
+    if (!res.ok) {
+      res = await requestSpeech(apiKey, TTS_MODEL_FALLBACK, text, lang);
+    }
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      return new Response(`Error de OpenAI TTS: ${err}`, { status: 502 });
+    }
+    const audioData = await res.arrayBuffer();
+    return new Response(audioData, {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  } catch (err: any) {
+    return new Response(`Error generando voz: ${err?.message || "desconocido"}`, { status: 502 });
   }
-  if (!upstream.ok || !upstream.body) {
-    const detail = await upstream.text().catch(() => "");
-    return new Response(`TTS error: ${detail || upstream.status}`, { status: 502 });
-  }
-
-  return new Response(upstream.body, {
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Cache-Control": "no-store",
-    },
-  });
 }

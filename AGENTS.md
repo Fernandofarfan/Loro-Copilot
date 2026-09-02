@@ -30,16 +30,20 @@ npm run dev
 - `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; sincronizado vía `BroadcastChannel` y `localStorage`.
 - `app/components/` — Componentes modulares de UI (`AnswerCard`, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
 - `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles, contexto y banco de respuestas maestras (`masterAnswers`).
-- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE y soporte multi-modelo (`MiMo`, `DeepSeek`, `GLM`, `GPT`, `Gemini`, `Claude`).
+- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab), remuestreo AudioWorklet PCM16 y eventos STT.
+- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas, matching de memoria instantánea, feedback y generador de preguntas típicas.
+- `app/hooks/useTeleprompter.ts` — Hook para pop-out de ventana HUD y sincronización en tiempo real vía `BroadcastChannel` y `localStorage`.
+- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE y soporte multi-modelo (`DeepSeek`, `Gemini`, `GPT`, `Claude`).
 - `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
 - `app/api/simulador/route.ts` — Generador de preguntas dinámicas y feedback estructurado JSON.
+- `app/api/waitlist/route.ts` — Captura y registro de lista de espera con rate limiting.
 - `app/api/summary/route.ts` — Generador de resumen post-entrevista en Markdown.
 - `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider con timeouts (`AbortController`) y fallback inteligente.
-- `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria.
-- `app/lib/interviewHelpers.ts` — Clasificador de preguntas, detector de preguntas trampa, parser de bloques (`[EN]`, `[ES]`) y motor de búsqueda de memoria `findMatchingAnswer()`.
+- `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria con lazy cleanup.
+- `app/lib/interviewHelpers.ts` — Clasificador de preguntas, detector de preguntas trampa, parser de bloques (`[EN]`, `[PHO]`, `[ES]`) y motor de búsqueda de memoria `findMatchingAnswer()`.
 - `app/lib/track.ts` — Wrapper fail-safe de analytics (`track()`, `identify()`).
 - `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a Int16 (PCM16 16kHz).
-- `__tests__/` — Tests unitarios automatizados (`interviewHelpers`, `llm`, `parseBlocks`, `security`).
+- `__tests__/` — Tests unitarios automatizados (`interviewHelpers`, `llm`, `parseBlocks`, `security`, `deepgramToken`).
 
 ## Convenciones de Código
 

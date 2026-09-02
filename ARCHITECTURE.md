@@ -39,7 +39,7 @@ Este documento detalla el diseño de sistemas, el flujo de datos y los component
 
 ### Captura
 - **Micrófono:** Adquirido con `navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })`.
-- **Pestaña (Meet/Zoom):** Adquirido con `navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })`, aislando la pista de audio y descartando el video inmediatamente para ahorrar recursos.
+- **Pestaña (Meet/Zoom):** Adquirido con `navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })`. Los tracks de video se detienen inmediatamente para liberar recursos de CPU/GPU sin disparar desconexión de sesión (`stop()` no dispara `disconnect`); el cierre de la captura queda vinculado exclusivamente al evento `audioTrack.onended`.
 
 ### Procesamiento y Remuestreo (`public/pcm-worklet.js`)
 - Los navegadores ejecutan el `AudioContext` a frecuencias nativas (habitualmente 44.1kHz o 48kHz).
@@ -71,11 +71,11 @@ En caso de saturación, error de cuota o indisponibilidad de un modelo, el backe
 
 ```typescript
 const FALLBACK = {
-  opencode: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2", "gpt-5.6-luna"],
-  openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
-  openai: ["gpt-4.1-mini", "gpt-4o-mini"],
-  anthropic: ["claude-haiku-4-5"],
-  gemini: ["gemini-3.6-flash", "gemini-2.5-flash"],
+  opencode: ["deepseek/deepseek-chat", "gpt-4o-mini"],
+  openrouter: ["deepseek/deepseek-chat"],
+  openai: ["gpt-4o-mini", "gpt-4o"],
+  anthropic: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
+  gemini: ["gemini-2.5-flash", "gemini-1.5-flash"],
 };
 ```
 
@@ -97,6 +97,8 @@ Cuando el sistema detecta que la pregunta fue en inglés, el LLM estructura la s
 
 ## 🛡️ 5. Capa de Seguridad y Resiliencia (`app/lib/security.ts`)
 
-- **Verificación de Origen (`verifyOrigin`):** Bloquea peticiones de dominios cruzados no autorizados o scripts externos maliciosos, permitiendo dominios propios y previews de Vercel (`*.vercel.app`).
+- **Verificación de Origen (`verifyOrigin`):** Bloquea peticiones de dominios cruzados no autorizados o scripts externos maliciosos, restringiendo estrictamente a dominios de producción (`loro-copilot.vercel.app`, `lorocopilot.com`, `NEXT_PUBLIC_SITE_URL`) y localhost en desarrollo.
+- **Rate Limiter en Memoria (`checkRateLimit`):** Ventanas deslizantes con limpieza perezosa (lazy cleanup) apta para Edge Isolates.
+- **Kill Switch de Capacidad (`checkCapacity`):** Apagado inmediato con HTTP 503 ante picos de demanda imprevistos mediante `CAPACITY_CLOSED=1`.
 - **Rate Limiter en Memoria (`checkRateLimit`):** Ventana deslizante por IP (ej. 40 req/min para respuestas) con limpieza periódica de buckets cada 5 minutos para prevenir fugas de memoria.
 - **Control de Abortos (`AbortController`):** Cada nuevo turno de respuesta cancela inmediatamente cualquier petición previa aún en curso para evitar consumo innecesario de tokens.

@@ -1,5 +1,14 @@
-import { streamAnthropic, streamOpenRouter, streamOpenAI, streamGemini, streamOpenCode } from "../../lib/llm";
-import { verifyOrigin, checkRateLimit } from "../../lib/security";
+import {
+  streamAnthropic,
+  streamOpenAI,
+  streamGemini,
+  streamOpenCode,
+  resolveProvider,
+  resolveModel,
+  FALLBACK_MODELS,
+  type Provider,
+} from "../../lib/llm";
+import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
 
 export const runtime = "edge";
 
@@ -23,31 +32,13 @@ Devolvé el feedback en ESTRICTO formato Markdown usando exactamente estas secci
 
 No uses saludos ni despedidas, devolvé solo el Markdown solicitado.`;
 
-// Override por env SOLO si está explícitamente seteada
-const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
-const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
-const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
-const OPENROUTER_MODEL_OVERRIDE = process.env.OPENROUTER_MODEL || "";
-const OPENCODE_MODEL_OVERRIDE = process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || "";
-const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
-
-function resolveModel(provider: string, requested: string): string {
-  if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
-  if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "opencode" || provider === "openrouter") return OPENCODE_MODEL_OVERRIDE || requested || "deepseek-v4-flash-free";
-  return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
-}
-
-function resolveProvider(requested?: string): string {
-  const envProvider = DEFAULT_PROVIDER_OVERRIDE;
-  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter" || envProvider === "opencode") {
-    return envProvider;
-  }
-  if (requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") return requested;
-  return "opencode";
-}
-
 export async function POST(req: Request) {
+  // 0. Kill switch de capacidad
+  const capacity = checkCapacity();
+  if (!capacity.ok) {
+    return new Response(capacity.error, { status: capacity.status || 503 });
+  }
+
   // 1. Verificación de Origin
   const originCheck = verifyOrigin(req);
   if (!originCheck.ok) {
@@ -55,9 +46,12 @@ export async function POST(req: Request) {
   }
 
   // 2. Rate Limiting (20 summaries por minuto por IP)
-  const rl = checkRateLimit(req, { limit: 20, windowMs: 60_000, keyPrefix: "summary" });
+  const rl = await checkRateLimitAsync(req, { limit: 20, windowMs: 60_000, keyPrefix: "summary" });
   if (!rl.allowed) {
-    return new Response("Límite de solicitudes excedido. Aguardá un momento.", { status: 429 });
+    return new Response("Límite de solicitudes excedido. Aguardá un momento.", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfterSeconds) },
+    });
   }
 
   let body: {
@@ -74,31 +68,23 @@ export async function POST(req: Request) {
     return new Response("Body inválido.", { status: 400 });
   }
 
-  const provider = resolveProvider(body.provider);
+  const provider: Provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
   const profile = (body.profile || "").slice(0, 6000);
   const company = (body.company || "").slice(0, 200);
   const role = (body.role || "").slice(0, 1500);
   const transcript = (body.transcript || "").slice(0, 12000);
 
-  const userContent = `## EMPRESA\n${company}\n\n## ROL\n${role}\n\n## PERFIL\n${profile}\n\n## TRANSCRIPCIÓN\n${transcript}`;
+  const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## ROL\n${role || "(sin especificar)"}\n\n## PERFIL\n${profile || "(sin especificar)"}\n\n## TRANSCRIPCIÓN\n${transcript || "(sin transcripción)"}`;
 
-  const FALLBACK: Record<string, string[]> = {
-    opencode: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
-    openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
-    openai: ["gpt-4.1-mini", "gpt-4o-mini"],
-    anthropic: ["claude-haiku-4-5"],
-    gemini: ["gemini-3.6-flash", "gemini-2.5-flash"],
-  };
-  const candidates = [model, ...(FALLBACK[provider] || ["gemini-3.6-flash"]).filter((m) => m !== model)];
+  const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
 
   try {
     if (provider === "anthropic") return await streamAnthropic(candidates, userContent, SYSTEM_PROMPT);
-    if (provider === "opencode") return await streamOpenCode(candidates, userContent, SYSTEM_PROMPT);
-    if (provider === "openrouter") return await streamOpenRouter(candidates, userContent, SYSTEM_PROMPT);
+    if (provider === "opencode" || provider === "openrouter") return await streamOpenCode(candidates, userContent, SYSTEM_PROMPT);
     if (provider === "openai") return await streamOpenAI(candidates, userContent, SYSTEM_PROMPT);
     return await streamGemini(candidates, userContent, SYSTEM_PROMPT);
   } catch (err: any) {
-    return new Response(`Error del modelo: ${err?.message || "desconocido"}`, { status: 502 });
+    return new Response(`Error generando resumen: ${err?.message || "desconocido"}`, { status: 502 });
   }
 }

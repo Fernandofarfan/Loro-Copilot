@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loreado.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
 
-// Permitimos crawl de todo, incluyendo explícitamente los bots de IA
-// (queremos visibilidad en ChatGPT, Claude, Perplexity, Gemini, etc.).
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      { userAgent: "*", allow: "/" },
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/teleprompter", "/api/"],
+      },
       {
         userAgent: [
           "GPTBot",
@@ -26,6 +28,7 @@ export default function robots(): MetadataRoute.Robots {
           "CCBot",
         ],
         allow: "/",
+        disallow: ["/teleprompter", "/api/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

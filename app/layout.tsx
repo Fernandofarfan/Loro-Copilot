@@ -60,9 +60,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Sin maximumScale: bloquear el pinch-zoom rompe accesibilidad (WCAG 1.4.4).
   viewportFit: "cover",
-  themeColor: "#f4f5f7",
+  themeColor: "#090a0f",
 };
 
 // Datos estructurados (JSON-LD): ayudan a Google (rich results) y a las IA
@@ -73,7 +72,7 @@ const jsonLd = {
     {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
-      name: "Interview Copilot",
+      name: "Loro Copilot",
       url: SITE_URL,
       logo: `${SITE_URL}/apple-icon`,
       description:
@@ -83,14 +82,14 @@ const jsonLd = {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       url: SITE_URL,
-      name: "Loreado.IA",
+      name: "Loro Copilot",
       inLanguage: "es",
       publisher: { "@id": `${SITE_URL}/#organization` },
     },
     {
       "@type": "SoftwareApplication",
       "@id": `${SITE_URL}/#app`,
-      name: "Interview Copilot",
+      name: "Loro Copilot",
       url: SITE_URL,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
@@ -109,8 +108,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body>
+    <html lang="es" className="dark" style={{ colorScheme: "dark", backgroundColor: "#090a0f", color: "#f8fafc" }}>
+      <body className="dark bg-[#090a0f] text-[#f8fafc] min-h-screen" style={{ backgroundColor: "#090a0f", color: "#f8fafc" }}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== "undefined") {
+                window.addEventListener("error", function(e) {
+                  var isExt = (e.filename && (e.filename.indexOf("chrome-extension://") !== -1 || e.filename.indexOf("moz-extension://") !== -1)) ||
+                              (e.error && e.error.stack && (e.error.stack.indexOf("chrome-extension://") !== -1 || e.error.stack.indexOf("moz-extension://") !== -1));
+                  if (isExt) {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                  }
+                }, true);
+                window.addEventListener("unhandledrejection", function(e) {
+                  var reason = e.reason ? (e.reason.stack || e.reason.message || String(e.reason)) : "";
+                  if (reason.indexOf("chrome-extension://") !== -1 || reason.indexOf("moz-extension://") !== -1) {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                  }
+                }, true);
+              }
+            `,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Loro Copilot - Invisible Audio",
-  "version": "1.0",
+  "name": "Loro Copilot - Audio Capture Companion (Preview)",
+  "version": "1.0.1",
+  "description": "Captura de audio de pestañas y llamadas para Loro Copilot",
   "permissions": [
     "tabCapture",
     "activeTab",
@@ -12,6 +13,8 @@
   ],
   "host_permissions": [
     "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*",
+    "https://loro-copilot.vercel.app/*",
     "https://*.deepgram.com/*"
   ],
   "action": {
@@ -22,7 +25,11 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://localhost:3000/*"],
+      "matches": [
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*",
+        "https://loro-copilot.vercel.app/*"
+      ],
       "js": ["content.js"]
     }
   ]

@@ -1,6 +1,6 @@
-// Utilidades de seguridad: Verificación de Origin / Referer y Rate Limiting en memoria para Edge / Serverless.
+// Utilidades de seguridad: Verificación de Origin / Referer, Rate Limiting en memoria y Kill Switch de Capacidad para Edge / Serverless.
 
-// Rate Limiter en memoria con ventana deslizante por IP
+// Rate Limiter en memoria con ventana deslizante por IP (best-effort por isolate en Vercel Edge)
 interface RateLimitRecord {
   count: number;
   resetAt: number;
@@ -8,41 +8,107 @@ interface RateLimitRecord {
 
 const ipBuckets = new Map<string, RateLimitRecord>();
 
-// Limpieza periódica cada 5 minutos para evitar fugas de memoria
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
+function lazyCleanIpBuckets(now: number) {
+  // Limpieza lazy si el tamaño supera 100 registros para evitar fugas en runtime Edge
+  if (ipBuckets.size > 100) {
     ipBuckets.forEach((record, key) => {
       if (now > record.resetAt) {
         ipBuckets.delete(key);
       }
     });
-  }, 300_000);
+  }
+}
+
+export async function checkRateLimitAsync(
+  req: Request,
+  options: { limit: number; windowMs: number; keyPrefix?: string } = { limit: 30, windowMs: 60_000 }
+): Promise<{ allowed: boolean; remaining: number; reset: number; retryAfterSeconds: number }> {
+  const restUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const restToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+  if (restUrl && restToken) {
+    try {
+      const forwarded = req.headers.get("x-forwarded-for");
+      const ip = (forwarded ? forwarded.split(",")[0].trim() : req.headers.get("x-real-ip")) || "127.0.0.1";
+      const key = `rl:${options.keyPrefix || "global"}:${ip}`;
+      const expireSeconds = Math.ceil(options.windowMs / 1000);
+
+      // Comando multi-pipeline en Upstash: INCR key + EXPIRE key NX
+      const res = await fetch(`${restUrl}/pipeline`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${restToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify([
+          ["INCR", key],
+          ["EXPIRE", key, expireSeconds, "NX"],
+          ["TTL", key],
+        ]),
+      });
+
+      if (res.ok) {
+        const results = await res.json();
+        const currentCount = Number(results[0]?.result ?? 1);
+        const ttl = Number(results[2]?.result ?? expireSeconds);
+        const now = Date.now();
+        const resetAt = now + (ttl > 0 ? ttl * 1000 : options.windowMs);
+
+        if (currentCount > options.limit) {
+          return {
+            allowed: false,
+            remaining: 0,
+            reset: resetAt,
+            retryAfterSeconds: ttl > 0 ? ttl : 1,
+          };
+        }
+
+        return {
+          allowed: true,
+          remaining: Math.max(0, options.limit - currentCount),
+          reset: resetAt,
+          retryAfterSeconds: 0,
+        };
+      }
+    } catch {
+      // Fallback a Map en memoria si Upstash falla
+    }
+  }
+
+  return checkRateLimit(req, options);
 }
 
 export function checkRateLimit(
   req: Request,
   options: { limit: number; windowMs: number; keyPrefix?: string } = { limit: 30, windowMs: 60_000 }
-): { allowed: boolean; remaining: number; reset: number } {
-  // Extraer IP del cliente desde headers de Vercel / Cloudflare o fallback
+): { allowed: boolean; remaining: number; reset: number; retryAfterSeconds: number } {
   const forwarded = req.headers.get("x-forwarded-for");
   const ip = (forwarded ? forwarded.split(",")[0].trim() : req.headers.get("x-real-ip")) || "127.0.0.1";
   const key = `${options.keyPrefix || "global"}:${ip}`;
   const now = Date.now();
 
+  lazyCleanIpBuckets(now);
+
   const record = ipBuckets.get(key);
 
   if (!record || now > record.resetAt) {
-    ipBuckets.set(key, { count: 1, resetAt: now + options.windowMs });
-    return { allowed: true, remaining: options.limit - 1, reset: now + options.windowMs };
+    const resetAt = now + options.windowMs;
+    ipBuckets.set(key, { count: 1, resetAt });
+    return { allowed: true, remaining: options.limit - 1, reset: resetAt, retryAfterSeconds: 0 };
   }
 
   if (record.count >= options.limit) {
-    return { allowed: false, remaining: 0, reset: record.resetAt };
+    const retryAfterSeconds = Math.max(1, Math.ceil((record.resetAt - now) / 1000));
+    return { allowed: false, remaining: 0, reset: record.resetAt, retryAfterSeconds };
   }
 
   record.count += 1;
-  return { allowed: true, remaining: options.limit - record.count, reset: record.resetAt };
+  return {
+    allowed: true,
+    remaining: options.limit - record.count,
+    reset: record.resetAt,
+    retryAfterSeconds: 0,
+  };
 }
 
 // Verificación de Origin / Referer para prevenir CSRF y uso no autorizado desde dominios externos
@@ -55,25 +121,28 @@ export function verifyOrigin(req: Request): { ok: boolean; status?: number; erro
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
 
-  // Si no hay origin ni referer (ej. requests directos de cURL o scripts maliciosos en producción)
+  // En producción se exige Origin o Referer
   if (!origin && !referer) {
-    // Permitir solo si viene explícitamente de un canal interno
-    return { ok: true };
+    return { ok: false, status: 403, error: "Origen o Referer requerido en producción." };
   }
 
+  const isProd = process.env.NODE_ENV === "production";
   const allowedHosts = [
-    "localhost",
-    "127.0.0.1",
     "loro-copilot.vercel.app",
     "lorocopilot.com",
     "www.lorocopilot.com",
   ];
 
+  // Solo permitir localhost / 127.0.0.1 fuera del entorno de producción
+  if (!isProd) {
+    allowedHosts.push("localhost", "127.0.0.1");
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (siteUrl) {
     try {
       const parsed = new URL(siteUrl);
-      if (parsed.hostname) allowedHosts.push(parsed.hostname);
+      if (parsed.hostname) allowedHosts.push(parsed.hostname.toLowerCase());
     } catch {}
   }
 
@@ -82,8 +151,7 @@ export function verifyOrigin(req: Request): { ok: boolean; status?: number; erro
     try {
       const url = new URL(urlStr);
       const host = url.hostname.toLowerCase();
-      // Acepta dominios autorizados y previews de Vercel (*.vercel.app)
-      return allowedHosts.includes(host) || host.endsWith(".vercel.app");
+      return allowedHosts.includes(host);
     } catch {
       return false;
     }
@@ -97,5 +165,17 @@ export function verifyOrigin(req: Request): { ok: boolean; status?: number; erro
     return { ok: false, status: 403, error: "Referer no autorizado." };
   }
 
+  return { ok: true };
+}
+
+// Kill Switch: si CAPACITY_CLOSED=1, frena el consumo de APIs LLM y STT
+export function checkCapacity(): { ok: boolean; status?: number; error?: string } {
+  if (process.env.CAPACITY_CLOSED === "1") {
+    return {
+      ok: false,
+      status: 503,
+      error: "🛑 Capacidad temporalmente agotada por alta demanda. Por favor, intentá nuevamente más tarde.",
+    };
+  }
   return { ok: true };
 }

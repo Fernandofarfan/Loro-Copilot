@@ -1,35 +1,34 @@
-# 🧩 Extensión de Chrome — Loro Copilot
+# 🧩 Extensión de Chrome — Loro Copilot (Modo Captura Local)
 
-Este directorio (`extension/`) contiene la extensión complementaria para Google Chrome, diseñada para capturar audio de pestañas y llamadas en segundo plano sin interrumpir la navegación.
-
----
-
-## 🎯 ¿Para qué sirve?
-
-Al utilizar la versión web de Loro Copilot, compartir audio mediante `getDisplayMedia` requiere seleccionar la pestaña activa. La extensión de Chrome permite:
-1. **Captura Directa de Audio de Pestaña:** Utiliza `chrome.tabCapture` y la API de **Offscreen Documents** para capturar el stream de audio de Google Meet o Zoom.
-2. **Streaming a Deepgram en Background:** Procesa el audio y lo reenvía directamente vía WebSocket, reduciendo la carga del hilo principal de la pestaña.
-3. **Comunicación con la Web App:** Envía los mensajes transcriptos a la aplicación web (`window.postMessage` con tipo `LORO_EXT_DG_MESSAGE`).
+La extensión de Chrome permite capturar audio de pestañas (Google Meet, Zoom Web, Teams) sin depender exclusivamente de `getDisplayMedia` en la ventana principal.
 
 ---
 
-## 📂 Estructura de la Extensión
+## 🔒 Política de Seguridad y Origen (Entorno Local)
 
-```text
-extension/
-├── manifest.json       # Manifiesto Manifest V3 con permisos de audio y offscreen
-├── background.js       # Service worker principal que gestiona el ciclo de vida
-├── content.js          # Script inyectado para hacer puente de mensajes con la web
-├── offscreen.html      # Documento offscreen para reproducir/capturar AudioContext
-└── offscreen.js        # Lógica de conexión WebSocket y procesamiento PCM
-```
+- **Entorno Soportado:** Desarrollo y pruebas locales (`http://localhost:3000`). La app web en producción utiliza `getDisplayMedia` de forma nativa para captura de pestañas sin requerir extensiones instaladas.
+- **Producción:** En producción (`NODE_ENV === "production"`), el backend de `loro-copilot.vercel.app` aplica una estricta política de `verifyOrigin` que bloquea solicitudes sin origen autorizado para evitar abusos o uso no autorizado de tokens STT.
+- **Comunicación Segura:** La mensajería interna entre `offscreen.js` y la pestaña web (`content.js`) restringe el `postMessage` al origen exacto de la pestaña (`window.location.origin`) eliminando el uso de `*`.
 
 ---
 
-## 🛠️ Cómo Instalarla en Modo Desarrollador
+## 🛠️ Estructura de la Extensión
 
-1. Abre Google Chrome y navega a `chrome://extensions/`.
-2. Activa el interruptor **Modo de desarrollador** (esquina superior derecha).
-3. Haz clic en el botón **Cargar descomprimida** (*Load unpacked*).
-4. Selecciona la carpeta `extension/` dentro de este repositorio.
-5. Abre [https://loro-copilot.vercel.app/app](https://loro-copilot.vercel.app/app) o tu entorno local `http://localhost:3000/app` para comenzar a utilizarla.
+- `manifest.json` — Manifiesto Manifest V3 con permisos de `tabCapture`, `offscreen` y `storage`.
+- `background.js` — Service worker que gestiona la creación del documento offscreen y el ciclo de captura de pestaña.
+- `offscreen.js` — Contexto aislado de audio que:
+  1. Solicita el token temporal efímero a `/api/deepgram-token`.
+  2. Conecta el stream PCM16 a `wss://api.deepgram.com/v1/listen`.
+  3. Mantiene una ganancia nula (`GainNode` gain 0) para procesar el audio sin generar sidetone ni eco en los altavoces.
+  4. Envía los mensajes de transcripción a `content.js`.
+- `content.js` — Inyecta los eventos en la sesión web activa.
+
+---
+
+## 📦 Cómo Cargar la Extensión en Chrome (Desarrollo)
+
+1. Abrir Google Chrome e ingresar a `chrome://extensions/`.
+2. Activar el **Modo de desarrollador** (esquina superior derecha).
+3. Hacer clic en **Cargar descomprimida** (*Load unpacked*).
+4. Seleccionar la carpeta `extension/` de este repositorio.
+5. Iniciar la app local con `npm run dev` en `http://localhost:3000`.

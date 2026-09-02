@@ -1,44 +1,81 @@
-// Convierte audio Float32 a PCM16 y lo remuestrea a 16kHz si hace falta.
-// En modo microfono (celular) el AudioContext suele correr a 44.1/48kHz,
-// asi que no podemos asumir 16k: remuestreamos aca.
+// Convierte audio Float32 a PCM16 y lo remuestrea a 16kHz preservando muestras residuales
+// entre llamadas de process() (Web Audio quantum de 128 samples).
 class PCMWorklet extends AudioWorkletProcessor {
   constructor() {
     super();
     this.targetRate = 16000;
+    this.remainderIndex = 0;
+    this.leftoverBuffer = new Float32Array(0);
   }
 
   process(inputs) {
     const input = inputs[0];
     if (!input || input.length === 0) return true;
     const channel = input[0];
-    if (!channel) return true;
+    if (!channel || channel.length === 0) return true;
 
-    const inRate = sampleRate; // global del worklet
+    const inRate = sampleRate; // global del AudioWorklet
     const ratio = inRate / this.targetRate;
 
-    if (ratio <= 1.0001) {
-      const pcm = this._toPCM(channel);
+    // Concatenar sobrantes del quantum anterior con el buffer actual
+    let fullBuffer;
+    if (this.leftoverBuffer.length > 0) {
+      fullBuffer = new Float32Array(this.leftoverBuffer.length + channel.length);
+      fullBuffer.set(this.leftoverBuffer, 0);
+      fullBuffer.set(channel, this.leftoverBuffer.length);
+    } else {
+      fullBuffer = channel;
+    }
+
+    if (Math.abs(ratio - 1.0) < 0.001) {
+      const pcm = this._toPCM(fullBuffer);
       this.port.postMessage(pcm.buffer, [pcm.buffer]);
+      this.leftoverBuffer = new Float32Array(0);
       return true;
     }
 
-    // Downsample por promediado de ventana.
-    const outLen = Math.floor(channel.length / ratio);
-    const out = new Int16Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      const start = Math.floor(i * ratio);
-      const end = Math.floor((i + 1) * ratio);
-      let sum = 0;
-      let count = 0;
-      for (let j = start; j < end && j < channel.length; j++) {
-        sum += channel[j];
-        count++;
-      }
-      let s = count ? sum / count : 0;
-      s = Math.max(-1, Math.min(1, s));
-      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    // Downsample con ventana móvil y tracking exacto de offset fraccional
+    const totalSamples = fullBuffer.length;
+    let outCount = 0;
+    let currPos = this.remainderIndex;
+
+    // Primer pase: contar cuántos samples caben exactamente
+    while (currPos + ratio <= totalSamples) {
+      outCount++;
+      currPos += ratio;
     }
-    this.port.postMessage(out.buffer, [out.buffer]);
+
+    if (outCount > 0) {
+      const out = new Int16Array(outCount);
+      currPos = this.remainderIndex;
+      for (let i = 0; i < outCount; i++) {
+        const nextPos = currPos + ratio;
+        const start = Math.floor(currPos);
+        const end = Math.min(totalSamples, Math.ceil(nextPos));
+        let sum = 0;
+        let count = 0;
+        for (let j = start; j < end; j++) {
+          sum += fullBuffer[j];
+          count++;
+        }
+        let s = count ? sum / count : 0;
+        s = Math.max(-1, Math.min(1, s));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        currPos = nextPos;
+      }
+      this.port.postMessage(out.buffer, [out.buffer]);
+    }
+
+    // Guardar los samples residuales que quedaron después de currPos
+    const lastConsumedIndex = Math.floor(currPos);
+    if (lastConsumedIndex < totalSamples) {
+      this.leftoverBuffer = fullBuffer.slice(lastConsumedIndex);
+      this.remainderIndex = currPos - lastConsumedIndex;
+    } else {
+      this.leftoverBuffer = new Float32Array(0);
+      this.remainderIndex = currPos - totalSamples;
+    }
+
     return true;
   }
 

@@ -77,12 +77,19 @@ export function AnswerCard({
             </button>
           )}
           <button
-            className={`card-btn ${copiedId === a.id ? "card-btn-done" : ""}`}
+            className={`card-btn flex items-center gap-1 ${copiedId === a.id ? "card-btn-done text-emerald-400" : ""}`}
             onClick={() => onCopy(a.id, a.bilingual ? a.enText || a.text : a.text)}
             aria-label="Copiar respuesta"
             title="Copiar respuesta"
           >
-            {copiedId === a.id ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+            {copiedId === a.id ? (
+              <>
+                <CheckIcon size={14} />
+                <span className="text-[11px] font-bold text-emerald-400">Copiado</span>
+              </>
+            ) : (
+              <CopyIcon size={14} />
+            )}
           </button>
         </div>
       )}
@@ -151,52 +158,37 @@ export function AnswerCard({
         </div>
       )}
 
-      {/* Contenido Principal (Bilingüe vs Estándar) */}
+      {/* Contenido Principal (Bilingüe orden EN -> PHO -> ES vs Estándar) */}
       {a.bilingual ? (
         <div className="flex flex-col gap-2.5 mt-2.5">
-          {/* 1. Resumen en Español */}
-          <div
-            className="rounded-lg p-2.5 border"
-            style={{ background: "var(--bg)", borderColor: "var(--line-strong)" }}
-          >
-            <div className="flex items-center gap-1.5 mb-1">
-              <span
-                className="text-[11px] font-bold tracking-wider uppercase"
-                style={{ color: "var(--loro-green-bright)" }}
-              >
-                🇦🇷 1. Idea Clave (Español)
-              </span>
-            </div>
-            <div className="answer-card-text text-[0.95em] leading-relaxed" style={{ color: "var(--ink-dim)" }}>
-              {a.esText ? (
-                <MarkdownText text={a.esText} />
-              ) : (
-                <span className="mono answer-card-loading">generando resumen en español…</span>
-              )}
-            </div>
-          </div>
-
-          {/* 2. Respuesta en Inglés */}
-          <div className="bg-sky-500/5 border-2 border-sky-500/30 rounded-xl p-3">
+          {/* 1. Respuesta en Inglés */}
+          <div className="bg-emerald-500/5 border-2 border-emerald-500/30 rounded-xl p-3">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-sky-600 tracking-wider uppercase flex items-center gap-1.5">
-                🇺🇸 2. Decí esto en la llamada (Inglés)
+              <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
+                ⭐ 1. Lo que decís en la llamada (Inglés)
               </span>
               {a.enText && (
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => onPlayTTS(a.enText)}
-                    className="tts-button bg-sky-500/15 border border-sky-500/30 text-sky-600 font-bold px-2.5 py-0.5 text-xs rounded-md flex items-center gap-1 hover:bg-sky-500/25 transition-colors"
+                    className="tts-button bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold px-2.5 py-0.5 text-xs rounded-md flex items-center gap-1 hover:bg-emerald-500/25 transition-colors"
                     title="Escuchar cómo suena"
                   >
                     🔊 Escuchar
                   </button>
                   <button
                     onClick={() => onCopy(a.id, a.enText)}
-                    className="border border-zinc-700/50 bg-zinc-800/80 text-zinc-200 px-2 py-0.5 text-xs rounded-md hover:bg-zinc-700 transition-colors"
+                    className="border border-zinc-700/50 bg-zinc-800/80 text-zinc-200 px-2 py-0.5 text-xs rounded-md hover:bg-zinc-700 transition-colors flex items-center gap-1"
                     title="Copiar texto en inglés"
                   >
-                    📋
+                    {copiedId === a.id ? (
+                      <>
+                        <CheckIcon size={12} />
+                        <span className="text-[10px] text-emerald-400 font-bold">Copiado</span>
+                      </>
+                    ) : (
+                      <span>📋</span>
+                    )}
                   </button>
                 </div>
               )}
@@ -207,10 +199,42 @@ export function AnswerCard({
             >
               {a.enText ? (
                 <MarkdownText text={a.enText} />
-              ) : a.esText ? (
-                <span className="mono answer-card-loading">generando respuesta en inglés…</span>
               ) : (
-                <span className="mono answer-card-loading">generando…</span>
+                <span className="mono answer-card-loading">generando respuesta en inglés…</span>
+              )}
+            </div>
+          </div>
+
+          {/* Guía fonética si está presente */}
+          {a.phoText && (
+            <div className="bg-amber-950/20 border border-amber-800/40 rounded-lg p-2.5">
+              <div className="text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                🗣️ Guía Fonética (Pronunciación Rápida)
+              </div>
+              <div className="text-amber-300 font-mono text-[0.88em]">
+                {a.phoText}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Resumen en Español */}
+          <div
+            className="rounded-lg p-2.5 border"
+            style={{ background: "var(--bg)", borderColor: "var(--line-strong)" }}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <span
+                className="text-[11px] font-bold tracking-wider uppercase"
+                style={{ color: "var(--loro-green-bright)" }}
+              >
+                🇦🇷 2. Idea Clave (Español)
+              </span>
+            </div>
+            <div className="answer-card-text text-[0.95em] leading-relaxed" style={{ color: "var(--ink-dim)" }}>
+              {a.esText ? (
+                <MarkdownText text={a.esText} />
+              ) : (
+                <span className="mono answer-card-loading">generando resumen en español…</span>
               )}
             </div>
           </div>

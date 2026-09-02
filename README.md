@@ -10,11 +10,12 @@
 - **🗣️ Modo Bilingüe con Fonética en Vivo (`[EN]`, `[PHO]`, `[ES]`)**: Si el entrevistador habla en inglés, genera la respuesta técnica en inglés, una transcripción fonética simplificada en español para leer de corrido con naturalidad nativa y la traducción conceptual.
 - **🪟 Teleprompter Flotante (HUD Stealth)**: Ventana emergente pop-out sincronizada en tiempo real mediante `BroadcastChannel` para ubicar directamente debajo de la webcam y mantener contacto visual.
 - **🤖 Simulador de Entrevistas Interactivo**: Modo de práctica con entrevistador virtual por IA, soporte de voz (TTS/STT), turnos conversacionales automáticos y reporte de desempeño con score, fortalezas y áreas de mejora.
-- **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **MiMo V2.5 Pro**, **DeepSeek V4 Flash**, **GPT 5.6 Luna**, **Gemini 3.6 Flash**, **Claude Haiku 4.5**, con conmutación por error (fallbacks) automática en Edge Runtime.
+- **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **DeepSeek Chat**, **Gemini 2.5 Flash**, **GPT-4o Mini**, **Claude 3.5 Haiku**, con conmutación por error (fallbacks) automática en Edge Runtime.
 - **🧠 Análisis Inteligente en Vivo**:
   - Clasificador automático de preguntas (Técnica, STAR/Comportamental, Pretensión Salarial, General).
   - Detector de preguntas trampa/delicadas con tips estratégicos al instante.
   - Frases de rescate rápido ("Ganar tiempo", "Pedir repetición", "Clarificar", "Cierre seguro").
+  - Banco de memoria inteligente con caché instantánea (<50ms) y autoaprendizaje.
 - **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste.
 
 ---
@@ -24,7 +25,7 @@
 - **Framework**: [Next.js 14](https://nextjs.org/) (App Router, Edge Runtime)
 - **Frontend**: React 18, TypeScript, CSS nativo de alta performance
 - **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16), [Deepgram Nova-2](https://deepgram.com/)
-- **Modelos de IA**: OpenCode / OpenRouter (MiMo, DeepSeek, GLM, GPT), Google Gemini, Anthropic Claude, OpenAI GPT
+- **Modelos de IA**: OpenCode / OpenRouter (DeepSeek), Google Gemini, Anthropic Claude, OpenAI GPT
 - **Testing**: [Vitest](https://vitest.dev/)
 - **Analytics**: PostHog (fail-safe) + Vercel Analytics
 
@@ -74,7 +75,7 @@ npm test
 
 Para verificar tipos de TypeScript sin emitir build:
 ```bash
-npx tsc --noEmit
+npm run typecheck
 ```
 
 Para compilar el build de producción:

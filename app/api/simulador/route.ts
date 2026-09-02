@@ -1,16 +1,19 @@
-import { verifyOrigin, checkRateLimit } from "../../lib/security";
+import { NextResponse } from "next/server";
+import {
+  streamGemini,
+  streamAnthropic,
+  streamOpenAI,
+  streamOpenCode,
+  resolveProvider,
+  resolveModel,
+  FALLBACK_MODELS,
+  parseModelJson,
+  fetchWithTimeout,
+  type Provider,
+} from "../../lib/llm";
+import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
 
 export const runtime = "edge";
-
-type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
-
-const GEMINI_MODEL_OVERRIDE = process.env.GEMINI_MODEL || "";
-const ANTHROPIC_MODEL_OVERRIDE = process.env.ANTHROPIC_MODEL || "";
-const OPENAI_MODEL_OVERRIDE = process.env.OPENAI_MODEL || "";
-const OPENCODE_MODEL_OVERRIDE = process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL || "";
-const DEFAULT_PROVIDER_OVERRIDE = (process.env.LLM_PROVIDER || "").toLowerCase();
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
-const APP_NAME = "Loro Copilot";
 
 const SYSTEM_PROMPT_INTERVIEWER = `Sos el ENTREVISTADOR. Estás en la llamada haciendo la entrevista en vivo al candidato, ahora mismo.
 
@@ -60,23 +63,142 @@ Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura:
   ]
 }`;
 
-function resolveModel(provider: Provider, requested: string): string {
-  if (provider === "anthropic") return ANTHROPIC_MODEL_OVERRIDE || requested || "claude-haiku-4-5";
-  if (provider === "openai") return OPENAI_MODEL_OVERRIDE || requested || "gpt-4o-mini";
-  if (provider === "opencode" || provider === "openrouter") return OPENCODE_MODEL_OVERRIDE || requested || "deepseek-v4-flash-free";
-  return GEMINI_MODEL_OVERRIDE || requested || "gemini-3.6-flash";
-}
+async function getFeedbackJson(provider: Provider, models: string[], systemPrompt: string, userContent: string): Promise<Response> {
+  let lastError = "";
 
-function resolveProvider(requested?: string): Provider {
-  const envProvider = DEFAULT_PROVIDER_OVERRIDE as Provider;
-  if (envProvider === "gemini" || envProvider === "anthropic" || envProvider === "openai" || envProvider === "openrouter" || envProvider === "opencode") {
-    return envProvider;
+  if (provider === "openai" || provider === "opencode" || provider === "openrouter") {
+    const isOpencode = provider === "opencode" || provider === "openrouter";
+    const apiKey = isOpencode
+      ? process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY
+      : process.env.OPENAI_API_KEY;
+    const rawBaseUrl = isOpencode
+      ? process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"
+      : "https://api.openai.com/v1";
+    const baseUrl = rawBaseUrl.replace(/\/$/, "");
+
+    if (!apiKey) return new Response(`Falta API key para ${provider}.`, { status: 500 });
+
+    for (const model of models) {
+      if (!model) continue;
+      try {
+        const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userContent },
+            ],
+            temperature: 0.2,
+            response_format: { type: "json_object" },
+          }),
+        }, 25_000);
+
+        if (res.ok) {
+          const j = await res.json();
+          const content = j.choices?.[0]?.message?.content;
+          if (content) {
+            return NextResponse.json(parseModelJson(content));
+          }
+        }
+        lastError = await res.text().catch(() => "");
+      } catch (err: any) {
+        lastError = err?.message || String(err);
+      }
+    }
   }
-  if (requested === "anthropic" || requested === "openai" || requested === "openrouter" || requested === "opencode") return requested;
-  return "opencode";
+
+  if (provider === "anthropic") {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return new Response("Falta ANTHROPIC_API_KEY.", { status: 500 });
+
+    for (const model of models) {
+      if (!model) continue;
+      try {
+        const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 2048,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userContent }],
+          }),
+        }, 25_000);
+
+        if (res.ok) {
+          const j = await res.json();
+          const text = j.content?.[0]?.text;
+          if (text) {
+            return NextResponse.json(parseModelJson(text));
+          }
+        }
+        lastError = await res.text().catch(() => "");
+      } catch (err: any) {
+        lastError = err?.message || String(err);
+      }
+    }
+  }
+
+  // Gemini feedback
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return new Response("Falta GEMINI_API_KEY.", { status: 500 });
+
+  for (const model of models) {
+    if (!model) continue;
+    try {
+      const res = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: userContent }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 4096,
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+        25_000
+      );
+
+      if (res.ok) {
+        const j = await res.json();
+        const text = j.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          return NextResponse.json(parseModelJson(text));
+        }
+      }
+      lastError = await res.text().catch(() => "");
+    } catch (err: any) {
+      lastError = err?.message || String(err);
+    }
+  }
+
+  return new Response(`Error generando feedback: ${lastError}`, { status: 502 });
 }
 
 export async function POST(req: Request) {
+  // 0. Kill switch de capacidad
+  const capacity = checkCapacity();
+  if (!capacity.ok) {
+    return new Response(capacity.error, { status: capacity.status || 503 });
+  }
+
   // 1. Origin Check
   const originCheck = verifyOrigin(req);
   if (!originCheck.ok) {
@@ -84,9 +206,12 @@ export async function POST(req: Request) {
   }
 
   // 2. Rate Limiting (40 req/min)
-  const rl = checkRateLimit(req, { limit: 40, windowMs: 60_000, keyPrefix: "simulador" });
+  const rl = await checkRateLimitAsync(req, { limit: 40, windowMs: 60_000, keyPrefix: "simulador" });
   if (!rl.allowed) {
-    return new Response("Límite de solicitudes excedido.", { status: 429 });
+    return new Response("Límite de solicitudes excedido.", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfterSeconds) },
+    });
   }
 
   let body: {
@@ -101,8 +226,6 @@ export async function POST(req: Request) {
     history?: Array<{ question: string; answer: string }>;
     questionIndex?: number;
     questionsCount?: number;
-    lastAnswerLikelyCut?: boolean;
-    image?: string;
   };
   try {
     body = await req.json();
@@ -148,375 +271,18 @@ export async function POST(req: Request) {
   const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## DESCRIPCIÓN DEL PUESTO\n${role || "(sin especificar)"}\n\n## PERFIL DEL CANDIDATO\n${profile || "(sin perfil)"}\n\n## TIPO DE ENTREVISTA\n${interviewType}\n\n## PROGRESO\n${progressText}\n\n## ${isFeedback ? "IDIOMA DEL REPORTE" : "IDIOMA DE LA RESPUESTA"}\n${answerLangLabel}\n${isClosing ? "\n## CIERRE\nLa entrevista TERMINÓ. Despedite amablemente.\n" : ""}\n## HISTORIAL\n${historyText}`;
   const systemPrompt = isFeedback ? SYSTEM_PROMPT_FEEDBACK : SYSTEM_PROMPT_INTERVIEWER;
 
-  const FALLBACK: Record<Provider, string[]> = {
-    opencode: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2", "gpt-5.6-luna"],
-    openrouter: ["deepseek-v4-flash-free", "deepseek-v4-flash", "glm-5.2"],
-    openai: ["gpt-4.1-mini", "gpt-4o-mini"],
-    anthropic: ["claude-haiku-4-5"],
-    gemini: ["gemini-3.6-flash", "gemini-2.5-flash"],
-  };
-  const candidates = [model, ...FALLBACK[provider].filter((m) => m !== model)];
+  const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
 
   try {
     if (isFeedback) {
-      return await getFeedback(provider, candidates, systemPrompt, userContent);
+      return await getFeedbackJson(provider, candidates, systemPrompt, userContent);
     } else {
-      if (provider === "anthropic") return await streamAnthropic(candidates, systemPrompt, userContent);
-      if (provider === "opencode" || provider === "openrouter") return await streamOpenRouter(candidates, systemPrompt, userContent);
-      if (provider === "openai") return await streamOpenAI(candidates, systemPrompt, userContent);
-      return await streamGemini(candidates, systemPrompt, userContent);
+      if (provider === "anthropic") return await streamAnthropic(candidates, userContent, systemPrompt);
+      if (provider === "opencode" || provider === "openrouter") return await streamOpenCode(candidates, userContent, systemPrompt);
+      if (provider === "openai") return await streamOpenAI(candidates, userContent, systemPrompt);
+      return await streamGemini(candidates, userContent, systemPrompt);
     }
   } catch (err: any) {
     return new Response(`Error del modelo: ${err?.message || "desconocido"}`, { status: 502 });
   }
-}
-
-function textStreamResponse(stream: ReadableStream) {
-  return new Response(stream, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
-}
-
-function sseTextStream(
-  upstream: ReadableStream<Uint8Array>,
-  extract: (json: string) => string | null
-): ReadableStream {
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-  const reader = upstream.getReader();
-  let buffer = "";
-  return new ReadableStream({
-    async pull(controller) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          controller.close();
-          return;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        let enqueuedAny = false;
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data:")) continue;
-          const json = trimmed.slice(5).trim();
-          if (!json || json === "[DONE]") continue;
-          try {
-            const text = extract(json);
-            if (text) {
-              controller.enqueue(encoder.encode(text));
-              enqueuedAny = true;
-            }
-          } catch {}
-        }
-        if (enqueuedAny) return;
-      }
-    },
-    cancel() {
-      reader.cancel();
-    },
-  });
-}
-
-async function streamGemini(models: string[], systemPrompt: string, userContent: string): Promise<Response> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return new Response("Falta GEMINI_API_KEY.", { status: 500 });
-  const payload = {
-    contents: [{ role: "user", parts: [{ text: userContent }] }],
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    generationConfig: {
-      temperature: 0.5,
-      maxOutputTokens: 512,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  };
-  let detail = "";
-  for (const model of models) {
-    if (!model) continue;
-    try {
-      const upstream = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-      if (upstream.ok && upstream.body) {
-        return textStreamResponse(
-          sseTextStream(upstream.body, (json) => {
-            const evt = JSON.parse(json);
-            return evt.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-          })
-        );
-      }
-      detail = await upstream.text().catch(() => "");
-    } catch (e: any) {
-      detail = e?.message || "";
-    }
-  }
-  return new Response(`Gemini error: ${detail}`, { status: 502 });
-}
-
-async function streamAnthropic(models: string[], systemPrompt: string, userContent: string): Promise<Response> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return new Response("Falta ANTHROPIC_API_KEY.", { status: 500 });
-  let detail = "";
-  for (const model of models) {
-    if (!model) continue;
-    try {
-      const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 512,
-          temperature: 0.5,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userContent }],
-          stream: true,
-        }),
-      });
-      if (upstream.ok && upstream.body) {
-        return textStreamResponse(
-          sseTextStream(upstream.body, (json) => {
-            const evt = JSON.parse(json);
-            if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
-              return evt.delta.text ?? null;
-            }
-            return null;
-          })
-        );
-      }
-      detail = await upstream.text().catch(() => "");
-    } catch (e: any) {
-      detail = e?.message || "";
-    }
-  }
-  return new Response(`Claude error: ${detail}`, { status: 502 });
-}
-
-async function streamOpenAI(models: string[], systemPrompt: string, userContent: string): Promise<Response> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return new Response("Falta OPENAI_API_KEY.", { status: 500 });
-  let detail = "";
-  for (const model of models) {
-    if (!model) continue;
-    const isReasoning = /^(gpt-5|o[0-9])/.test(model);
-    const reqBody: Record<string, unknown> = {
-      model,
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    };
-    if (isReasoning) {
-      reqBody.max_completion_tokens = 900;
-      reqBody.reasoning_effort = "low";
-    } else {
-      reqBody.max_tokens = 512;
-      reqBody.temperature = 0.5;
-    }
-    try {
-      const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(reqBody),
-      });
-      if (upstream.ok && upstream.body) {
-        return textStreamResponse(
-          sseTextStream(upstream.body, (json) => {
-            const evt = JSON.parse(json);
-            return evt.choices?.[0]?.delta?.content ?? null;
-          })
-        );
-      }
-      detail = await upstream.text().catch(() => "");
-    } catch (e: any) {
-      detail = e?.message || "";
-    }
-  }
-  return new Response(`GPT error: ${detail}`, { status: 502 });
-}
-
-async function streamOpenRouter(models: string[], systemPrompt: string, userContent: string): Promise<Response> {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENCODE_API_KEY;
-  const baseUrl = process.env.OPENROUTER_BASE_URL || process.env.OPENCODE_BASE_URL || "https://openrouter.ai/api/v1";
-  if (!apiKey) return new Response("Falta OPENROUTER_API_KEY.", { status: 500 });
-  let detail = "";
-  for (const model of models) {
-    if (!model) continue;
-    const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
-    const reqBody: Record<string, unknown> = {
-      model,
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    };
-    if (isReasoning) {
-      reqBody.max_completion_tokens = 900;
-      reqBody.reasoning_effort = "low";
-    } else {
-      reqBody.max_tokens = 512;
-      reqBody.temperature = 0.5;
-    }
-    try {
-      const upstream = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": SITE_URL,
-          "X-Title": APP_NAME,
-        },
-        body: JSON.stringify(reqBody),
-      });
-      if (upstream.ok && upstream.body) {
-        return textStreamResponse(
-          sseTextStream(upstream.body, (json) => {
-            const evt = JSON.parse(json);
-            return evt.choices?.[0]?.delta?.content ?? null;
-          })
-        );
-      }
-      detail = await upstream.text().catch(() => "");
-    } catch (e: any) {
-      detail = e?.message || "";
-    }
-  }
-  return new Response(`OpenRouter error: ${detail}`, { status: 502 });
-}
-
-function parseModelJson(text: string): unknown {
-  const cleaned = (text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
-    throw new Error("JSON inválido del modelo");
-  }
-}
-
-async function getFeedback(
-  provider: Provider,
-  models: string[],
-  systemPrompt: string,
-  userContent: string
-): Promise<Response> {
-  if (provider === "openai" || provider === "openrouter" || provider === "opencode") {
-    const isOpencode = provider === "opencode" || provider === "openrouter";
-    const baseUrl = isOpencode ? (process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://api.opencode.ai/v1") : "https://api.openai.com/v1";
-    const apiKey = isOpencode ? (process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY) : process.env.OPENAI_API_KEY;
-    if (!apiKey) return new Response(isOpencode ? "Falta OPENCODE_API_KEY." : "Falta OPENAI_API_KEY.", { status: 500 });
-    let detail = "";
-    for (const model of models) {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          ...(provider === "openrouter" ? { "HTTP-Referer": SITE_URL, "X-Title": APP_NAME } : {}),
-        },
-        body: JSON.stringify({
-          model,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent },
-          ],
-        }),
-      });
-      if (res.ok) {
-        const j = await res.json();
-        try {
-          return Response.json(parseModelJson(j.choices?.[0]?.message?.content || "{}"));
-        } catch {
-          detail = "JSON inválido del modelo";
-          continue;
-        }
-      }
-      detail = await res.text().catch(() => "");
-    }
-    return new Response(`Feedback error: ${detail}`, { status: 502 });
-  }
-
-  if (provider === "anthropic") {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return new Response("Falta ANTHROPIC_API_KEY.", { status: 500 });
-    let detail = "";
-    for (const model of models) {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 2048,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userContent }],
-        }),
-      });
-      if (res.ok) {
-        const j = await res.json();
-        try {
-          return Response.json(parseModelJson(j.content?.[0]?.text || "{}"));
-        } catch {
-          detail = "JSON inválido del modelo";
-          continue;
-        }
-      }
-      detail = await res.text().catch(() => "");
-    }
-    return new Response(`Anthropic feedback error: ${detail}`, { status: 502 });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return new Response("Falta GEMINI_API_KEY.", { status: 500 });
-  let detail = "";
-  for (const model of models) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: userContent }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 4096,
-            responseMimeType: "application/json",
-            thinkingConfig: { thinkingBudget: 0 },
-          },
-        }),
-      }
-    );
-    if (res.ok) {
-      const j = await res.json();
-      try {
-        return Response.json(parseModelJson(j.candidates?.[0]?.content?.parts?.[0]?.text || "{}"));
-      } catch {
-        detail = "JSON inválido del modelo";
-        continue;
-      }
-    }
-    detail = await res.text().catch(() => "");
-  }
-  return new Response(`Gemini feedback error: ${detail}`, { status: 502 });
 }

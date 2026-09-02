@@ -25,9 +25,12 @@ import {
   scoreInk,
 } from "./FeedbackReportView";
 
+import { Dropdown } from "../components/Dropdown";
+import { useDeepgram, type TranscriptLine } from "../hooks/useDeepgram";
+
 type Line = { id: number; text: string; final: boolean };
 type Lang = "es" | "en";
-type Provider = "gemini" | "anthropic" | "openai";
+type Provider = "gemini" | "anthropic" | "openai" | "opencode";
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 
 type InterviewType = "general" | "technical" | "behavioral" | "hr";
@@ -70,15 +73,55 @@ function normalizeReport(raw: any): FeedbackReport {
 
 const STT_LANG: Record<Lang, string> = { es: "es", en: "en" };
 
+function OpenCodeMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
 const MODELS: ModelOption[] = [
-  { id: "gemini-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Recomendado" },
+  // ⚡ Nivel Ultra Rápido (6s - 8s) — Óptimo en Vivo
+  { id: "gemini-3-6-flash", label: "Gemini 3.6 Flash ⚡ (6.0s)", provider: "gemini", model: "gemini-3.6-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (6.2s)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.5s)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (6.6s)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (6.7s)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (6.9s)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (7.6s)", provider: "opencode", model: "qwen-3.8-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯 (7.9s)", provider: "opencode", model: "mimo-v2.5-pro", tag: "Ultra Rápido" },
+
+  // 🚀 Nivel Rápido / Balanceado (9s - 15s)
+  { id: "grok-4-6", label: "Grok 4.6 ⚡ (9.2s)", provider: "opencode", model: "grok-4.6", tag: "Balanceado" },
+  { id: "glm-5-3", label: "GLM 5.3 (9.6s)", provider: "opencode", model: "glm-5.3", tag: "Balanceado" },
+  { id: "minimax-m2-7", label: "MiniMax M2.7 (10.2s)", provider: "opencode", model: "minimax-m2.7", tag: "Balanceado" },
+  { id: "glm-5-1", label: "GLM 5.1 (11.1s)", provider: "opencode", model: "glm-5.1", tag: "Balanceado" },
+  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻 (12.3s)", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  { id: "kimi-k3", label: "Kimi K3 🧠 (13.6s)", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
+  { id: "kimi-k2-6", label: "Kimi K2.6", provider: "opencode", model: "kimi-k2.6", tag: "Balanceado" },
+  { id: "muse-spark-1-2", label: "Muse Spark 1.2 ✨ (15.4s)", provider: "opencode", model: "muse-spark-1.2", tag: "Balanceado" },
+
+  // 🧠 Nivel Razonamiento / Deep Think (> 15s)
+  { id: "hy4-preview", label: "Hy4 Preview 🔮 (16.7s)", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
+  { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠 (20.5s)", provider: "opencode", model: "qwen-3.8-max", tag: "Deep Think" },
+  { id: "minimax-m3", label: "MiniMax M3 (21.6s)", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🚀 (29.1s)", provider: "opencode", model: "gpt-5.6-luna", tag: "Deep Think" },
+  { id: "gemini-2-5-flash", label: "Gemini 2.5 Flash (31.4s)", provider: "gemini", model: "gemini-2.5-flash", tag: "Google" },
+  { id: "gemini-3-5-flash", label: "Gemini 3.5 Flash (35.2s)", provider: "gemini", model: "gemini-3.5-flash", tag: "Google" },
+  { id: "gemini-3-7-flash", label: "Gemini 3.7 Flash (45.9s)", provider: "gemini", model: "gemini-3.7-flash", tag: "Google" },
+  { id: "hy3", label: "Hy3 (46.9s)", provider: "opencode", model: "hy3", tag: "Deep Think" },
+  { id: "longcat-2-0", label: "LongCat 2.0 🐱 (64.7s)", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
+  { id: "qwen-3-7-max", label: "Qwen 3.7 Max (76.3s)", provider: "opencode", model: "qwen-3.7-max", tag: "Deep Think" },
+  { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen-3.7-plus", tag: "Deep Think" },
+  { id: "qwen-3-6-plus", label: "Qwen 3.6 Plus", provider: "opencode", model: "qwen-3.6-plus", tag: "Deep Think" },
 ];
-const DEFAULT_MODEL_ID = "gemini-flash";
+const DEFAULT_MODEL_ID = "gemini-3-6-flash";
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   return (
     <span className="dd-icon">
-      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : <GoogleMark />}
+      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : provider === "opencode" ? <OpenCodeMark /> : <GoogleMark />}
     </span>
   );
 }
@@ -136,6 +179,14 @@ function PhoneIcon() {
     </svg>
   );
 }
+function CaptionsIcon() {
+  return (
+    <svg {...ctlIconProps}>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M7 15h3M14 15h3M7 11h10" />
+    </svg>
+  );
+}
 
 // Info tip
 function InfoTip({ text }: { text: string }) {
@@ -168,111 +219,6 @@ function InfoTip({ text }: { text: string }) {
       {open && <span className="info-bubble">{text}</span>}
     </span>
   );
-}
-
-// Dropdown component
-type DDOption = {
-  id: string;
-  label: string;
-  icon?: ReactNode;
-  tag?: string;
-  badge?: string;
-};
-function Dropdown({
-  value,
-  options,
-  onChange,
-  disabled,
-  ariaLabel,
-  alignRight,
-}: {
-  value: string;
-  options: DDOption[];
-  onChange: (id: string) => void;
-  disabled?: boolean;
-  ariaLabel?: string;
-  alignRight?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, [open]);
-  const current = options.find((o) => o.id === value) || options[0];
-  return (
-    <div className="dd" ref={ref}>
-      <button
-        type="button"
-        className="dd-trigger"
-        onClick={() => !disabled && setOpen((o) => !o)}
-        disabled={disabled}
-        aria-label={ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="dd-trigger-main">
-          {current?.icon}
-          <span className="dd-trigger-label">{current?.label}</span>
-        </span>
-        <span className="dd-caret" aria-hidden="true">▾</span>
-      </button>
-      {open && (
-        <div className={`dd-menu ${alignRight ? "dd-menu-right" : ""}`} role="listbox">
-          {options.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="option"
-              aria-selected={o.id === value}
-              className={`dd-option ${o.id === value ? "dd-option-sel" : ""}`}
-              onClick={() => {
-                onChange(o.id);
-                setOpen(false);
-              }}
-            >
-              <span className="dd-option-left">
-                {o.icon}
-                <span className="dd-option-label">{o.label}</span>
-                {o.tag && <span className="dd-option-tag">{o.tag}</span>}
-              </span>
-              <span className="dd-option-right">
-                {o.badge && <span className="dd-badge">{o.badge}</span>}
-                {o.id === value && <span className="dd-check" aria-hidden="true">✓</span>}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function buildDgUrl(sttLang: string): string {
-  const params = new URLSearchParams({
-    model: "nova-2",
-    language: sttLang,
-    smart_format: "true",
-    interim_results: "true",
-    endpointing: "500",
-    utterance_end_ms: "1500",
-    vad_events: "true",
-    encoding: "linear16",
-    sample_rate: "16000",
-    channels: "1",
-  }).toString();
-  return `wss://api.deepgram.com/v1/listen?${params}`;
 }
 
 function fmtElapsed(secs: number): string {
@@ -390,29 +336,19 @@ export default function SimuladorPage() {
 
 
 
-  // Refs de audio / red
-  const wsRef = useRef<WebSocket | null>(null);
+  // Refs de audio / sesión
   const streamRef = useRef<MediaStream | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const workletRef = useRef<AudioWorkletNode | null>(null);
   const ttsRef = useRef<TtsQueue | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const lineId = useRef(0);
   const sessionLangRef = useRef<Lang>("es");
 
   const intentionalCloseRef = useRef(false);
-  const reconnectAttemptsRef = useRef(0);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Watchdog de silencio: regla de tiempo dura que no depende de que Deepgram
-  // emita UtteranceEnd/is_final — chequea actividad de voz cada 400ms.
+  // Watchdog de silencio: chequea actividad de voz cada 400ms
   const watchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSpeechAtRef = useRef(0);
-  // Tope duro de la fase "hablando": si algo se cuelga (stream, TTS), la sala
-  // pasa igual a escuchar en vez de quedar trabada.
+  // Tope duro de la fase "hablando"
   const speakFailsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postTtsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -421,18 +357,10 @@ export default function SimuladorPage() {
 
   const selectedModel = MODELS.find((m) => m.id === modelId) || MODELS[0];
 
-  // Los handlers del WebSocket viven entre renders: llaman a la versión fresca
-  // de cada función de flujo a través de estos refs.
   const beginTurnRef = useRef<(h: HistoryItem[], closing?: boolean) => void>(() => {});
   const closeAnswerRef = useRef<(auto: boolean) => void>(() => {});
-  // Señal para el entrevistador: la última respuesta pudo cortarse (silencio
-  // cerró a media frase). `recoveryOfferedRef` evita encadenar repreguntas de
-  // "¿algo más?" (si ya se ofreció, no se vuelve a ofrecer al toque).
   const lastCutRef = useRef(false);
   const recoveryOfferedRef = useRef(false);
-  const dgMessageRef = useRef<(raw: string) => void>(() => {});
-  const connectWsRef = useRef<(first: boolean) => Promise<void>>(async () => {});
-  const scheduleReconnectRef = useRef<() => void>(() => {});
 
   // Load and save context
   useEffect(() => {
@@ -499,6 +427,58 @@ export default function SimuladorPage() {
     }, stepMs);
   };
 
+  // Hook unificado de Audio y Transcripción STT
+  const handleTranscript = useCallback((line: TranscriptLine) => {
+    const ph = phaseRef.current;
+    if (ph !== "listening" && ph !== "confirming") return;
+
+    lastSpeechAtRef.current = Date.now();
+
+    // Habla nueva durante la espera de cierre → volver a escuchar
+    if (ph === "confirming") {
+      clearTurnTimers();
+      setPhaseBoth("listening");
+      startWatchdog();
+    }
+
+    setLines((prev) => {
+      const idx = prev.findIndex((l) => l.id === line.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = line;
+        return next;
+      }
+      return [...prev.slice(-40), line];
+    });
+
+    if (line.final) {
+      const acc = `${currentAnswerRef.current} ${line.text}`.trim();
+      currentAnswerRef.current = acc;
+      setCurrentAnswer(acc);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleUtteranceEnd = useCallback(() => {
+    if (
+      phaseRef.current === "listening" &&
+      looksComplete(currentAnswerRef.current.trim())
+    ) {
+      enterConfirming();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const {
+    status: sttStatus,
+    connect: connectDeepgram,
+    disconnect: disconnectDeepgram,
+  } = useDeepgram({
+    onTranscript: handleTranscript,
+    onUtteranceEnd: handleUtteranceEnd,
+    lang: lang === "en" ? "en" : "es",
+  });
+
   const clearTurnTimers = () => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -528,10 +508,8 @@ export default function SimuladorPage() {
     listeningStartedAtRef.current = Date.now();
     watchdogRef.current = setInterval(() => {
       if (phaseRef.current !== "listening") return;
-      // Corte de red: mientras el socket no está OPEN no oímos al candidato, así
-      // que no cerramos ni saltamos por "silencio" (sería un falso corte). Al
-      // reconectar, el reloj de silencio arranca fresco.
-      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      // Corte de red: si STT no está en vivo, reseteamos el reloj
+      if (sttStatus !== "live") {
         lastSpeechAtRef.current = Date.now();
         listeningStartedAtRef.current = Date.now();
         return;
@@ -602,124 +580,6 @@ export default function SimuladorPage() {
     }, CONFIRM_MS);
   };
 
-  // ---------- Deepgram ----------
-
-  const onDgMessage = (raw: string) => {
-    let msg: any;
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      return;
-    }
-
-    if (msg.type === "UtteranceEnd") {
-      // Deepgram marca 1s de silencio. Solo cerramos ya si la frase sonó
-      // completa; si quedó a media, el watchdog espera su umbral largo.
-      if (
-        phaseRef.current === "listening" &&
-        looksComplete(currentAnswerRef.current.trim())
-      ) {
-        enterConfirming();
-      }
-      return;
-    }
-    if (msg.type !== "Results") return;
-
-    // Gating anti-eco: fuera de listening/confirming (avatar hablando o
-    // pensando) cualquier transcript se descarta.
-    const ph = phaseRef.current;
-    if (ph !== "listening" && ph !== "confirming") return;
-
-    const alt = msg.channel?.alternatives?.[0];
-    const text: string = alt?.transcript || "";
-    if (!text) return;
-    const isFinal = !!msg.is_final;
-
-    lastSpeechAtRef.current = Date.now();
-
-    // Habla nueva durante la espera de cierre → todavía no terminó: volver a
-    // escuchar (sin resetear la respuesta acumulada).
-    if (ph === "confirming") {
-      clearTurnTimers();
-      setPhaseBoth("listening");
-      startWatchdog();
-    }
-
-    setLines((prev) => {
-      const next = [...prev];
-      if (next.length && !next[next.length - 1].final) {
-        next[next.length - 1] = { id: next[next.length - 1].id, text, final: isFinal };
-      } else {
-        next.push({ id: ++lineId.current, text, final: isFinal });
-      }
-      return next.slice(-40);
-    });
-
-    if (isFinal) {
-      const acc = `${currentAnswerRef.current} ${text}`.trim();
-      currentAnswerRef.current = acc;
-      setCurrentAnswer(acc);
-      // El cierre lo decide el watchdog con el umbral adaptativo (según si la
-      // frase sonó completa) — no hace falta un timer de respaldo fijo.
-    }
-  };
-  dgMessageRef.current = onDgMessage;
-
-  const scheduleReconnect = () => {
-    if (intentionalCloseRef.current) return;
-    const ph = phaseRef.current;
-    if (ph === "setup" || ph === "feedback") return;
-    if (reconnectAttemptsRef.current >= 3) {
-      setError("Se perdió la conexión de audio.");
-      setConnLost(true);
-      return;
-    }
-    const delay = 600 * 2 ** reconnectAttemptsRef.current;
-    reconnectAttemptsRef.current += 1;
-    reconnectTimerRef.current = setTimeout(() => {
-      connectWsRef.current(false).catch(() => scheduleReconnectRef.current());
-    }, delay);
-  };
-  scheduleReconnectRef.current = scheduleReconnect;
-
-  const connectWs = async (first: boolean) => {
-    const dgUrl = buildDgUrl(STT_LANG[sessionLangRef.current]);
-    const tokRes = await fetch("/api/deepgram-token", { method: "POST" });
-    if (!tokRes.ok) throw new Error("Error al obtener token de Deepgram.");
-    const { token, scheme } = await tokRes.json();
-    const ws = new WebSocket(dgUrl, [scheme || "token", token]);
-    ws.binaryType = "arraybuffer";
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setConnLost(false);
-      // Mientras el avatar habla no fluye PCM: sin KeepAlive Deepgram corta
-      // el socket a ~10s de silencio.
-      if (keepAliveRef.current) clearInterval(keepAliveRef.current);
-      keepAliveRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "KeepAlive" }));
-      }, 7000);
-      // Conexión estable 10s → renueva el presupuesto de reintentos.
-      if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
-      stabilityTimerRef.current = setTimeout(() => {
-        reconnectAttemptsRef.current = 0;
-      }, 10_000);
-      if (first) beginTurnRef.current([]);
-    };
-    ws.onmessage = (e) => {
-      if (typeof e.data === "string") dgMessageRef.current(e.data);
-    };
-    ws.onerror = () => {};
-    ws.onclose = () => {
-      if (keepAliveRef.current) {
-        clearInterval(keepAliveRef.current);
-        keepAliveRef.current = null;
-      }
-      if (wsRef.current === ws) scheduleReconnectRef.current();
-    };
-  };
-  connectWsRef.current = connectWs;
-
   // ---------- Turno: pregunta → voz → escucha ----------
 
   // Frame chico de la cámara (JPEG ~30KB) para que el entrevistador "vea" al
@@ -750,8 +610,12 @@ export default function SimuladorPage() {
     setSpokenQuestion("");
     spokenBaseRef.current = "";
 
-    const ctx = audioCtxRef.current;
-    if (!ctx) return;
+    let ctx = ttsAudioCtxRef.current;
+    if (!ctx || ctx.state === "closed") {
+      ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      ttsAudioCtxRef.current = ctx;
+    }
+    if (ctx.state === "suspended") await ctx.resume();
 
     // En el turno de cierre (despedida del entrevistador), al terminar de hablar
     // vamos al informe en vez de reabrir el mic.
@@ -937,22 +801,12 @@ export default function SimuladorPage() {
 
   // ---------- Fin de entrevista / feedback ----------
 
+  const ttsAudioCtxRef = useRef<AudioContext | null>(null);
+
   const cleanupMedia = () => {
     intentionalCloseRef.current = true;
     clearTurnTimers();
     clearRevealTimer();
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    if (stabilityTimerRef.current) {
-      clearTimeout(stabilityTimerRef.current);
-      stabilityTimerRef.current = null;
-    }
-    if (keepAliveRef.current) {
-      clearInterval(keepAliveRef.current);
-      keepAliveRef.current = null;
-    }
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -960,27 +814,17 @@ export default function SimuladorPage() {
     ttsRef.current?.stop();
     ttsRef.current = null;
     setAnalyser(null);
+    disconnectDeepgram();
     try {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "CloseStream" }));
-      }
-      wsRef.current?.close();
+      ttsAudioCtxRef.current?.close();
     } catch {}
-    try {
-      workletRef.current?.disconnect();
-    } catch {}
-    try {
-      audioCtxRef.current?.close();
-    } catch {}
+    ttsAudioCtxRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
     try {
       wakeLockRef.current?.release();
     } catch {}
     wakeLockRef.current = null;
-    wsRef.current = null;
-    workletRef.current = null;
-    audioCtxRef.current = null;
-    streamRef.current = null;
     setCameraOn(false);
     setCamAvailable(false);
   };
@@ -1076,8 +920,6 @@ export default function SimuladorPage() {
 
   // ---------- Inicio de sesión ----------
 
-  // El simulador es gratis e ilimitado a propósito (motor de adquisición):
-  // acá no se consume la cuota de sesiones de /app.
   const startSimulation = async () => {
     setError("");
     setHistory([]);
@@ -1098,61 +940,38 @@ export default function SimuladorPage() {
     setConnLost(false);
     sessionLangRef.current = lang;
     intentionalCloseRef.current = false;
-    reconnectAttemptsRef.current = 0;
     setPhaseBoth("connecting");
 
     try {
-      // Un solo prompt de permisos con mic + cámara; si la cámara falla se
-      // reintenta solo audio (la cámara es local y opcional, nunca se sube).
-      const audioConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-      let stream: MediaStream;
+      let stream: MediaStream | null = null;
       let camDenied = false;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
           video: { facingMode: "user", width: { ideal: 640 } },
         });
       } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
         camDenied = true;
         track("sim_camera_denied");
       }
       streamRef.current = stream;
-      const hasCam = !camDenied && stream.getVideoTracks().length > 0;
+      const hasCam = !camDenied && stream !== null && stream.getVideoTracks().length > 0;
       setCamAvailable(hasCam);
       setCameraOn(hasCam);
       setConnectStep(1);
 
-      const audioCtx = new AudioContext();
-      audioCtxRef.current = audioCtx;
-      if (audioCtx.state === "suspended") await audioCtx.resume();
-      await audioCtx.audioWorklet.addModule("/pcm-worklet.js");
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      const worklet = new AudioWorkletNode(audioCtx, "pcm-worklet");
-      workletRef.current = worklet;
-
-      worklet.port.onmessage = (e) => {
-        // Gating anti-eco: solo fluye PCM cuando es el turno del usuario.
-        const ph = phaseRef.current;
-        if (ph !== "listening" && ph !== "confirming") return;
-        const w = wsRef.current;
-        if (w && w.readyState === WebSocket.OPEN) w.send(e.data);
-      };
-      source.connect(worklet);
-
-      await connectWs(true);
+      await connectDeepgram("mic");
       setConnectStep(2);
 
       track("sim_session_start", { model: selectedModel.model, questions: questionsCount, lang });
 
-      // Wake lock: que no se apague la pantalla en el celular a mitad de entrevista.
+      // Wake lock
       try {
         wakeLockRef.current = await (navigator as any).wakeLock?.request("screen");
       } catch {}
 
       startedAtRef.current = Date.now();
       timerIntervalRef.current = setInterval(() => setElapsed(elapsedNow()), 1000);
+      beginTurnRef.current([]);
     } catch (err: any) {
       cleanupMedia();
       const denied = err?.name === "NotAllowedError" || err?.name === "SecurityError";
@@ -1176,10 +995,9 @@ export default function SimuladorPage() {
             wakeLockRef.current = wl;
           })
           .catch(() => {});
-        // En mobile el AudioContext queda suspended al bloquear/cambiar de app;
-        // sin resume, al volver el Loro no habla ni escucha (mismo ctx para TTS y STT).
-        if (audioCtxRef.current?.state === "suspended") {
-          audioCtxRef.current.resume().catch(() => {});
+        // En mobile el AudioContext de TTS queda suspended al bloquear/cambiar de app
+        if (ttsAudioCtxRef.current?.state === "suspended") {
+          ttsAudioCtxRef.current.resume().catch(() => {});
         }
       }
     };
@@ -1249,7 +1067,7 @@ export default function SimuladorPage() {
     const msg =
       `Mira esto… me voló la cabeza.\n` +
       `Simulé una entrevista con una IA por video en tiempo real, luego te da un informe con tips muy piola. Es gratis:\n` +
-      `https://loreado.vercel.app/simulador`;
+      `https://loro-copilot.vercel.app/simulador`;
     track("sim_share_whatsapp");
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };

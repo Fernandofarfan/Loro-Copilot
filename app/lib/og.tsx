@@ -77,7 +77,7 @@ export function ogImage(opts?: { title?: string; pill?: string; claim?: string }
                 color: "transparent",
               }}
             >
-              Loreado.IA
+              Loro Copilot
             </div>
           </div>
 

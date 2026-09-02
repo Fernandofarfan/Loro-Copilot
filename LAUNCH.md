@@ -29,26 +29,16 @@ Cada sesión de 10 minutos ≈ **US$0.06** de transcripción (Nova-2 streaming).
 - [ ] Configurar límites de uso / alertas de consumo en el proyecto (Settings → Usage).
 - [ ] Decidir el techo: cuando el crédito llegue a X, activar el kill switch (punto 5).
 
-## 3. Riesgo pendiente: el fallback de la API key de Deepgram
+## 3. Seguridad de credenciales Deepgram (RESUELTO ✅)
 
-**Estado: aceptado conscientemente, "lo veo después".** Que quede escrito:
+**Estado: Protegido contra fugas.**
 
-`app/api/deepgram-token/route.ts` intenta emitir un token temporal (grant,
-TTL 60s). Si la key **no tiene permiso** de emitir grants, hace fallback y
-**manda la API key permanente al navegador**. Cualquiera con DevTools la
-extrae y puede quemar todo el crédito de Deepgram desde afuera de la app.
+`app/api/deepgram-token/route.ts` emite un token temporal efímero (grant, TTL 60s). Si la key no tiene permisos o falla, el backend responde HTTP 500 y **nunca expone la API key permanente**.
 
-Para cerrar el agujero (recomendado ANTES del post):
-
-1. En console.deepgram.com → **API Keys** → crear una key nueva con rol
-   **Member** (o superior) — los grants requieren una key con permisos de
-   emitir tokens (`auth/grant`).
-2. Reemplazar `DEEPGRAM_API_KEY` en Vercel con la key nueva → Redeploy.
-3. Verificar: `POST https://TU-APP/api/deepgram-token` (desde la app, no curl)
-   debe devolver `{"scheme":"bearer",...}` — si devuelve `"fallback":true`,
-   la key sigue sin poder emitir grants.
-4. Cuando el grant funcione, borrar el bloque de fallback del route (las
-   últimas líneas que devuelven `{ token: apiKey, scheme: "token", fallback: true }`).
+Para asegurar que los grants funcionen correctamente:
+1. En console.deepgram.com → **API Keys** → asegurar que la key tenga rol **Member** o superior (permiso de emitir tokens `auth/grant`).
+2. Configurar `DEEPGRAM_API_KEY` en Vercel.
+3. El frontend se conecta vía `wss://api.deepgram.com/v1/listen` pasando el token temporal en los subprotocolos.
 
 ## 4. PostHog: medir el funnel (sin esto, volás ciego)
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { MasterAnswer, DEFAULT_EPAM_MASTER_ANSWERS } from "../lib/interviewHelpers";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { MasterAnswer } from "../lib/interviewHelpers";
 
 export interface SavedProfile {
   name: string;
@@ -15,7 +15,7 @@ const LS_KEY = "copiloto:context:v1";
 const LS_PROFILES_KEY = "loro-saved-profiles";
 const LS_ANSWERS_KEY = "loro-master-answers:v1";
 
-export function useInterviewContext(defaultModelId: string = "deepseek-flash", availableModelIds: string[] = []) {
+export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash", availableModelIds: string[] = []) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState("");
@@ -25,8 +25,11 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
   const [masterAnswers, setMasterAnswers] = useState<MasterAnswer[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const initialLoadDone = useRef(false);
+  const availableModelIdsRef = useRef(availableModelIds);
+  availableModelIdsRef.current = availableModelIds;
 
-  // Carga inicial de localStorage
+  // Carga inicial de localStorage (solo una vez en montaje)
   useEffect(() => {
     try {
       const storedProfiles = localStorage.getItem(LS_PROFILES_KEY);
@@ -35,11 +38,14 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
       }
 
       const storedAnswers = localStorage.getItem(LS_ANSWERS_KEY);
-      if (storedAnswers && JSON.parse(storedAnswers).length > 0) {
-        setMasterAnswers(JSON.parse(storedAnswers));
+      if (storedAnswers) {
+        try {
+          setMasterAnswers(JSON.parse(storedAnswers));
+        } catch {
+          setMasterAnswers([]);
+        }
       } else {
-        setMasterAnswers(DEFAULT_EPAM_MASTER_ANSWERS);
-        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(DEFAULT_EPAM_MASTER_ANSWERS));
+        setMasterAnswers([]);
       }
 
       const raw = localStorage.getItem(LS_KEY);
@@ -49,7 +55,8 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
         if (saved.role) setRole(saved.role);
         if (saved.profile) setProfile(saved.profile);
         if (saved.extraInstructions) setExtraInstructions(saved.extraInstructions);
-        if (saved.modelId && (availableModelIds.length === 0 || availableModelIds.includes(saved.modelId))) {
+        const validModels = availableModelIdsRef.current;
+        if (saved.modelId && (validModels.length === 0 || validModels.includes(saved.modelId))) {
           setModelId(saved.modelId);
         }
         if (typeof saved.fontSize === "number") setFontSize(saved.fontSize);
@@ -58,11 +65,13 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
       console.warn("Error cargando contexto desde localStorage", e);
     } finally {
       setIsLoaded(true);
+      initialLoadDone.current = true;
     }
   }, []);
 
-  // Guardar cambios automáticamente
-  const persistContext = useCallback(() => {
+  // Auto-persistir contexto al cambiar
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
     try {
       localStorage.setItem(
         LS_KEY,
@@ -84,6 +93,16 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
     });
   }, [company, role, profile, extraInstructions]);
 
+  const deleteProfile = useCallback((name: string) => {
+    setSavedProfiles((prev) => {
+      const updated = prev.filter((p) => p.name !== name);
+      try {
+        localStorage.setItem(LS_PROFILES_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
   const removeAllProfiles = useCallback(() => {
     setSavedProfiles([]);
     try {
@@ -94,9 +113,9 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
   const loadProfile = useCallback((profileName: string) => {
     const p = savedProfiles.find((x) => x.name === profileName);
     if (p) {
-      setCompany(p.company);
-      setRole(p.role);
-      setProfile(p.profile);
+      setCompany(p.company || "");
+      setRole(p.role || "");
+      setProfile(p.profile || "");
       setExtraInstructions(p.extraInstructions || "");
     }
   }, [savedProfiles]);
@@ -105,7 +124,11 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
   const saveMasterAnswer = useCallback((ans: { question: string; enText: string; esText: string; category?: string; tags?: string[] }) => {
     if (!ans.question?.trim() || !ans.enText?.trim()) return;
     setMasterAnswers((prev) => {
-      const existingIdx = prev.findIndex((a) => a.question.toLowerCase().trim() === ans.question.toLowerCase().trim());
+      const cleanQ = ans.question.trim().toLowerCase();
+      const cleanComp = (company || "").trim().toLowerCase();
+      const existingIdx = prev.findIndex(
+        (a) => a.question.toLowerCase().trim() === cleanQ && (a.company || "").toLowerCase().trim() === cleanComp
+      );
       const newEntry: MasterAnswer = {
         id: existingIdx >= 0 ? prev[existingIdx].id : `ans_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         question: ans.question.trim(),
@@ -128,6 +151,17 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
     });
   }, [role, company]);
 
+  const importMasterAnswers = useCallback((newAnswers: MasterAnswer[]) => {
+    if (!newAnswers || newAnswers.length === 0) return;
+    setMasterAnswers((prev) => {
+      const combined = [...newAnswers, ...prev.filter(p => !newAnswers.some(n => n.id === p.id || (n.question === p.question && n.company === p.company)))];
+      try {
+        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(combined));
+      } catch {}
+      return combined;
+    });
+  }, []);
+
   const deleteMasterAnswer = useCallback((id: string) => {
     setMasterAnswers((prev) => {
       const updated = prev.filter((a) => a.id !== id);
@@ -148,21 +182,11 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
     });
   }, []);
 
-  const loadPresetEPAM = useCallback(() => {
-    setCompany("EPAM Systems");
-    setRole(
-      "Senior Python Engineer (Backend & Cloud-Native)\n\n• Formato: 80% teórica / arquitectura, 20% live coding / algoritmos.\n• Core Python: Data model, mutability, shallow vs deep copy, iterators/generators (lazy eval), context managers, exceptions design, typing, dataclasses.\n• Concurrency: Asyncio vs threads vs multiprocessing (I/O vs CPU bound), async cancellation/timeouts, avoiding blocking calls with asyncio.to_thread, GIL mechanics.\n• Quality & Testing: Pytest fixtures & parametrization, Clean Architecture, DDD, CI linters/formatters.\n• Debugging: Workflow reproduce -> measure (cProfile/tracemalloc) -> isolate -> optimize -> verify regression. Structured logging & OpenTelemetry."
-    );
-    setExtraInstructions(
-      "EPAM SENIOR RUBRIC: Seguir esquema Context -> Assumptions -> Approach -> Trade-offs -> Validation. En coding/algoritmos: plantear edge cases, complejidad Big-O y código Python 3.11+ limpio y tipado (sin clever one-liners). Anclar a experiencia real en Reforest Latam, FastAPI y PostgreSQL."
-    );
-    setMasterAnswers((prev) => {
-      const merged = [...DEFAULT_EPAM_MASTER_ANSWERS, ...prev.filter(p => !DEFAULT_EPAM_MASTER_ANSWERS.some(d => d.id === p.id))];
-      try {
-        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(merged));
-      } catch {}
-      return merged;
-    });
+  const clearAllMasterAnswers = useCallback(() => {
+    setMasterAnswers([]);
+    try {
+      localStorage.removeItem(LS_ANSWERS_KEY);
+    } catch {}
   }, []);
 
   return {
@@ -180,15 +204,18 @@ export function useInterviewContext(defaultModelId: string = "deepseek-flash", a
     setFontSize,
     savedProfiles,
     saveProfile,
+    deleteProfile,
     removeAllProfiles,
     loadProfile,
     masterAnswers,
+    setMasterAnswers,
     saveMasterAnswer,
+    importMasterAnswers,
     deleteMasterAnswer,
+    clearAllMasterAnswers,
     toggleFavoriteMasterAnswer,
-    loadPresetEPAM,
-    persistContext,
     isLoaded,
   };
 }
+
 

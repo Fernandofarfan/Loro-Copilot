@@ -37,7 +37,7 @@ export function IaFlag({ w = 35, h = 30 }: { w?: number; h?: number }) {
 export function BrandLogo({
   parrot = 30,
   fontSize = "1.35rem",
-  color = "#17181a",
+  color = "var(--ink, #f8fafc)",
   flag = { w: 27, h: 23 },
 }: {
   parrot?: number;

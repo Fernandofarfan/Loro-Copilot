@@ -115,6 +115,18 @@ export default function TeleprompterPage() {
         </div>
       </section>
 
+      {/* Guía fonética si está presente */}
+      {data.phoText && (
+        <section className="mb-2.5">
+          <div className="text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+            🗣️ Guía Fonética (Lectura Fluida)
+          </div>
+          <div className="text-amber-300 font-mono text-[0.88em] bg-amber-950/20 p-2 rounded border border-amber-800/40">
+            {data.phoText}
+          </div>
+        </section>
+      )}
+
       {/* Resumen conceptual en español si está presente */}
       {data.esText && (
         <section className="mb-8">
