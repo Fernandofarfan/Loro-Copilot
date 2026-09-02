@@ -15,6 +15,13 @@ import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/secu
 
 export const runtime = "edge";
 
+// Escapa caracteres XML de delimitación para evitar inyección de prompt via inputs de usuario
+function sanitizeForPrompt(text: string): string {
+  return text
+    .replace(/</g, "‹")   // reemplazar < por guillemet izquierdo (similar visual, no interpretable como tag)
+    .replace(/>/g, "›");  // reemplazar > por guillemet derecho
+}
+
 const SYSTEM_PROMPT_INTERVIEWER = `Sos el ENTREVISTADOR. Estás en la llamada haciendo la entrevista en vivo al candidato, ahora mismo.
 
 Recibís:
@@ -150,7 +157,12 @@ async function getFeedbackJson(provider: Provider, models: string[], systemPromp
 
   // Gemini feedback
   const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) return new Response("Falta GEMINI_API_KEY.", { status: 500 });
+  if (!geminiKey) {
+    if (provider === "gemini") {
+      return new Response("Falta GEMINI_API_KEY en las variables de entorno.", { status: 500 });
+    }
+    return new Response(`Error generando feedback (${provider}): ${lastError || "No se pudo obtener respuesta del modelo."}`, { status: 502 });
+  }
 
   for (const model of models) {
     if (!model) continue;
@@ -237,10 +249,10 @@ export async function POST(req: Request) {
   const provider: Provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
 
-  const profile = (body.profile || "").slice(0, 6000);
-  const company = (body.company || "").slice(0, 200);
-  const role = (body.role || "").slice(0, 1500);
-  const interviewType = (body.interviewType || "General").slice(0, 100);
+  const profile = sanitizeForPrompt((body.profile || "").slice(0, 6000));
+  const company = sanitizeForPrompt((body.company || "").slice(0, 200));
+  const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
+  const interviewType = sanitizeForPrompt((body.interviewType || "General").slice(0, 100));
   const answerLang = body.answerLang === "en" ? "en" : "es";
 
   const history = (body.history || []).slice(0, 20).map((h) => ({

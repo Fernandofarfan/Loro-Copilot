@@ -42,7 +42,11 @@ export function useTeleprompter() {
       clearCheckTimer();
       if (bcRef.current) {
         bcRef.current.close();
+        bcRef.current = null; // limpiar ref explícitamente
       }
+      // No cerrar la ventana en cleanup (el usuario puede querer que siga abierta)
+      // pero sí limpiar la ref para evitar sincronización duplicada
+      winRef.current = null;
     };
   }, [clearCheckTimer]);
 

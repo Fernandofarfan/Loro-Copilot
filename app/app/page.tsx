@@ -8,7 +8,13 @@ import { RescuePhrases, type RescuePhrase } from "../components/RescuePhrases";
 import { ListenText } from "../components/ListenText";
 import { Dropdown } from "../components/Dropdown";
 import { extractTextFromPdf } from "../lib/pdf";
-import { parseInterviewMarkdownToMasterAnswers, type MasterAnswer } from "../lib/interviewHelpers";
+import {
+  parseInterviewMarkdownToMasterAnswers,
+  detectQuestionLanguage,
+  extractCurrentTurnQuestion,
+  isIncompleteQuestion,
+  type MasterAnswer,
+} from "../lib/interviewHelpers";
 import { useInterviewContext } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
 import { useAnswerStream, type Answer } from "../hooks/useAnswerStream";
@@ -144,6 +150,14 @@ export default function CopilotPage() {
     generateWarmupAnswers,
   } = useAnswerStream();
 
+  const isGeneratingRef = useRef(isGenerating);
+  isGeneratingRef.current = isGenerating;
+
+  const masterAnswersRef = useRef(masterAnswers);
+  masterAnswersRef.current = masterAnswers;
+
+  const lastProcessedLineIdRef = useRef<number | string | null>(null);
+
   const selectedModel = MODELS.find((m) => m.id === modelId) || MODELS[0];
 
   // Callback para recibir transcripciones del STT
@@ -174,13 +188,14 @@ export default function CopilotPage() {
 
   // Trigger automático de respuesta al detectar fin de habla (UtteranceEnd)
   const handleUtteranceEnd = useCallback(() => {
-    if (!autoRespond || isGenerating) return;
+    if (!autoRespond || isGeneratingRef.current) return;
 
     if (utteranceTimerRef.current) {
       clearTimeout(utteranceTimerRef.current);
     }
 
     utteranceTimerRef.current = setTimeout(() => {
+      if (isGeneratingRef.current) return;
       const currentLines = transcriptLinesRef.current;
 
       // No responder si el último que habló fue el candidato (speaker === 1)
@@ -189,15 +204,20 @@ export default function CopilotPage() {
         return;
       }
 
-      // Filtrar líneas finales del entrevistador (speaker === 0)
-      const interviewerLines = currentLines.filter((l) => l.speaker === 0 && l.final);
-      const recentText = (interviewerLines.length > 0 ? interviewerLines : currentLines)
-        .slice(-3)
-        .map((l) => l.text)
-        .join(" ")
-        .trim();
+      // Extraer limpiamente solo el turno actual del entrevistador evitando mezclar preguntas anteriores
+      const { text: recentText, newLastId, isIncomplete } = extractCurrentTurnQuestion(
+        currentLines,
+        lastProcessedLineIdRef.current
+      );
 
-      if (recentText.length >= 8) {
+      // Si la frase parece incompleta (respiración, conector final, etc.), esperar al siguiente fragmento
+      if (isIncomplete) {
+        return;
+      }
+
+      if (recentText && recentText.length >= 6) {
+        lastProcessedLineIdRef.current = newLastId;
+        const lang = detectQuestionLanguage(recentText);
         requestAnswer({
           question: recentText,
           transcript: currentLines
@@ -210,30 +230,27 @@ export default function CopilotPage() {
           provider: selectedModel.provider,
           model: selectedModel.model,
           modelLabel: selectedModel.label,
-          detectedLang: sttLang,
+          detectedLang: lang,
           simpleEnglish,
           dialect,
           bilingualMode,
           type: "answer",
-          masterAnswers,
+          masterAnswers: masterAnswersRef.current,
           syncTeleprompter,
         });
       }
-    }, 350);
+    }, 1000); // 1000ms de debounce para permitir pausas y respiración natural
   }, [
     autoRespond,
-    isGenerating,
     requestAnswer,
     company,
     role,
     profile,
     extraInstructions,
     selectedModel,
-    sttLang,
     simpleEnglish,
     dialect,
     bilingualMode,
-    masterAnswers,
     syncTeleprompter,
   ]);
 
@@ -261,9 +278,14 @@ export default function CopilotPage() {
     const q = manualQuestion.trim();
     if (!q) return;
     setManualQuestion("");
+    const currentLines = transcriptLinesRef.current;
+    if (currentLines.length > 0) {
+      lastProcessedLineIdRef.current = currentLines[currentLines.length - 1]?.id || null;
+    }
+    const lang = detectQuestionLanguage(q);
     requestAnswer({
       question: q,
-      transcript: transcriptLines
+      transcript: currentLines
         .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
         .join("\n"),
       company,
@@ -273,12 +295,12 @@ export default function CopilotPage() {
       provider: selectedModel.provider,
       model: selectedModel.model,
       modelLabel: selectedModel.label,
-      detectedLang: sttLang,
+      detectedLang: lang,
       simpleEnglish,
       dialect,
       bilingualMode,
       type: "answer",
-      masterAnswers,
+      masterAnswers: masterAnswersRef.current,
       syncTeleprompter,
     });
   };
@@ -322,7 +344,12 @@ export default function CopilotPage() {
     }
   };
 
+  const warmupAbortRef = useRef<AbortController | null>(null);
+
   const handleGenerateWarmup = async () => {
+    // Cancelar warmup previo si aún está en curso
+    if (warmupAbortRef.current) warmupAbortRef.current.abort();
+    warmupAbortRef.current = new AbortController();
     setWarmupLoading(true);
     setWarmupMessage(null);
     try {
@@ -332,11 +359,14 @@ export default function CopilotPage() {
         profile,
         provider: selectedModel.provider,
         model: selectedModel.model,
+        signal: warmupAbortRef.current.signal,
       });
       importMasterAnswers(generated);
       setWarmupMessage(`¡Se generaron y guardaron ${generated.length} preguntas clave en tu banco de memoria!`);
-    } catch (err: any) {
-      setWarmupMessage(`Error: ${err?.message || "No se pudieron generar las preguntas."}`);
+    } catch (err: unknown) {
+      // Ignorar cancelaciones intencionales
+      if (err instanceof Error && err.name === "AbortError") return;
+      setWarmupMessage(`Error: ${(err as Error)?.message || "No se pudieron generar las preguntas."}`);
     } finally {
       setWarmupLoading(false);
     }
@@ -351,9 +381,9 @@ export default function CopilotPage() {
       const parsed = parseInterviewMarkdownToMasterAnswers(content, company, role);
       if (parsed.length > 0) {
         importMasterAnswers(parsed);
-        alert(`Se importaron exitosamente ${parsed.length} respuestas al Banco de Memoria.`);
+        setWarmupMessage(`✅ Se importaron ${parsed.length} respuestas al Banco de Memoria.`);
       } else {
-        alert("No se encontraron preguntas estructuradas en el archivo Markdown.");
+        setWarmupMessage("⚠️ No se encontraron preguntas estructuradas en el archivo Markdown.");
       }
     };
     reader.readAsText(file);
@@ -375,6 +405,15 @@ export default function CopilotPage() {
       modelName: "Rescate Inmediato ⚡",
       fromMemory: true,
     });
+  };
+
+  const handlePlayTTS = (textToSpeak: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(textToSpeak.slice(0, 600));
+    utterance.lang = "en-US";
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
   };
 
   const lastTranscriptText = transcriptLines.map((l) => l.text).join(" ").slice(-150);
@@ -573,7 +612,7 @@ export default function CopilotPage() {
                     copiedId={copiedId}
                     onCopy={handleCopy}
                     onFeedback={(id, fb) => setAnswerFeedback(id, fb, saveMasterAnswer)}
-                    onPlayTTS={() => {}}
+                    onPlayTTS={handlePlayTTS}
                     onSaveToMemory={(ans) =>
                       saveMasterAnswer({
                         question: ans.question,

@@ -1,4 +1,4 @@
-// Wrapper seguro de Analytics (PostHog / Vercel Analytics / Dev logger)
+import type PostHogJs from "posthog-js";
 
 export type FunnelEvent =
   | "page_view"
@@ -17,7 +17,7 @@ export type FunnelEvent =
   | "simulator_turn_completed"
   | "simulator_feedback_generated";
 
-let posthogClient: any = null;
+let posthogClient: typeof PostHogJs | null = null;
 
 if (typeof window !== "undefined") {
   const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;

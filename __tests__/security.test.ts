@@ -177,6 +177,24 @@ describe("security", () => {
 
       (process.env as any).NODE_ENV = originalEnv;
     });
+    it("debe permitir origin de VERCEL_URL en preview deployments", () => {
+      const originalEnv = process.env.NODE_ENV;
+      const originalVercelUrl = process.env.VERCEL_URL;
+      (process.env as any).NODE_ENV = "production";
+      process.env.VERCEL_URL = "loro-copilot-git-feature-preview.vercel.app";
+
+      const req = new Request("https://loro-copilot-git-feature-preview.vercel.app/api/answer", {
+        headers: {
+          origin: "https://loro-copilot-git-feature-preview.vercel.app",
+        },
+      });
+      const res = verifyOrigin(req);
+      expect(res.ok).toBe(true);
+
+      (process.env as any).NODE_ENV = originalEnv;
+      if (originalVercelUrl) process.env.VERCEL_URL = originalVercelUrl;
+      else delete process.env.VERCEL_URL;
+    });
   });
 
   describe("checkCapacity", () => {
@@ -250,6 +268,36 @@ describe("security", () => {
         globalThis.fetch = originalFetch;
         delete process.env.GFORM_ACTION;
         delete process.env.GFORM_EMAIL_ENTRY;
+      }
+    });
+
+    it("debe soportar GFORM_SOURCE_ENTRY customizado al registrar", async () => {
+      process.env.GFORM_ACTION = "https://docs.google.com/forms/d/e/fake/formResponse";
+      process.env.GFORM_EMAIL_ENTRY = "entry.123456";
+      process.env.GFORM_SOURCE_ENTRY = "entry.789012";
+
+      let capturedBody: string | null = null;
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = async (_url, init) => {
+        capturedBody = String(init?.body || "");
+        return new Response("ok", { status: 200 });
+      };
+
+      try {
+        const req = new Request("http://localhost:3000/api/waitlist", {
+          method: "POST",
+          headers: { origin: "http://localhost:3000" },
+          body: JSON.stringify({ email: "source.user@example.com", source: "pricing-page" }),
+        });
+
+        const res = await waitlistPOST(req);
+        expect(res.status).toBe(200);
+        expect(capturedBody).toContain("entry.789012=pricing-page");
+      } finally {
+        globalThis.fetch = originalFetch;
+        delete process.env.GFORM_ACTION;
+        delete process.env.GFORM_EMAIL_ENTRY;
+        delete process.env.GFORM_SOURCE_ENTRY;
       }
     });
   });

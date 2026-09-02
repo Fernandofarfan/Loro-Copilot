@@ -3,6 +3,9 @@ import { describe, it, expect } from "vitest";
 import {
   classifyQuestion,
   detectTrickQuestion,
+  detectQuestionLanguage,
+  isIncompleteQuestion,
+  extractCurrentTurnQuestion,
   fmtTime,
   findMatchingAnswer,
   checkInstantGreeting,
@@ -11,6 +14,66 @@ import {
 } from "../app/lib/interviewHelpers";
 
 describe("interviewHelpers", () => {
+  describe("isIncompleteQuestion", () => {
+    it("debe detectar frases incompletas por conectores finales", () => {
+      expect(isIncompleteQuestion("Trabajé una vez con Riak con SQL, MySQL, PHP o con")).toBe(true);
+      expect(isIncompleteQuestion("Contame sobre tu experiencia y")).toBe(true);
+      expect(isIncompleteQuestion("para responder las siguientes:")).toBe(true);
+      expect(isIncompleteQuestion("Tell me about your experience with")).toBe(true);
+      expect(isIncompleteQuestion("What are the differences between")).toBe(true);
+      expect(isIncompleteQuestion("Hola...")).toBe(true);
+    });
+
+    it("debe aceptar preguntas y saludos completos", () => {
+      expect(isIncompleteQuestion("¿Qué modelo de Postgres trabajaste?")).toBe(false);
+      expect(isIncompleteQuestion("Where are you from?")).toBe(false);
+      expect(isIncompleteQuestion("Hola buenas")).toBe(false);
+      expect(isIncompleteQuestion("Hi, how are you?")).toBe(false);
+    });
+  });
+
+  describe("extractCurrentTurnQuestion", () => {
+    it("debe extraer solo las líneas del turno actual sin mezclar preguntas anteriores", () => {
+      const lines = [
+        { id: "1", text: "¿De dónde sos?", speaker: 0, final: true },
+        { id: "2", text: "Soy de Buenos Aires", speaker: 1, final: true },
+        { id: "3", text: "¿Qué modelo de Postgres", speaker: 0, final: true },
+        { id: "4", text: "trabajaste en producción?", speaker: 0, final: true },
+      ];
+
+      // Simulamos que la pregunta 1 ya fue respondida (lastProcessedId = "1")
+      const result = extractCurrentTurnQuestion(lines, "1");
+      expect(result.text).toBe("¿Qué modelo de Postgres trabajaste en producción?");
+      expect(result.newLastId).toBe("4");
+      expect(result.isIncomplete).toBe(false);
+    });
+
+    it("debe retornar vacío si no hay líneas nuevas después del último ID procesado", () => {
+      const lines = [
+        { id: "1", text: "¿De dónde sos?", speaker: 0, final: true },
+      ];
+
+      const result = extractCurrentTurnQuestion(lines, "1");
+      expect(result.text).toBe("");
+      expect(result.newLastId).toBeNull();
+    });
+  });
+
+  describe("detectQuestionLanguage", () => {
+    it("debe detectar preguntas en inglés correctamente", () => {
+      expect(detectQuestionLanguage("where are you from?")).toBe("en");
+      expect(detectQuestionLanguage("tell me about yourself and your background")).toBe("en");
+      expect(detectQuestionLanguage("what is your experience with React and TypeScript?")).toBe("en");
+      expect(detectQuestionLanguage("How do you handle deadlines?")).toBe("en");
+    });
+
+    it("debe detectar preguntas en español correctamente", () => {
+      expect(detectQuestionLanguage("¿De dónde sos?")).toBe("es");
+      expect(detectQuestionLanguage("Contame de tu experiencia previa")).toBe("es");
+      expect(detectQuestionLanguage("¿Cuáles son tus pretensiones salariales?")).toBe("es");
+      expect(detectQuestionLanguage("Explicame cómo estructurás una base de datos")).toBe("es");
+    });
+  });
   describe("classifyQuestion", () => {
     it("debe clasificar preguntas de pretensión salarial", () => {
       const res = classifyQuestion("¿Cuáles son tus pretensiones salariales para este rol?");

@@ -87,12 +87,15 @@ export function sseTextStream(
   let buffer = "";
   let inThinkTag = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let isClosed = false;
 
   return new ReadableStream({
     start(controller) {
       if (streamTimeoutMs > 0) {
         timer = setTimeout(() => {
+          if (isClosed) return;
           try {
+            isClosed = true;
             reader.cancel();
             controller.error(
               new Error(`Timeout de streaming del LLM excedido (${Math.round(streamTimeoutMs / 1000)}s).`)
@@ -103,6 +106,40 @@ export function sseTextStream(
     },
     async pull(controller) {
       try {
+        const processLine = (rawLine: string) => {
+          const trimmed = rawLine.trim();
+          if (!trimmed.startsWith("data:")) return false;
+          const json = trimmed.slice(5).trim();
+          if (!json || json === "[DONE]") return false;
+
+          try {
+            const text = extract(json);
+            if (text) {
+              // Filtrado de tags <think> / </think> de modelos de razonamiento como DeepSeek R1
+              let cleanChunk = text;
+              if (cleanChunk.includes("<think>")) {
+                inThinkTag = true;
+                cleanChunk = cleanChunk.replace(/<think>[\s\S]*?<\/think>/g, "");
+                cleanChunk = cleanChunk.replace(/<think>[\s\S]*/g, "");
+              } else if (cleanChunk.includes("</think>")) {
+                inThinkTag = false;
+                cleanChunk = cleanChunk.replace(/[\s\S]*?<\/think>/g, "");
+              } else if (inThinkTag) {
+                return false;
+              }
+
+              cleanChunk = cleanChunk.replace(/<\/?think>/gi, "");
+              if (cleanChunk) {
+                controller.enqueue(encoder.encode(cleanChunk));
+                return true;
+              }
+            }
+          } catch {
+            // Ignora fragmentos incompletos o inválidos de SSE
+          }
+          return false;
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
@@ -110,7 +147,14 @@ export function sseTextStream(
               clearTimeout(timer);
               timer = null;
             }
-            controller.close();
+            if (buffer.trim()) {
+              processLine(buffer);
+              buffer = "";
+            }
+            if (!isClosed) {
+              isClosed = true;
+              controller.close();
+            }
             return;
           }
           buffer += decoder.decode(value, { stream: true });
@@ -119,37 +163,11 @@ export function sseTextStream(
           let enqueuedAny = false;
 
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue;
-            const json = trimmed.slice(5).trim();
-            if (!json || json === "[DONE]") continue;
-
-            try {
-              const text = extract(json);
-              if (text) {
-                // Filtrado de tags <think> / </think> de modelos de razonamiento como DeepSeek R1
-                let cleanChunk = text;
-                if (cleanChunk.includes("<think>")) {
-                  inThinkTag = true;
-                  cleanChunk = cleanChunk.replace(/<think>[\s\S]*?<\/think>/g, "");
-                  cleanChunk = cleanChunk.replace(/<think>[\s\S]*/g, "");
-                } else if (cleanChunk.includes("</think>")) {
-                  inThinkTag = false;
-                  cleanChunk = cleanChunk.replace(/[\s\S]*?<\/think>/g, "");
-                } else if (inThinkTag) {
-                  continue;
-                }
-
-                cleanChunk = cleanChunk.replace(/<\/?think>/gi, "");
-                if (cleanChunk) {
-                  controller.enqueue(encoder.encode(cleanChunk));
-                  enqueuedAny = true;
-                }
-              }
-            } catch {
-              // Ignora fragmentos incompletos o inválidos de SSE
+            if (processLine(line)) {
+              enqueuedAny = true;
             }
           }
+          // Ceder el control de pull al consumidor tan pronto como se emita texto (respetando backpressure de WHATWG Streams)
           if (enqueuedAny) return;
         }
       } catch (err) {
@@ -157,10 +175,14 @@ export function sseTextStream(
           clearTimeout(timer);
           timer = null;
         }
-        controller.error(err);
+        if (!isClosed) {
+          isClosed = true;
+          controller.error(err);
+        }
       }
     },
     cancel() {
+      isClosed = true;
       if (timer) {
         clearTimeout(timer);
         timer = null;

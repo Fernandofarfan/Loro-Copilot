@@ -23,14 +23,136 @@ export function detectTrickQuestion(q: string): string | null {
 }
 
 /**
+ * Detecta dinámicamente si una pregunta o fragmento de audio está en inglés o español.
+ * Analiza caracteres propios del español, palabras de apertura interrogativa y stopwords comunes.
+ */
+export function detectQuestionLanguage(text: string): "en" | "es" {
+  const clean = (text || "").trim().toLowerCase();
+  if (!clean) return "es";
+
+  // Caracteres inequívocos del español
+  if (/[áéíóúüñ¿¡]/.test(clean)) {
+    return "es";
+  }
+
+  // Patrones y palabras muy frecuentes en inglés
+  const englishMatches =
+    clean.match(
+      /\b(what|where|when|why|how|who|which|can|could|would|should|tell|describe|explain|are|is|do|does|did|have|has|from|about|yourself|your|you|with|the|and|for|in|on|to|my|i|we|they|their|this|that|experience|background|project|team|challenge|stack|salary|role|company|join|work|working|worked|built|building|build|hello|hi|hey|good|morning|afternoon|great|please|thank|thanks)\b/gi
+    ) || [];
+
+  // Patrones y palabras muy frecuentes en español
+  const spanishMatches =
+    clean.match(
+      /\b(que|como|cuando|donde|por que|porque|cual|cuales|quien|quienes|contame|cuentame|explicame|explica|describi|describe|tenes|tienes|sos|eres|estas|esta|de donde|tu|tus|experiencia|proyecto|equipo|desafio|para|con|en|por|un|una|los|las|el|la|sobre|acerca|sueldo|salario|puesto|empresa|trabajo|trabajando|trabajaste|hiciste|hacer|hola|buenas|buenos|dias|tardes|noches|gracias|por favor)\b/gi
+    ) || [];
+
+  if (englishMatches.length > spanishMatches.length) {
+    return "en";
+  }
+  if (spanishMatches.length > englishMatches.length) {
+    return "es";
+  }
+
+  // Verificación de patrones de inicio de pregunta en inglés
+  if (
+    /^(where|what|how|why|when|who|which|can you|could you|would you|tell me|describe|do you|are you|have you|is there|let's talk about)\b/i.test(
+      clean
+    )
+  ) {
+    return "en";
+  }
+
+  return "es";
+}
+
+/**
+ * Detecta si una frase o pregunta parece incompleta (pausa para respirar, conector o puntuación abierta).
+ */
+export function isIncompleteQuestion(text: string): boolean {
+  const clean = (text || "").trim().toLowerCase();
+  if (!clean) return false;
+
+  // Frases muy cortas de 1 o 2 palabras que no son saludos son pausas intermedias
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (
+    words.length < 3 &&
+    !/^(hola|buenas|hi|hello|hey|qu[eé] tal|todo bien|how are you|how is it going)\b/i.test(clean)
+  ) {
+    return true;
+  }
+
+  // Termina en conectores típicos de continuidad en español o inglés
+  const trailingConnectorRegex =
+    /\b(y|o|pero|que|con|para|de|a|en|como|entonces|porque|por qu[eé]|o sea|es decir|sobre|adem[aá]s|donde|cuando|tambi[eé]n|del|al|las siguientes:?|los siguientes:?|and|or|but|with|for|to|in|at|by|that|which|then|because|like|about|also|such as|following:?|between|among|from|into|onto|regarding|including)\s*[:,\-\.]*$/i;
+
+  if (trailingConnectorRegex.test(clean)) {
+    return true;
+  }
+
+  // Termina en signos de puntuación de continuación abierta (dos puntos, coma, puntos suspensivos, guion)
+  if (/([,:\-–—]|\.\.\.)$/.test(clean.replace(/\s+$/, ""))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Extrae de forma limpia y aislada el texto de la pregunta del turno actual del entrevistador,
+ * evitando mezclar texto de preguntas anteriores.
+ */
+export function extractCurrentTurnQuestion(
+  lines: Array<{ id: number | string; text: string; speaker: number; final: boolean; timestamp?: number }>,
+  lastProcessedId: number | string | null
+): { text: string; newLastId: number | string | null; isIncomplete: boolean } {
+  if (!lines || lines.length === 0) {
+    return { text: "", newLastId: null, isIncomplete: false };
+  }
+
+  // 1. Filtrar solo las líneas posteriores a la última que ya fue respondida
+  let unhandledLines = lines;
+  if (lastProcessedId !== null && lastProcessedId !== undefined) {
+    const idx = lines.findIndex((l) => l.id === lastProcessedId);
+    if (idx >= 0) {
+      unhandledLines = lines.slice(idx + 1);
+    }
+  }
+
+  // 2. Filtrar únicamente las líneas finales del entrevistador (speaker === 0)
+  const interviewerLines = unhandledLines.filter((l) => l.speaker === 0 && l.final);
+  if (interviewerLines.length === 0) {
+    return { text: "", newLastId: null, isIncomplete: false };
+  }
+
+  const text = interviewerLines
+    .map((l) => l.text.trim())
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  const newLastId = interviewerLines[interviewerLines.length - 1].id;
+  const incomplete = isIncompleteQuestion(text);
+
+  return {
+    text,
+    newLastId,
+    isIncomplete: incomplete,
+  };
+}
+
+/**
  * Reconoce saludos y small talk de apertura para responder en <10ms sin llamar al LLM
  */
 export function checkInstantGreeting(q: string, company = ""): { enText: string; esText: string; cleanText: string } | null {
   const lower = (q || "").trim().toLowerCase();
-  // Validar si es saludo o pregunta de bienestar corta (<50 chars)
-  const isGreeting = /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|c[oó]mo est[aá]s?|qu[eé] tal|todo bien|qu[eé] onda|hi|hello|hey|how are you|how is it going|how are you doing|can you hear me|me escuchas|me escuch[aá]s)\b/i.test(lower) && lower.length < 60;
+  // Límite de 80 chars: los saludos reales de apertura de entrevista raramente superan esta longitud.
+  // Evita tratar como saludo preguntas cortas que empiecen con "hola" pero contengan contenido técnico.
+  const isGreeting = /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|c[oó]mo est[aá]s?|qu[eé] tal|todo bien|qu[eé] onda|hi|hello|hey|how are you|how is it going|how are you doing|can you hear me|me escuchas|me escuch[aá]s)\b/i.test(lower) && lower.length < 80;
 
   if (!isGreeting) return null;
+
+  const isEnGreeting = /^(hi|hello|hey|how are you|how is it going|how are you doing|can you hear me)\b/i.test(lower);
 
   const comp = company ? `el equipo de ${company}` : "ustedes";
   const compEn = company ? `the team at ${company}` : "everyone";
@@ -41,7 +163,7 @@ export function checkInstantGreeting(q: string, company = ""): { enText: string;
   return {
     enText: en,
     esText: es,
-    cleanText: es,
+    cleanText: isEnGreeting ? en : es,
   };
 }
 

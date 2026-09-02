@@ -9,8 +9,16 @@ import {
   type Provider,
 } from "../../lib/llm";
 import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
+import { detectQuestionLanguage } from "../../lib/interviewHelpers";
 
 export const runtime = "edge";
+
+// Escapa caracteres XML de delimitación para evitar inyección de prompt via inputs de usuario
+function sanitizeForPrompt(text: string): string {
+  return text
+    .replace(/</g, "‹")   // reemplazar < por guillemet izquierdo (similar visual, no interpretable como tag)
+    .replace(/>/g, "›");  // reemplazar > por guillemet derecho
+}
 
 const SYSTEM_PROMPT = `Sos EL ENTREVISTADO. Respondés en primera persona, en vivo, ahora mismo como candidato Senior.
 
@@ -106,15 +114,17 @@ export async function POST(req: Request) {
   const provider: Provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
 
-  const profile = (body.profile || "").slice(0, 6000);
-  const company = (body.company || "").slice(0, 200);
-  const role = (body.role || "").slice(0, 1500);
-  const transcript = (body.transcript || "").slice(-2500);
-  const question = (body.question || "").slice(0, 1000);
-  const detectedLang = body.detectedLang || "es";
+  const profile = sanitizeForPrompt((body.profile || "").slice(0, 6000));
+  const company = sanitizeForPrompt((body.company || "").slice(0, 200));
+  const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
+  const transcript = sanitizeForPrompt((body.transcript || "").slice(-2500));
+  const question = sanitizeForPrompt((body.question || "").slice(0, 1000));
   const simpleEnglish = !!body.simpleEnglish;
   const dialect = body.dialect || "rioplatense";
   const bilingualMode = body.bilingualMode !== false; // Default true
+  const autoDetectedLang = detectQuestionLanguage(question || transcript);
+  const isEnglish = body.detectedLang === "en" || autoDetectedLang === "en" || dialect === "english";
+  const detectedLang = isEnglish ? "en" : (body.detectedLang || autoDetectedLang || "es");
 
   // Modo Warmup: Generación estructurada de 4 preguntas Q&A
   if (body.type === "warmup") {
@@ -148,19 +158,19 @@ ${profile || "(sin perfil)"}
   }
 
   const englishRules = simpleEnglish
-    ? `Si el entrevistador habló en **INGLÉS**:
-- Devolvé EXACTAMENTE estos 3 bloques en este orden:
+    ? `Si el entrevistador habló en **INGLÉS** (o si la pregunta en <question> está en inglés):
+- Devolvé OBLIGATORIAMENTE estos 3 bloques en este orden:
 
 [EN]
-<Respuesta hablada en inglés SIMPLE, claro y directo (A2/B1 vocabulario, frases cortas de 8-12 palabras, pronunciación fluida y sin jerga rebuscada).>
+<Respuesta hablada en inglés SIMPLE, claro y directo (A2/B1 vocabulario, frases cortas de 8-12 palabras, pronunciación fluida y sin jerga rebuscada). 1 frase de apertura contundente + 2-3 viñetas breves.>
 
 [PHO]
 <Guía fonética o pronunciación aproximada entre paréntesis para leer sin trabarse.>
 
 [ES]
 <Traducción/resumen conceptual en español en 1-2 oraciones cortas.>`
-    : `Si el entrevistador habló en **INGLÉS**:
-- Devolvé EXACTAMENTE estos 2 bloques en este orden:
+    : `Si el entrevistador habló en **INGLÉS** (o si la pregunta en <question> está en inglés):
+- Devolvé OBLIGATORIAMENTE estos 2 bloques en este orden:
 
 [EN]
 <Respuesta directa y hablada en inglés (1 frase de apertura contundente + 2-3 viñetas cortas de 8-14 palabras, vocabulario técnico exacto y sin rodeos).>
@@ -170,24 +180,26 @@ ${profile || "(sin perfil)"}
 
   const autoLanguageSuffix = bilingualMode
     ? `
-## DETECCIÓN DE IDIOMA Y MODO BILINGÜE
-Si el entrevistador habló en **ESPAÑOL**:
-- Respondé en ${dialectInstruction}
-
+## DETECCIÓN DINÁMICA DE IDIOMA Y MODO BILINGÜE
+ATENCIÓN: La entrevista puede ser en Español, en Inglés, o alternar entre ambos en cualquier momento:
+1. Si la pregunta (<question>) o el entrevistador está en **INGLÉS** (ej. "where are you from?", "tell me about yourself", preguntas técnicas en inglés):
 ${englishRules}
+
+2. Si la pregunta (<question>) o el entrevistador está en **ESPAÑOL** (ej. "¿de dónde sos?", "contame sobre vos"):
+- Respondé en ${dialectInstruction} (1 frase de apertura directa + 2-3 viñetas concisas). NO uses bloques [EN] si la pregunta fue en español.
 `
     : `
 ## IDIOMA DE RESPUESTA
 Respondé directamente en ${dialect === "english" ? "English" : dialectInstruction}. No uses bloques [EN] ni [ES].
 `;
 
-  const answerLangLabel = `
-INFO DE SISTEMA: El entrevistador habló en **${detectedLang === "en" ? "INGLÉS" : "ESPAÑOL"}**.
-- Idioma/Dialecto objetivo: ${dialectInstruction}`;
+  const answerLangLabel = isEnglish
+    ? `INFO DE SISTEMA: La pregunta o intervención actual del entrevistador fue detectada en **INGLÉS**. Debés responder OBLIGATORIAMENTE usando los bloques [EN] (para que el candidato lo diga en la llamada) y [ES] (resumen conceptual).`
+    : `INFO DE SISTEMA: La pregunta o intervención actual del entrevistador fue detectada en **ESPAÑOL**. Respondé en ${dialectInstruction}.`;
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
   const effectiveSystemPrompt = basePrompt + autoLanguageSuffix;
-  const extraInstructions = (body.extraInstructions || "").slice(0, 800);
+  const extraInstructions = sanitizeForPrompt((body.extraInstructions || "").slice(0, 800));
 
   const previousAnswers = (body.previousAnswers || []).slice(-2);
   let historySection = "";

@@ -26,6 +26,11 @@ export async function checkRateLimitAsync(
   const restUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const restToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
+  // Advertencia: en producción sin Upstash, el rate limit es por-isolate (no efectivo bajo carga)
+  if (process.env.NODE_ENV === "production" && (!restUrl || !restToken)) {
+    console.warn("[security] ADVERTENCIA: Rate limiting en memoria (por-isolate). Configurar UPSTASH_REDIS_REST_URL y UPSTASH_REDIS_REST_TOKEN para rate limiting efectivo en producción.");
+  }
+
   if (restUrl && restToken) {
     try {
       const forwarded = req.headers.get("x-forwarded-for");
@@ -142,6 +147,14 @@ export function verifyOrigin(req: Request): { ok: boolean; status?: number; erro
   if (siteUrl) {
     try {
       const parsed = new URL(siteUrl);
+      if (parsed.hostname) allowedHosts.push(parsed.hostname.toLowerCase());
+    } catch {}
+  }
+
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) {
+    try {
+      const parsed = new URL(vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`);
       if (parsed.hostname) allowedHosts.push(parsed.hostname.toLowerCase());
     } catch {}
   }

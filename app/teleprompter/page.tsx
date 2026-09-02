@@ -13,6 +13,20 @@ interface TeleprompterData {
   fromMemory?: boolean;
 }
 
+// Valida que el payload tiene la forma TeleprompterData antes de usarlo
+function isValidTeleprompterData(data: unknown): data is TeleprompterData {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  // Al menos uno de los campos esperados debe estar presente
+  return (
+    typeof d.question === "string" ||
+    typeof d.enText === "string" ||
+    typeof d.esText === "string" ||
+    typeof d.cleanText === "string" ||
+    typeof d.isGenerating === "boolean"
+  );
+}
+
 export default function TeleprompterPage() {
   const [data, setData] = useState<TeleprompterData>({
     question: "Esperando pregunta de la entrevista...",
@@ -27,7 +41,10 @@ export default function TeleprompterPage() {
     try {
       const stored = localStorage.getItem("loro_teleprompter_data");
       if (stored) {
-        setData(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (isValidTeleprompterData(parsed)) {
+          setData(parsed);
+        }
       }
     } catch {}
 
@@ -36,7 +53,7 @@ export default function TeleprompterPage() {
     if (typeof BroadcastChannel !== "undefined") {
       bc = new BroadcastChannel("loro_teleprompter_channel");
       bc.onmessage = (event) => {
-        if (event.data) {
+        if (isValidTeleprompterData(event.data)) {
           setData(event.data);
         }
       };
@@ -46,7 +63,10 @@ export default function TeleprompterPage() {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "loro_teleprompter_data" && e.newValue) {
         try {
-          setData(JSON.parse(e.newValue));
+          const parsed = JSON.parse(e.newValue);
+          if (isValidTeleprompterData(parsed)) {
+            setData(parsed);
+          }
         } catch {}
       }
     };

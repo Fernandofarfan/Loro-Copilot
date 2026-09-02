@@ -1,5 +1,10 @@
-// Convierte audio Float32 a PCM16 y lo remuestrea a 16kHz preservando muestras residuales
-// entre llamadas de process() (Web Audio quantum de 128 samples).
+/**
+ * PCMWorklet — Convierte audio Float32 a PCM16 y lo remuestrea a 16kHz.
+ * @property {number} targetRate - Tasa de muestreo destino (16000 Hz para Deepgram Nova-2).
+ * @property {Float32Array} leftoverBuffer - Muestras residuales entre quantums de 128 samples.
+ *   Limitado a MAX_LEFTOVER_SAMPLES para evitar crecimiento ilimitado ante relojes desincronizados.
+ * @property {number} remainderIndex - Offset fraccional de submuestreo entre quantums.
+ */
 class PCMWorklet extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -31,6 +36,7 @@ class PCMWorklet extends AudioWorkletProcessor {
       const pcm = this._toPCM(fullBuffer);
       this.port.postMessage(pcm.buffer, [pcm.buffer]);
       this.leftoverBuffer = new Float32Array(0);
+      this.remainderIndex = 0;
       return true;
     }
 
@@ -66,14 +72,20 @@ class PCMWorklet extends AudioWorkletProcessor {
       this.port.postMessage(out.buffer, [out.buffer]);
     }
 
-    // Guardar los samples residuales que quedaron después de currPos
+    // Guardar los samples residuales que quedaron después de currPos.
+    // Invariante: currPos >= 0 y el loop while garantiza currPos <= totalSamples + ratio al finalizar.
+    const MAX_LEFTOVER_SAMPLES = 2048; // ~128ms a 16kHz — techo de seguridad para evitar OOM
     const lastConsumedIndex = Math.floor(currPos);
     if (lastConsumedIndex < totalSamples) {
-      this.leftoverBuffer = fullBuffer.slice(lastConsumedIndex);
+      const raw = fullBuffer.slice(lastConsumedIndex);
+      // Descartar muestras antiguas si el residuo supera el techo (indica problema de clock)
+      this.leftoverBuffer = raw.length > MAX_LEFTOVER_SAMPLES
+        ? raw.slice(-MAX_LEFTOVER_SAMPLES)
+        : raw;
       this.remainderIndex = currPos - lastConsumedIndex;
     } else {
       this.leftoverBuffer = new Float32Array(0);
-      this.remainderIndex = currPos - totalSamples;
+      this.remainderIndex = Math.max(0, currPos - totalSamples);
     }
 
     return true;

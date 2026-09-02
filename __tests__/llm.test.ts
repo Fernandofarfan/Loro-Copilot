@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
-import { parseModelJson, resolveProvider, resolveModel, FALLBACK_MODELS } from "../app/lib/llm";
+import { parseModelJson, resolveProvider, resolveModel, FALLBACK_MODELS, sseTextStream } from "../app/lib/llm";
 
 describe("llm utilities", () => {
   describe("parseModelJson", () => {
@@ -78,6 +78,62 @@ describe("llm utilities", () => {
       const mod = await import("../app/lib/llm");
       expect(mod.FALLBACK_MODELS.gemini.length).toBeLessThanOrEqual(3);
       delete process.env.GEMINI_MODEL;
+    });
+  });
+
+  describe("sseTextStream", () => {
+    it("debe procesar chunks de SSE y drenar buffer residual cuando el stream termina sin \\n final", async () => {
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      const ssePayload = "data: {\"text\":\"Hola \"}\ndata: {\"text\":\"mundo\"}"; // sin \n al final
+      const upstream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(ssePayload));
+          controller.close();
+        },
+      });
+
+      const parsedStream = sseTextStream(upstream, (json) => {
+        const parsed = JSON.parse(json);
+        return parsed.text;
+      });
+
+      const reader = parsedStream.getReader();
+      let output = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        output += decoder.decode(value);
+      }
+
+      expect(output).toBe("Hola mundo");
+    });
+
+    it("debe filtrar tags <think> y </think> de modelos de razonamiento", async () => {
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      const ssePayload = "data: {\"text\":\"<think>analizando...</think>Respuesta final\"}\n";
+      const upstream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(ssePayload));
+          controller.close();
+        },
+      });
+
+      const parsedStream = sseTextStream(upstream, (json) => {
+        const parsed = JSON.parse(json);
+        return parsed.text;
+      });
+
+      const reader = parsedStream.getReader();
+      let output = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        output += decoder.decode(value);
+      }
+
+      expect(output).toBe("Respuesta final");
     });
   });
 });

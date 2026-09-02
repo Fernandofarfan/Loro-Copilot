@@ -12,6 +12,13 @@ import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/secu
 
 export const runtime = "edge";
 
+// Escapa caracteres XML de delimitación para evitar inyección de prompt via inputs de usuario
+function sanitizeForPrompt(text: string): string {
+  return text
+    .replace(/</g, "‹")   // reemplazar < por guillemet izquierdo (similar visual, no interpretable como tag)
+    .replace(/>/g, "›");  // reemplazar > por guillemet derecho
+}
+
 const SYSTEM_PROMPT = `Sos un experto en entrevistas técnicas y de Recursos Humanos. Tu tarea es analizar la transcripción completa de una entrevista de trabajo que acaba de terminar y darle feedback estructurado al candidato.
 
 Recibís:
@@ -70,10 +77,10 @@ export async function POST(req: Request) {
 
   const provider: Provider = resolveProvider(body.provider);
   const model = resolveModel(provider, (body.model || "").slice(0, 100));
-  const profile = (body.profile || "").slice(0, 6000);
-  const company = (body.company || "").slice(0, 200);
-  const role = (body.role || "").slice(0, 1500);
-  const transcript = (body.transcript || "").slice(0, 12000);
+  const profile = sanitizeForPrompt((body.profile || "").slice(0, 6000));
+  const company = sanitizeForPrompt((body.company || "").slice(0, 200));
+  const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
+  const transcript = sanitizeForPrompt((body.transcript || "").slice(0, 12000));
 
   const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## ROL\n${role || "(sin especificar)"}\n\n## PERFIL\n${profile || "(sin especificar)"}\n\n## TRANSCRIPCIÓN\n${transcript || "(sin transcripción)"}`;
 

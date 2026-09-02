@@ -55,9 +55,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // En desarrollo local (NODE_ENV !== 'production'), permitimos fallback directo
-    // para keys con scopes restringidos sin bloquear la experiencia local del desarrollador.
-    if (process.env.NODE_ENV === "development" && apiKey) {
+    // Solo habilitar fallback en desarrollo local real (nunca en Vercel, ni staging, ni preview)
+    if (process.env.NODE_ENV === "development" && !process.env.VERCEL && apiKey) {
       return NextResponse.json({ token: apiKey, scheme: "token", expires_in: 3600 });
     }
 

@@ -34,13 +34,44 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     try {
       const storedProfiles = localStorage.getItem(LS_PROFILES_KEY);
       if (storedProfiles) {
-        setSavedProfiles(JSON.parse(storedProfiles));
+        const parsed = JSON.parse(storedProfiles);
+        if (Array.isArray(parsed)) {
+          const validProfiles: SavedProfile[] = parsed
+            .filter((p): p is SavedProfile => Boolean(p && typeof p === "object" && typeof p.name === "string" && p.name.trim()))
+            .map((p) => ({
+              name: String(p.name).trim(),
+              company: typeof p.company === "string" ? p.company : "",
+              role: typeof p.role === "string" ? p.role : "",
+              profile: typeof p.profile === "string" ? p.profile : "",
+              extraInstructions: typeof p.extraInstructions === "string" ? p.extraInstructions : "",
+            }));
+          setSavedProfiles(validProfiles);
+        }
       }
 
       const storedAnswers = localStorage.getItem(LS_ANSWERS_KEY);
       if (storedAnswers) {
         try {
-          setMasterAnswers(JSON.parse(storedAnswers));
+          const parsed = JSON.parse(storedAnswers);
+          if (Array.isArray(parsed)) {
+            const validAnswers: MasterAnswer[] = parsed
+              .filter((a): a is MasterAnswer => Boolean(a && typeof a === "object" && typeof a.question === "string" && typeof a.enText === "string"))
+              .map((a) => ({
+                id: String(a.id || `ans_${Date.now()}`),
+                question: String(a.question || ""),
+                enText: String(a.enText || ""),
+                esText: typeof a.esText === "string" ? a.esText : "",
+                category: typeof a.category === "string" ? a.category : "General",
+                tags: Array.isArray(a.tags) ? a.tags.map(String) : [],
+                role: typeof a.role === "string" ? a.role : "",
+                company: typeof a.company === "string" ? a.company : "",
+                favorite: Boolean(a.favorite),
+                createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
+              }));
+            setMasterAnswers(validAnswers);
+          } else {
+            setMasterAnswers([]);
+          }
         } catch {
           setMasterAnswers([]);
         }
@@ -51,15 +82,17 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
       const raw = localStorage.getItem(LS_KEY);
       if (raw) {
         const saved = JSON.parse(raw);
-        if (saved.company) setCompany(saved.company);
-        if (saved.role) setRole(saved.role);
-        if (saved.profile) setProfile(saved.profile);
-        if (saved.extraInstructions) setExtraInstructions(saved.extraInstructions);
-        const validModels = availableModelIdsRef.current;
-        if (saved.modelId && (validModels.length === 0 || validModels.includes(saved.modelId))) {
-          setModelId(saved.modelId);
+        if (saved && typeof saved === "object") {
+          if (typeof saved.company === "string") setCompany(saved.company);
+          if (typeof saved.role === "string") setRole(saved.role);
+          if (typeof saved.profile === "string") setProfile(saved.profile);
+          if (typeof saved.extraInstructions === "string") setExtraInstructions(saved.extraInstructions);
+          const validModels = availableModelIdsRef.current;
+          if (typeof saved.modelId === "string" && (validModels.length === 0 || validModels.includes(saved.modelId))) {
+            setModelId(saved.modelId);
+          }
+          if (typeof saved.fontSize === "number" && !isNaN(saved.fontSize)) setFontSize(saved.fontSize);
         }
-        if (typeof saved.fontSize === "number") setFontSize(saved.fontSize);
       }
     } catch (e) {
       console.warn("Error cargando contexto desde localStorage", e);

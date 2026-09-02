@@ -129,6 +129,7 @@ export function useDeepgram({
       wsRef.current = null;
     }
 
+    // Teardown ordenado: WebSocket -> Nodos Web Audio -> AudioContext -> MediaStream tracks
     if (sourceNodeRef.current) {
       try {
         sourceNodeRef.current.disconnect();
@@ -171,12 +172,14 @@ export function useDeepgram({
   // Manejo de visibilidad de pestaña: reanudar AudioContext si se suspende
   useEffect(() => {
     const handleVisibility = () => {
+      const ctx = audioCtxRef.current;
       if (
         document.visibilityState === "visible" &&
-        audioCtxRef.current &&
-        audioCtxRef.current.state === "suspended"
+        ctx &&
+        ctx.state !== "closed" && // evitar llamar resume() sobre un contexto cerrado
+        ctx.state === "suspended"
       ) {
-        audioCtxRef.current.resume().catch(() => {});
+        ctx.resume().catch(() => {});
       }
     };
 
@@ -234,8 +237,8 @@ export function useDeepgram({
           language: sttLanguage,
           smart_format: "true",
           interim_results: "true",
-          endpointing: "800",
-          utterance_end_ms: "1000",
+          endpointing: "1200",
+          utterance_end_ms: "1500",
           vad_events: "true",
           diarize: "true",
           encoding: "linear16",
@@ -400,6 +403,17 @@ export function useDeepgram({
           stream.getVideoTracks().forEach((track) => {
             track.stop();
           });
+
+          // Verificar que haya audio disponible en la pestaña compartida
+          const audioTracks = stream.getAudioTracks();
+          if (audioTracks.length === 0) {
+            stream.getTracks().forEach((t) => t.stop());
+            setStatus("error");
+            setErrorMessage(
+              "No se detectó audio en la pestaña compartida. Asegurate de activar 'Compartir audio' al seleccionar la pestaña."
+            );
+            return;
+          }
         } else {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {

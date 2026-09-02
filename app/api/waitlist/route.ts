@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyOrigin, checkRateLimitAsync } from "../../lib/security";
+import { fetchWithTimeout } from "../../lib/llm";
 
 export const runtime = "edge";
 
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
 
   const gformAction = process.env.GFORM_ACTION;
   const gformEmailEntry = process.env.GFORM_EMAIL_ENTRY;
+  const gformSourceEntry = process.env.GFORM_SOURCE_ENTRY || "entry.source";
 
   // Si no está configurado el backend de persistencia, responder 503 explícito
   if (!gformAction || !gformEmailEntry) {
@@ -51,13 +53,17 @@ export async function POST(req: Request) {
     const formData = new URLSearchParams();
     formData.append(gformEmailEntry, email);
     if (body.source) {
-      formData.append("entry.source", body.source);
+      formData.append(gformSourceEntry, body.source);
     }
-    const formRes = await fetch(gformAction, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: formData.toString(),
-    });
+    const formRes = await fetchWithTimeout(
+      gformAction,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
+      },
+      10_000
+    );
 
     if (!formRes.ok && formRes.status !== 0) {
       console.error("Error al registrar en Google Form:", formRes.status);

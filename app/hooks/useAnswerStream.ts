@@ -384,7 +384,12 @@ export function useAnswerStream() {
           modelName: modelLabel,
         });
       } catch (err: unknown) {
-        if (err instanceof Error && err.name !== "AbortError") {
+        if (err instanceof Error && err.name === "AbortError") {
+          // Cancelación intencional: marcar el answer como completo (sin mensaje de error)
+          setAnswers((prev) =>
+            prev.map((a) => (a.id === currentId && !a.done ? { ...a, done: true } : a))
+          );
+        } else {
           console.error("Error en streaming de respuesta:", err);
           const errMsg = err instanceof Error ? err.message : "Error de conexión";
           setGenerationError(errMsg);
@@ -411,16 +416,19 @@ export function useAnswerStream() {
       profile,
       provider = "opencode",
       model = "deepseek/deepseek-chat",
+      signal,
     }: {
       company: string;
       role: string;
       profile: string;
       provider?: string;
       model?: string;
+      signal?: AbortSignal;
     }): Promise<MasterAnswer[]> => {
       const res = await fetch("/api/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
           profile,
           company,
