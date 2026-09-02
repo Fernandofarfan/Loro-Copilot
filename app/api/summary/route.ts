@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     if (provider === "opencode" || provider === "openrouter") return await streamOpenCode(candidates, userContent, SYSTEM_PROMPT);
     if (provider === "openai") return await streamOpenAI(candidates, userContent, SYSTEM_PROMPT);
     return await streamGemini(candidates, userContent, SYSTEM_PROMPT);
-  } catch (err: any) {
-    return new Response(`Error generando resumen: ${err?.message || "desconocido"}`, { status: 502 });
+  } catch (err: unknown) {
+    return new Response(`Error generando resumen: ${err instanceof Error ? err.message : "desconocido"}`, { status: 502 });
   }
 }

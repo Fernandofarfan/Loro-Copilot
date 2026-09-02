@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       { error: "Error al emitir autorización con el servicio de transcripción." },
       { status: 500 }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Deepgram network error:", err);
     return NextResponse.json(
       { error: "Error de conexión con el servicio de transcripción." },

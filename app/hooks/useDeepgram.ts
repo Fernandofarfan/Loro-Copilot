@@ -58,7 +58,7 @@ export function useDeepgram({
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const silentGainRef = useRef<GainNode | null>(null);
-  const wakeLockRef = useRef<any>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   // Control de generación para asegurar un único socket y stream activo
   const connectionGenRef = useRef(0);
@@ -98,7 +98,7 @@ export function useDeepgram({
   const requestWakeLock = useCallback(async () => {
     if (typeof navigator !== "undefined" && "wakeLock" in navigator) {
       try {
-        wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
       } catch {}
     }
   }, []);
@@ -365,9 +365,9 @@ export function useDeepgram({
             setStatus("idle");
           }
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (connectionGenRef.current !== gen) return;
-        if (err.name === "AbortError") return;
+        if (err instanceof Error && err.name === "AbortError") return;
         console.error("Error al conectar WebSocket:", err);
         setStatus("error");
         setErrorMessage("No se pudo establecer la conexión de audio.");
@@ -449,12 +449,12 @@ export function useDeepgram({
         silentGain.connect(audioCtx.destination);
 
         await connectWs(currentGen, stream);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (connectionGenRef.current !== currentGen) return;
         console.error("Error al iniciar captura de audio:", err);
         setStatus("error");
         setErrorMessage(
-          err?.message || "No se pudo acceder al micrófono o audio del sistema."
+          err instanceof Error ? err.message : "No se pudo acceder al micrófono o audio del sistema."
         );
         disconnect();
       }

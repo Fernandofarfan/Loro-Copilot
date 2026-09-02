@@ -97,7 +97,7 @@ export async function POST(req: Request) {
         "Cache-Control": "public, max-age=3600",
       },
     });
-  } catch (err: any) {
-    return new Response(`Error generando voz: ${err?.message || "desconocido"}`, { status: 502 });
+  } catch (err: unknown) {
+    return new Response(`Error generando voz: ${err instanceof Error ? err.message : "desconocido"}`, { status: 502 });
   }
 }

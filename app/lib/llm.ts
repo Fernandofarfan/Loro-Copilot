@@ -181,8 +181,8 @@ export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs
       signal: controller.signal,
     });
     return res;
-  } catch (err: any) {
-    if (err?.name === "AbortError") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
       throw new Error(`Timeout de ${timeoutMs / 1000}s esperando respuesta del LLM.`);
     }
     throw err;
@@ -244,8 +244,8 @@ export async function streamGemini(
         );
       }
       detail = await upstream.text().catch(() => "");
-    } catch (err: any) {
-      detail = err?.message || String(err);
+    } catch (err: unknown) {
+      detail = err instanceof Error ? err.message : String(err);
     }
   }
   return new Response(`Gemini error: ${detail}`, { status: 502 });
@@ -302,8 +302,8 @@ export async function streamAnthropic(
         );
       }
       detail = await upstream.text().catch(() => "");
-    } catch (err: any) {
-      detail = err?.message || String(err);
+    } catch (err: unknown) {
+      detail = err instanceof Error ? err.message : String(err);
     }
   }
   return new Response(`Claude error: ${detail}`, { status: 502 });
@@ -367,8 +367,8 @@ export async function streamOpenAI(
         );
       }
       detail = await upstream.text().catch(() => "");
-    } catch (err: any) {
-      detail = err?.message || String(err);
+    } catch (err: unknown) {
+      detail = err instanceof Error ? err.message : String(err);
     }
   }
   return new Response(`GPT error: ${detail}`, { status: 502 });
@@ -478,8 +478,8 @@ export async function streamOpenCode(
       }
 
       detail = await upstream.text().catch(() => "");
-    } catch (err: any) {
-      detail = err?.message || String(err);
+    } catch (err: unknown) {
+      detail = err instanceof Error ? err.message : String(err);
     }
   }
 

@@ -383,10 +383,10 @@ export function useAnswerStream() {
           isGenerating: false,
           modelName: modelLabel,
         });
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "AbortError") {
           console.error("Error en streaming de respuesta:", err);
-          const errMsg = err?.message || "Error de conexión";
+          const errMsg = err instanceof Error ? err.message : "Error de conexión";
           setGenerationError(errMsg);
           setAnswers((prev) =>
             prev.map((a) =>

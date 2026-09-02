@@ -8,7 +8,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -19,13 +21,17 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/pdfjs-dist": "^2.10.377",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.5.4",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.15",
+    "happy-dom": "^20.12.2",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.4.19",
     "typescript": "^5",

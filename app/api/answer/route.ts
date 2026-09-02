@@ -133,7 +133,7 @@ ${profile || "(sin perfil)"}
         : provider === "openai"
         ? streamOpenAI(candidates, userContent, WARMUP_SYSTEM_PROMPT)
         : streamOpenCode(candidates, userContent, WARMUP_SYSTEM_PROMPT));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error en warmup answer:", err);
       return new Response("Error al generar preguntas de calentamiento.", { status: 500 });
     }
@@ -229,7 +229,7 @@ ${question || "(ninguna aún)"}
       : provider === "openai"
       ? streamOpenAI(candidates, userContent, effectiveSystemPrompt)
       : streamOpenCode(candidates, userContent, effectiveSystemPrompt));
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error al generar respuesta en streaming:", err);
     return new Response(
       "No se pudo generar la respuesta. Por favor, intentá nuevamente.",

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { checkRateLimit, checkRateLimitAsync, verifyOrigin, checkCapacity } from "../app/lib/security";
 import { POST as waitlistPOST } from "../app/api/waitlist/route";

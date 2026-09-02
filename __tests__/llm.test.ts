@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import { parseModelJson, resolveProvider, resolveModel, FALLBACK_MODELS } from "../app/lib/llm";
 

@@ -106,8 +106,8 @@ async function getFeedbackJson(provider: Provider, models: string[], systemPromp
           }
         }
         lastError = await res.text().catch(() => "");
-      } catch (err: any) {
-        lastError = err?.message || String(err);
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
       }
     }
   }
@@ -142,8 +142,8 @@ async function getFeedbackJson(provider: Provider, models: string[], systemPromp
           }
         }
         lastError = await res.text().catch(() => "");
-      } catch (err: any) {
-        lastError = err?.message || String(err);
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
       }
     }
   }
@@ -184,8 +184,8 @@ async function getFeedbackJson(provider: Provider, models: string[], systemPromp
         }
       }
       lastError = await res.text().catch(() => "");
-    } catch (err: any) {
-      lastError = err?.message || String(err);
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err.message : String(err);
     }
   }
 
@@ -282,7 +282,7 @@ export async function POST(req: Request) {
       if (provider === "openai") return await streamOpenAI(candidates, userContent, systemPrompt);
       return await streamGemini(candidates, userContent, systemPrompt);
     }
-  } catch (err: any) {
-    return new Response(`Error del modelo: ${err?.message || "desconocido"}`, { status: 502 });
+  } catch (err: unknown) {
+    return new Response(`Error del modelo: ${err instanceof Error ? err.message : "desconocido"}`, { status: 502 });
   }
 }
