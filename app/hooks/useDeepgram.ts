@@ -25,6 +25,7 @@ interface UseDeepgramOptions {
   onLanguageDetected?: (lang: string) => void;
   onBargeIn?: () => void;
   onEnergy?: (e: AudioEnergy) => void;
+  onSpeculativeTurn?: (interimText: string) => void;
   lang?: string;
 }
 
@@ -34,6 +35,7 @@ export function useDeepgram({
   onLanguageDetected,
   onBargeIn,
   onEnergy,
+  onSpeculativeTurn,
   lang = "es",
 }: UseDeepgramOptions) {
   const [status, setStatus] = useState<DeepgramStatus>("idle");
@@ -57,6 +59,9 @@ export function useDeepgram({
 
   const onEnergyRef = useRef(onEnergy);
   onEnergyRef.current = onEnergy;
+
+  const onSpeculativeTurnRef = useRef(onSpeculativeTurn);
+  onSpeculativeTurnRef.current = onSpeculativeTurn;
 
   const langRef = useRef(lang);
   langRef.current = lang;
@@ -375,6 +380,8 @@ export function useDeepgram({
 
                 if (isFinal) {
                   currentInterimIdRef.current = null;
+                } else if (speaker === 0 && transcript.length >= 35) {
+                  onSpeculativeTurnRef.current?.(transcript);
                 }
 
                 onTranscriptRef.current?.({

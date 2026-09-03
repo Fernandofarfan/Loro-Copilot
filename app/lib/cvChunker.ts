@@ -1,6 +1,7 @@
 /**
- * cvChunker.ts — Divide el CV en bloques semánticos de experiencia y proyectos,
- * permitiendo recuperación quirúrgica (RAG dinámico local) según la pregunta de la entrevista.
+ * cvChunker.ts — Grafo Temporal y Segmentación Semántica del CV.
+ * Divide el CV en bloques con información cronológica, nivel de seniority y métricas clave,
+ * permitiendo recuperación quirúrgica (Timeline Knowledge RAG) según la pregunta de la entrevista.
  */
 
 export interface CvChunk {
@@ -9,6 +10,12 @@ export interface CvChunk {
   category: "experience" | "project" | "skills" | "summary" | "education";
   content: string;
   keywords: string[];
+  seniority?: "Junior" | "Mid" | "Senior" | "Lead" | "Staff" | "Architect";
+  startYear?: number;
+  endYear?: number;
+  isCurrent?: boolean;
+  metrics?: string[];
+  company?: string;
 }
 
 function extractKeywords(text: string): string[] {
@@ -33,6 +40,55 @@ function extractKeywords(text: string): string[] {
 }
 
 /**
+ * Extrae años y temporalidad del bloque
+ */
+function extractYears(text: string): { startYear?: number; endYear?: number; isCurrent?: boolean } {
+  const yearMatches = text.match(/\b(20[0-2][0-9]|199[0-9])\b/g);
+  const isCurrent = /presente|actual|current|present|now|a la fecha/i.test(text);
+
+  if (!yearMatches || yearMatches.length === 0) {
+    return { isCurrent };
+  }
+
+  const years = yearMatches.map((y) => parseInt(y, 10)).sort((a, b) => a - b);
+  return {
+    startYear: years[0],
+    endYear: isCurrent ? new Date().getFullYear() : years[years.length - 1],
+    isCurrent,
+  };
+}
+
+/**
+ * Infiere nivel de seniority priorizando el título del rol sobre el contenido del cuerpo
+ */
+function inferSeniority(title: string, content?: string): CvChunk["seniority"] {
+  const check = (text: string): CvChunk["seniority"] => {
+    const lower = text.toLowerCase();
+    if (/\b(?:tech lead|team lead|lead|lider|engineering manager|manager)\b/i.test(lower)) return "Lead";
+    if (/\b(?:architect|arquitecto|arquitecta|arquitectura)\b/i.test(lower)) return "Architect";
+    if (/\b(?:staff|principal)\b/i.test(lower)) return "Staff";
+    if (/\b(?:senior|sr\b|sr\.)/i.test(lower)) return "Senior";
+    if (/\b(?:semi-senior|ssr\b|mid\b|mid-level)/i.test(lower)) return "Mid";
+    if (/\b(?:junior|jr\b|trainee|intern)/i.test(lower)) return "Junior";
+    return undefined;
+  };
+
+  const fromTitle = check(title);
+  if (fromTitle) return fromTitle;
+  if (content) return check(content);
+  return undefined;
+}
+
+/**
+ * Extrae métricas e impacto numérico ($ / % / latencias / escalabilidad)
+ */
+function extractMetrics(text: string): string[] {
+  const metricRegex = /(?:\$)?(?:\+|-)?\d+(?:\.\d+)?(?:\s?(?:%|k|qps|ms|m|x|users|usuarios|req\/s|usd))+(?:\s?usd)?|\$\d+(?:\.\d+)?(?:\s?[km])?/gi;
+  const matches = text.match(metricRegex);
+  return matches ? Array.from(new Set(matches.map((m) => m.trim()))) : [];
+}
+
+/**
  * Parsea el texto del CV dividiéndolo por secciones o roles de empleo
  */
 export function chunkCv(cvText: string): CvChunk[] {
@@ -49,12 +105,30 @@ export function chunkCv(cvText: string): CvChunk[] {
   const flush = () => {
     const content = currentLines.join("\n").trim();
     if (content.length > 30) {
+      const fullText = currentTitle + "\n" + content;
+      const { startYear, endYear, isCurrent } = extractYears(fullText);
+      const seniority = inferSeniority(currentTitle, content);
+      const metrics = extractMetrics(fullText);
+
+      // Extracción de empresa si tiene formato "Rol at Empresa" o "Rol @ Empresa" o "Empresa - Rol"
+      let company: string | undefined;
+      const compMatch = currentTitle.match(/(?:at|@|en|-)\s*([A-Za-z0-9\s&]{2,25})/i);
+      if (compMatch) {
+        company = compMatch[1].trim();
+      }
+
       chunks.push({
         id: `cv_chunk_${chunkIdx++}`,
         title: currentTitle,
         category: currentCategory,
         content,
-        keywords: extractKeywords(currentTitle + " " + content),
+        keywords: extractKeywords(fullText),
+        startYear,
+        endYear,
+        isCurrent,
+        seniority,
+        metrics,
+        company,
       });
     }
     currentLines = [];
@@ -89,12 +163,19 @@ export function chunkCv(cvText: string): CvChunk[] {
 
   // Si no se detectaron encabezados, devolver como único chunk
   if (chunks.length === 0 && cvText.trim().length > 0) {
+    const full = cvText.trim();
+    const { startYear, endYear, isCurrent } = extractYears(full);
     chunks.push({
       id: "cv_chunk_single",
       title: "Perfil General",
       category: "summary",
-      content: cvText.trim(),
-      keywords: extractKeywords(cvText),
+      content: full,
+      keywords: extractKeywords(full),
+      startYear,
+      endYear,
+      isCurrent,
+      seniority: inferSeniority(full),
+      metrics: extractMetrics(full),
     });
   }
 
@@ -102,7 +183,8 @@ export function chunkCv(cvText: string): CvChunk[] {
 }
 
 /**
- * Selecciona los chunks de CV más relevantes para la pregunta técnica activa
+ * Selecciona los chunks de CV más relevantes para la pregunta técnica activa,
+ * con ponderación temporal y de seniority.
  */
 export function selectRelevantCvChunks(
   question: string,
@@ -115,15 +197,14 @@ export function selectRelevantCvChunks(
   }
 
   const qKeywords = extractKeywords(question);
-  if (qKeywords.length === 0) {
-    // Si la pregunta es corta o abstracta, incluir primeros chunks (más recientes)
-    return chunks
-      .slice(0, 3)
-      .map((c) => `### ${c.title}\n${c.content}`)
-      .join("\n\n");
-  }
+  const lowerQ = question.toLowerCase();
 
-  // Scoring de cada chunk
+  // Ponderaciones temporales y de contexto
+  const asksRecent = /reciente|recent|actual|current|ultimo|último|latest/i.test(lowerQ);
+  const asksLead = /lider|lead|leadership|arquitect|architect|staff|equipo/i.test(lowerQ);
+  const asksMetrics = /metrica|métrica|metric|impacto|impact|escalabilidad|kpi/i.test(lowerQ);
+
+  // Scoring multidimensional de cada chunk
   const scored = chunks.map((chunk) => {
     let matches = 0;
     for (const qk of qKeywords) {
@@ -133,8 +214,26 @@ export function selectRelevantCvChunks(
         matches += 1;
       }
     }
+
+    let bonus = 0;
     // Chunks de habilidades siempre tienen un bono base para no perder el stack
-    const bonus = chunk.category === "skills" ? 1.5 : 0;
+    if (chunk.category === "skills") bonus += 1.5;
+
+    // Bono de actualidad cronológica si preguntan por experiencia reciente
+    if (asksRecent && (chunk.isCurrent || (chunk.endYear && chunk.endYear >= 2023))) {
+      bonus += 3.0;
+    }
+
+    // Bono de seniority si preguntan por liderazgo o arquitectura
+    if (asksLead && (chunk.seniority === "Lead" || chunk.seniority === "Staff" || chunk.seniority === "Architect")) {
+      bonus += 3.0;
+    }
+
+    // Bono si preguntan por métricas o impacto y el chunk contiene datos cuantitativos
+    if (asksMetrics && chunk.metrics && chunk.metrics.length > 0) {
+      bonus += 2.0;
+    }
+
     return { chunk, score: matches + bonus };
   });
 
@@ -143,7 +242,14 @@ export function selectRelevantCvChunks(
 
   let accumulated = "";
   for (const item of scored) {
-    const block = `### ${item.chunk.title}\n${item.chunk.content}\n\n`;
+    const metaParts: string[] = [];
+    if (item.chunk.seniority) metaParts.push(`Nivel: ${item.chunk.seniority}`);
+    if (item.chunk.startYear) metaParts.push(`Periodo: ${item.chunk.startYear} - ${item.chunk.isCurrent ? "Presente" : item.chunk.endYear || ""}`);
+    if (item.chunk.metrics && item.chunk.metrics.length > 0) metaParts.push(`Métricas: ${item.chunk.metrics.slice(0, 3).join(", ")}`);
+
+    const header = `### ${item.chunk.title}${metaParts.length > 0 ? ` (${metaParts.join(" | ")})` : ""}\n`;
+    const block = `${header}${item.chunk.content}\n\n`;
+
     if (accumulated.length + block.length <= maxChars) {
       accumulated += block;
     } else if (accumulated.length === 0) {

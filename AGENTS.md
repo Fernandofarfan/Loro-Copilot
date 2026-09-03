@@ -19,39 +19,42 @@ npm run dev
 ```
 
 ### Comandos de Validación
-- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 105 tests en `__tests__/`).
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 115 tests en `__tests__/`).
 - **Chequeo de tipos:** `npx tsc --noEmit`.
 - **Build de producción:** `npm run build`.
 
 ## Estructura de Archivos
 
-- `app/app/page.tsx` — Vista principal del Copiloto en vivo (soporte Audio Dual 🎧, vúmetro estéreo, WebSocket a Deepgram, renderizado en streaming, banco de memoria instantánea, RAG de CV, sincronización con Teleprompter y atajos `Ctrl+1`/`Ctrl+2`).
+- `app/app/page.tsx` — Vista principal del Copiloto en vivo (soporte Audio Dual 🎧, vúmetro estéreo, Screen Vision `Ctrl+Shift+S`, Susurro al Oído, Cierre de Oro `Ctrl+Shift+Q`, WebSocket a Deepgram, renderizado en streaming, banco de memoria instantánea, RAG de CV, sincronización con Teleprompter y atajos `Ctrl+1`/`Ctrl+2`).
 - `app/simulador/page.tsx` — Simulador interactivo de entrevistas (Avatar, TTS con Web Speech API, reporte de métricas y feedback).
-- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; Lectura Biónica, chips `[KEY]`, alerta de trampas, botón Panic (`Escape`) sincronizado vía `BroadcastChannel` y `localStorage`.
-- `app/components/` — Componentes modulares de UI (`AnswerCard`, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
+- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; modo Always-on-Top nativo (`documentPictureInPicture`), control de opacidad stealth, Lectura Biónica, chips `[KEY]`, alerta de trampas, botón Panic (`Escape`) sincronizado vía `BroadcastChannel` y `localStorage`.
+- `app/components/` — Componentes modulares de UI (`AnswerCard` con badges de validación de código Big-O, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
 - `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles, contexto y banco de respuestas maestras (`masterAnswers`).
-- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab/dual), remuestreo estéreo AudioWorklet PCM16, VAD local y auto-cancelación por Barge-in.
-- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas, Punchline First (`keyWords`), Dual Stream de trampas en background, feedback y generador de preguntas típicas.
+- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab/dual), remuestreo estéreo AudioWorklet PCM16, VAD local, barge-in y trigger de generación especulativa en turnos largos.
+- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas con pre-fetching especulativo, Punchline First (`keyWords`), callback de susurro `onPunchline`, Dual Stream de trampas en background, soporte multimodal/visión y generador de preguntas.
 - `app/hooks/useTeleprompter.ts` — Hook para pop-out de ventana HUD y sincronización en tiempo real vía `BroadcastChannel` y `localStorage`.
-- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Prompt Caching (KV-Cache), Punchline First, clasificación temprana de preguntas, Spanglish técnico y detector de trampas en background (`mode: "trap_detector"`).
+- `app/hooks/useScreenVision.ts` — Captura de pantalla en WebP ultraliviano y Live OCR multimodal para LeetCode y diagramas de arquitectura (`Ctrl+Shift+S`).
+- `app/hooks/useEarbudWhisper.ts` — Modo "Susurro al Oído" con sintetizador Web Speech API acelerado (1.5x) para dictado privado del punchline en auricular.
+- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Prompt Caching (KV-Cache), Punchline First, clasificación temprana de preguntas, Spanglish técnico, soporte multimodal para Vision Coding (`mode: "vision_coding"`), modo Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`).
 - `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
 - `app/api/simulador/route.ts` — Generador de preguntas dinámicas y feedback estructurado JSON.
 - `app/api/waitlist/route.ts` — Captura y registro de lista de espera con rate limiting.
 - `app/api/summary/route.ts` — Generador de resumen post-entrevista en Markdown.
-- `app/lib/cvChunker.ts` — Segmentación semántica de CV y recuperación quirúrgica de proyectos relevantes por pregunta (RAG local).
+- `app/lib/cvChunker.ts` — Grafo temporal y segmentación semántica de CV con ranking por recencia, seniority (`Architect`/`Lead`/`Senior`), métricas cuantitativas y recuperación quirúrgica (RAG local).
+- `app/lib/codeEvaluator.ts` — Validador sintáctico estático del lado cliente (JS/TS/Python), verificación de indentación, balance de delimitadores y extracción de complejidades Big-O (tiempo y espacio).
 - `app/lib/speechCoach.ts` — Análisis de telemetría de habla: cálculo de WPM, ratio de escucha/habla y conteo de muletillas (*fillers*).
-- `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider con timeouts (`AbortController`) y fallback inteligente.
+- `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider (Gemini, OpenCode, Anthropic, OpenAI) con soporte multimodal (`image`), timeouts (`AbortController`) y fallback inteligente.
 - `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria con lazy cleanup.
 - `app/lib/interviewHelpers.ts` — Clasificador temprano de preguntas (`classifyQuestionType`), detector de preguntas trampa, parser de bloques (`[KEY]`, `[EN]`, `[PHO]`, `[ES]`), sinónimos canónicos (`CANONICAL_SYNONYMS`), aisladores `matchesCompany()` / `matchesRole()` y motor de búsqueda de memoria `findMatchingAnswer()`.
 - `app/lib/track.ts` — Wrapper fail-safe de analytics (`track()`, `identify()`).
 - `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a PCM16 16kHz estéreo con cálculo RMS y VAD local.
 - `docs/` — Centro de documentación técnica:
-  - `docs/ARCHITECTURE.md` — Mapeo completo del flujo de datos y diagramas de secuencia Mermaid.
+  - `docs/ARCHITECTURE.md` — Mapeo completo del flujo de datos, diagramas de secuencia Mermaid y especificación de las 8 capacidades avanzadas.
   - `docs/master_answers_all_roles.md` — Enciclopedia universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
   - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
   - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
   - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.
-- `__tests__/` — Suite de 105 tests unitarios automatizados (`interviewHelpers`, `cvChunker`, `speechCoach`, `llm`, `parseBlocks`, `security`, `deepgramToken`, `useAnswerStream`, `useInterviewContext`, `useDeepgram`, `useTeleprompter`).
+- `__tests__/` — Suite de 115 tests unitarios automatizados (`interviewHelpers`, `cvChunker`, `speechCoach`, `llm`, `parseBlocks`, `security`, `deepgramToken`, `useAnswerStream`, `useInterviewContext`, `useDeepgram`, `useTeleprompter`, `codeEvaluator`, `timelineRAG`, `screenVision`).
 
 ## Convenciones de Código
 

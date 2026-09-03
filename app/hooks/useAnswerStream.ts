@@ -48,10 +48,13 @@ interface RequestAnswerParams {
   simpleEnglish?: boolean;
   dialect?: "rioplatense" | "neutro" | "english";
   bilingualMode?: boolean;
-  type?: "answer" | "icebreaker";
+  type?: "answer" | "icebreaker" | "reverse_questions";
+  mode?: "default" | "trap_detector" | "vision_coding";
+  image?: { mimeType: string; data: string } | null;
   masterAnswers?: MasterAnswer[];
   onSaveMasterAnswer?: (ans: { question: string; enText: string; esText: string; category?: string; tags?: string[] }) => void;
   syncTeleprompter?: (payload: TeleprompterPayload) => void;
+  onPunchline?: (punchline: string, lang: "en" | "es") => void;
 }
 
 export function useAnswerStream() {
@@ -63,12 +66,22 @@ export function useAnswerStream() {
   answersRef.current = answers;
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const speculativeJobRef = useRef<{
+    questionPrefix: string;
+    controller: AbortController;
+    responsePromise: Promise<Response>;
+  } | null>(null);
   const idCounterRef = useRef(1);
+  const punchlineTriggeredRef = useRef(false);
 
   const stopGenerating = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
+    }
+    if (speculativeJobRef.current) {
+      speculativeJobRef.current.controller.abort();
+      speculativeJobRef.current = null;
     }
     setIsGenerating(false);
   }, []);
@@ -136,11 +149,15 @@ export function useAnswerStream() {
       dialect = "rioplatense",
       bilingualMode = true,
       type = "answer",
+      mode = "default",
+      image = null,
       masterAnswers = [],
       syncTeleprompter,
+      onPunchline,
     }: RequestAnswerParams) => {
       stopGenerating();
       setGenerationError(null);
+      punchlineTriggeredRef.current = false;
 
       const startTime = Date.now();
       const currentId = idCounterRef.current++;
@@ -287,27 +304,58 @@ export function useAnswerStream() {
           a: a.cleanText || a.text,
         }));
 
-        const res = await fetch("/api/answer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            question,
-            transcript,
-            company,
-            role,
-            profile,
-            extraInstructions,
-            provider,
-            model,
-            detectedLang,
-            simpleEnglish,
-            dialect,
-            bilingualMode,
-            type,
-            previousAnswers,
-          }),
-        });
+        const reqPayload = {
+          question,
+          transcript,
+          company,
+          role,
+          profile,
+          extraInstructions,
+          provider,
+          model,
+          detectedLang,
+          simpleEnglish,
+          dialect,
+          bilingualMode,
+          type,
+          mode,
+          image,
+          previousAnswers,
+        };
+
+        let res: Response;
+        if (
+          speculativeJobRef.current &&
+          question.toLowerCase().startsWith(speculativeJobRef.current.questionPrefix.toLowerCase().slice(0, 30))
+        ) {
+          try {
+            res = await speculativeJobRef.current.responsePromise;
+            abortControllerRef.current = speculativeJobRef.current.controller;
+            speculativeJobRef.current = null;
+          } catch {
+            if (speculativeJobRef.current) {
+              speculativeJobRef.current.controller.abort();
+              speculativeJobRef.current = null;
+            }
+            res = await fetch("/api/answer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: controller.signal,
+              body: JSON.stringify(reqPayload),
+            });
+          }
+        } else {
+          if (speculativeJobRef.current) {
+            speculativeJobRef.current.controller.abort();
+            speculativeJobRef.current = null;
+          }
+          res = await fetch("/api/answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify(reqPayload),
+          });
+        }
 
         if (!res.ok) {
           const errText = await res.text().catch(() => "");
@@ -349,6 +397,16 @@ export function useAnswerStream() {
             lastUpdateTime = now;
             const parsed = parseBlocks(accumulatedText);
 
+            if (onPunchline && !punchlineTriggeredRef.current) {
+              if (parsed.keyWords && parsed.keyWords.length > 0) {
+                punchlineTriggeredRef.current = true;
+                onPunchline(parsed.keyWords.join(" | "), detectedLang === "es" ? "es" : "en");
+              } else if (parsed.enText || parsed.cleanText) {
+                punchlineTriggeredRef.current = true;
+                onPunchline((parsed.enText || parsed.cleanText).split("\n")[0], detectedLang === "es" ? "es" : "en");
+              }
+            }
+
             setAnswers((prev) =>
               prev.map((a) =>
                 a.id === currentId
@@ -385,6 +443,16 @@ export function useAnswerStream() {
 
         const finalParsed = parseBlocks(accumulatedText);
         const latencyMs = Date.now() - startTime;
+
+        if (onPunchline && !punchlineTriggeredRef.current) {
+          if (finalParsed.keyWords && finalParsed.keyWords.length > 0) {
+            punchlineTriggeredRef.current = true;
+            onPunchline(finalParsed.keyWords.join(" | "), detectedLang === "es" ? "es" : "en");
+          } else if (finalParsed.enText || finalParsed.cleanText) {
+            punchlineTriggeredRef.current = true;
+            onPunchline((finalParsed.enText || finalParsed.cleanText).split("\n")[0], detectedLang === "es" ? "es" : "en");
+          }
+        }
 
         setAnswers((prev) =>
           prev.map((a) =>
@@ -512,11 +580,65 @@ export function useAnswerStream() {
     []
   );
 
+  const startSpeculativePreFetch = useCallback(
+    (params: {
+      question: string;
+      transcript?: string;
+      company?: string;
+      role?: string;
+      profile?: string;
+      provider?: string;
+      model?: string;
+      detectedLang?: string;
+    }) => {
+      if (isGenerating || !params.question || params.question.trim().length < 30) return;
+
+      if (
+        speculativeJobRef.current &&
+        params.question.toLowerCase().startsWith(speculativeJobRef.current.questionPrefix.toLowerCase().slice(0, 25))
+      ) {
+        return;
+      }
+
+      if (speculativeJobRef.current) {
+        speculativeJobRef.current.controller.abort();
+        speculativeJobRef.current = null;
+      }
+
+      const controller = new AbortController();
+      const responsePromise = fetch("/api/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          question: params.question,
+          transcript: params.transcript || "",
+          company: params.company || "",
+          role: params.role || "",
+          profile: params.profile || "",
+          provider: params.provider || "opencode",
+          model: params.model || "deepseek-v4-flash",
+          detectedLang: params.detectedLang || "en",
+          type: "answer",
+          mode: "default",
+        }),
+      });
+
+      speculativeJobRef.current = {
+        questionPrefix: params.question,
+        controller,
+        responsePromise,
+      };
+    },
+    [isGenerating]
+  );
+
   return {
     answers,
     isGenerating,
     generationError,
     requestAnswer,
+    startSpeculativePreFetch,
     stopGenerating,
     clearAnswers,
     setAnswerFeedback,

@@ -67,6 +67,14 @@ export default function TeleprompterPage() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [bionicReading, setBionicReading] = useState(true);
   const [isPanicHidden, setIsPanicHidden] = useState(false);
+  const [opacity, setOpacity] = useState(1);
+  const [hasPip, setHasPip] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "documentPictureInPicture" in window) {
+      setHasPip(true);
+    }
+  }, []);
 
   useEffect(() => {
     // 1. Cargar estado inicial desde localStorage
@@ -129,6 +137,45 @@ export default function TeleprompterPage() {
 
   const mainText = data.enText || data.cleanText || "";
 
+  const openPip = async () => {
+    if (typeof window !== "undefined" && "documentPictureInPicture" in window) {
+      try {
+        const pipWin = await (window as unknown as {
+          documentPictureInPicture: {
+            requestWindow: (opts: { width: number; height: number }) => Promise<Window>;
+          };
+        }).documentPictureInPicture.requestWindow({
+          width: 560,
+          height: 380,
+        });
+
+        Array.from(document.styleSheets).forEach((sheet) => {
+          try {
+            const rules = Array.from(sheet.cssRules)
+              .map((r) => r.cssText)
+              .join("");
+            const style = document.createElement("style");
+            style.textContent = rules;
+            pipWin.document.head.appendChild(style);
+          } catch {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = sheet.href || "";
+            pipWin.document.head.appendChild(link);
+          }
+        });
+
+        const root = document.getElementById("loro-hud-root");
+        if (root) {
+          pipWin.document.body.className = "bg-[#09090b] text-[#f4f4f5]";
+          pipWin.document.body.appendChild(root.cloneNode(true));
+        }
+      } catch (err) {
+        console.warn("Error al abrir PiP:", err);
+      }
+    }
+  };
+
   if (isPanicHidden) {
     return (
       <main className="min-h-screen bg-[#09090b] text-zinc-600 flex items-center justify-center p-4 font-mono text-xs select-none">
@@ -139,8 +186,9 @@ export default function TeleprompterPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#09090b] text-[#f4f4f5] p-3 select-text font-sans antialiased"
-      style={{ fontSize: `${fontSize}px`, lineHeight: 1.45 }}
+      id="loro-hud-root"
+      className="min-h-screen bg-[#09090b] text-[#f4f4f5] p-3 select-text font-sans antialiased transition-opacity duration-150"
+      style={{ opacity, fontSize: `${fontSize}px`, lineHeight: 1.45 }}
     >
       {/* Header flotante */}
       <header className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-2">
@@ -287,6 +335,30 @@ export default function TeleprompterPage() {
         >
           {autoScroll ? "Scroll ON" : "Scroll OFF"}
         </button>
+        {hasPip && (
+          <button
+            type="button"
+            onClick={openPip}
+            className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/40 transition-colors"
+            title="Abrir en ventana flotante Always-on-Top nativa sobre Meet/Zoom"
+          >
+            📌 PiP
+          </button>
+        )}
+
+        <div className="flex items-center gap-1 pl-1 border-l border-zinc-800" title={`Opacidad: ${Math.round(opacity * 100)}%`}>
+          <span className="text-[9px] text-zinc-500 font-mono">Op:</span>
+          <input
+            type="range"
+            min="0.3"
+            max="1"
+            step="0.05"
+            value={opacity}
+            onChange={(e) => setOpacity(parseFloat(e.target.value))}
+            className="w-12 h-1 bg-zinc-700 rounded accent-emerald-400 cursor-pointer"
+          />
+        </div>
+
         <button
           type="button"
           onClick={() => setIsPanicHidden(true)}

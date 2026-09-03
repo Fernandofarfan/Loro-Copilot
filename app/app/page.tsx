@@ -20,6 +20,8 @@ import { useInterviewContext } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
 import { useAnswerStream, type Answer } from "../hooks/useAnswerStream";
 import { useTeleprompter } from "../hooks/useTeleprompter";
+import { useScreenVision } from "../hooks/useScreenVision";
+import { useEarbudWhisper } from "../hooks/useEarbudWhisper";
 import {
   SparkleIcon,
   OpenAIMark,
@@ -139,12 +141,19 @@ export default function CopilotPage() {
   // Hook de Teleprompter HUD Pop-out
   const { isOpen: isTeleprompterOpen, openTeleprompter, syncTeleprompter } = useTeleprompter();
 
+  // Hook de Screen Vision (Live Coding & Diagramas en Pantalla)
+  const { isCapturing: isVisionCapturing, captureScreenFrame } = useScreenVision();
+
+  // Hook de Susurro Privado en Auricular
+  const earbudWhisper = useEarbudWhisper({ defaultEnabled: false });
+
   // Hook de Respuestas LLM & Streaming
   const {
     answers,
     isGenerating,
     generationError,
     requestAnswer,
+    startSpeculativePreFetch,
     stopGenerating,
     clearAnswers,
     setAnswerFeedback,
@@ -243,6 +252,7 @@ export default function CopilotPage() {
           type: "answer",
           masterAnswers: masterAnswersRef.current,
           syncTeleprompter,
+          onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
         });
       }
     }, 1000); // 1000ms de debounce para permitir pausas y respiración natural
@@ -258,6 +268,7 @@ export default function CopilotPage() {
     dialect,
     bilingualMode,
     syncTeleprompter,
+    earbudWhisper,
   ]);
 
   // Hook de Audio y Conexión Deepgram (con soporte de Audio Dual y Barge-in)
@@ -278,6 +289,21 @@ export default function CopilotPage() {
       if (isGeneratingRef.current) {
         stopGenerating();
       }
+    },
+    onSpeculativeTurn: (interimText) => {
+      if (!autoRespond || isGeneratingRef.current) return;
+      startSpeculativePreFetch({
+        question: interimText,
+        transcript: transcriptLinesRef.current
+          .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
+          .join("\n"),
+        company,
+        role,
+        profile,
+        provider: selectedModel.provider,
+        model: selectedModel.model,
+        detectedLang: detectQuestionLanguage(interimText),
+      });
     },
     onLanguageDetected: (detected) => {
       const normalized = detected.toLowerCase().startsWith("en") ? "en" : "es";
@@ -300,14 +326,25 @@ export default function CopilotPage() {
           en: "That's a great question, let me organize my thoughts for a second.",
         };
         navigator.clipboard.writeText(rescue.en);
-        syncTeleprompter({ enText: rescue.en, question: "Frase de rescate (Ganar tiempo)" });
-      } else if (e.ctrlKey && e.key === "2") {
+        window.focus();
+        return;
+      }
+
+      if (e.ctrlKey && e.key === "2") {
+        e.preventDefault();
+        openTeleprompter();
+        return;
+      }
+
+      // Atajo Ctrl + número para frases de rescate
+      const num = parseInt(e.key, 10);
+      if (e.ctrlKey && num >= 1 && num <= 3) {
         e.preventDefault();
         const rescue = {
-          icon: "🎯",
-          label: "Clarificar",
-          en: "To make sure I understand, are you asking about...?",
-        };
+          1: { en: "Could you clarify what you mean by that?", es: "¿Podrías aclarar a qué te referís?" },
+          2: { en: "Give me a second to think through this architecture.", es: "Dame un segundo para pensar esta arquitectura." },
+          3: { en: "That is a great question, let me break it down.", es: "Buena pregunta, permitime desglosarla." },
+        }[num as 1 | 2 | 3];
         navigator.clipboard.writeText(rescue.en);
         syncTeleprompter({ enText: rescue.en, question: "Frase de rescate (Clarificar)" });
       }
@@ -315,7 +352,56 @@ export default function CopilotPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [syncTeleprompter]);
+  }, [syncTeleprompter, openTeleprompter]);
+
+  // Handler para Screen Vision (Live Coding & Diagramas en Pantalla)
+  const handleCaptureScreen = useCallback(async () => {
+    if (isGeneratingRef.current) return;
+    const base64 = await captureScreenFrame();
+    if (!base64) return;
+
+    requestAnswer({
+      question: "Analizá el ejercicio en pantalla (código, LeetCode/HackerRank o diagrama) y proveé la solución óptima con complejidad Big-O y código tipado.",
+      transcript: transcriptLinesRef.current
+        .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
+        .join("\n"),
+      company,
+      role,
+      profile,
+      extraInstructions,
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+      modelLabel: "Screen Vision 👁️",
+      detectedLang: "en",
+      mode: "vision_coding",
+      image: { mimeType: "image/webp", data: base64 },
+      type: "answer",
+      syncTeleprompter,
+      onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
+    });
+  }, [captureScreenFrame, company, role, profile, extraInstructions, selectedModel, syncTeleprompter, requestAnswer, earbudWhisper]);
+
+  // Handler para Modo Cierre de Oro (Reverse Interviewer)
+  const handleReverseQuestions = useCallback(() => {
+    if (isGeneratingRef.current) return;
+    requestAnswer({
+      question: "Generar 3 preguntas estratégicas y de alto filo técnico para hacerle al entrevistador basadas en los desafíos y dolores charlados.",
+      transcript: transcriptLinesRef.current
+        .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
+        .join("\n"),
+      company,
+      role,
+      profile,
+      extraInstructions,
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+      modelLabel: "Cierre de Oro 🎯",
+      detectedLang: sttLang,
+      type: "reverse_questions",
+      syncTeleprompter,
+      onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
+    });
+  }, [company, role, profile, extraInstructions, selectedModel, sttLang, syncTeleprompter, requestAnswer, earbudWhisper]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,6 +432,7 @@ export default function CopilotPage() {
       type: "answer",
       masterAnswers: masterAnswersRef.current,
       syncTeleprompter,
+      onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
     });
   };
 
@@ -634,6 +721,39 @@ export default function CopilotPage() {
                     )}
                   </>
                 )}
+
+                <button
+                  type="button"
+                  onClick={handleCaptureScreen}
+                  disabled={isGenerating || isVisionCapturing}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-600/40 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 text-xs font-semibold transition-all disabled:opacity-50"
+                  title="Capturar pantalla y resolver ejercicio de LeetCode / diagrama (Ctrl+Shift+S)"
+                >
+                  <span>{isVisionCapturing ? "📷 Capturando..." : "📷 Analizar Pantalla"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleReverseQuestions}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-sky-600/40 bg-sky-950/40 hover:bg-sky-900/50 text-sky-300 text-xs font-semibold transition-all disabled:opacity-50"
+                  title="Generar preguntas estratégicas de cierre basadas en los dolores de la entrevista (Ctrl+Shift+Q)"
+                >
+                  <span>🎯 Cierre de Oro</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => earbudWhisper.setIsEnabled(!earbudWhisper.isEnabled)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                    earbudWhisper.isEnabled
+                      ? "bg-amber-500 text-black border-amber-400 font-bold shadow-md shadow-amber-950"
+                      : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title="Susurro acelerado (1.5x) en auricular privado para las palabras clave de apertura"
+                >
+                  <span>{earbudWhisper.isEnabled ? "🎧 Susurro ON" : "🎧 Susurro OFF"}</span>
+                </button>
 
                 <button
                   type="button"

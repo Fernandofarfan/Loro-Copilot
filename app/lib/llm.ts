@@ -305,7 +305,24 @@ export async function streamAnthropic(
             max_tokens: maxTokens,
             temperature: options.temperature ?? 0.4,
             system: systemPrompt,
-            messages: [{ role: "user", content: userContent }],
+            messages: [
+              {
+                role: "user",
+                content: options.image
+                  ? [
+                      {
+                        type: "image",
+                        source: {
+                          type: "base64",
+                          media_type: options.image.mimeType,
+                          data: options.image.data,
+                        },
+                      },
+                      { type: "text", text: userContent },
+                    ]
+                  : userContent,
+              },
+            ],
             stream: true,
           }),
         },
@@ -349,12 +366,24 @@ export async function streamOpenAI(
     const isReasoning = /^(gpt-5|o[0-9])/.test(model);
     const maxTokens = options.maxTokens ?? (systemPrompt.includes("[ES]") ? 1200 : 600);
 
+    const userMessageContent = options.image
+      ? [
+          { type: "text", text: userContent },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${options.image.mimeType};base64,${options.image.data}`,
+            },
+          },
+        ]
+      : userContent;
+
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
+        { role: "user", content: userMessageContent },
       ],
     };
 
@@ -440,12 +469,24 @@ export async function streamOpenCode(
     const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
     const maxTokens = options.maxTokens ?? 1200;
 
+    const userMessageContent = options.image
+      ? [
+          { type: "text", text: userContent },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${options.image.mimeType};base64,${options.image.data}`,
+            },
+          },
+        ]
+      : userContent;
+
     const reqBody: Record<string, unknown> = {
       model,
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
+        { role: "user", content: userMessageContent },
       ],
     };
 

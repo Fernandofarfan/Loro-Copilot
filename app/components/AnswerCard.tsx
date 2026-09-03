@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
 import { MarkdownText } from "./MarkdownText";
 import { classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
+import { extractAndEvaluateCode } from "../lib/codeEvaluator";
 
 export type Feedback = "up" | "down" | null;
 
@@ -53,6 +54,11 @@ export function AnswerCard({
   const warning = detectTrickQuestion(a.question);
   const cat = classifyQuestion(a.question);
   const [savedLocal, setSavedLocal] = useState(isSavedInMemory);
+
+  const codeEvaluations = useMemo(() => {
+    const full = a.text || a.cleanText || "";
+    return extractAndEvaluateCode(full);
+  }, [a.text, a.cleanText]);
 
   const handleSaveMemory = () => {
     setSavedLocal(true);
@@ -155,6 +161,31 @@ export function AnswerCard({
             Copiar
           </button>
           {a.snippet}
+        </div>
+      )}
+
+      {/* Validación de Código y Complejidad en Vivo */}
+      {codeEvaluations.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          {codeEvaluations.map((ev, i) => (
+            <div
+              key={i}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-mono flex items-center gap-1.5 border ${
+                ev.isValid
+                  ? "bg-emerald-950/70 text-emerald-300 border-emerald-600/50"
+                  : "bg-red-950/70 text-red-300 border-red-600/50"
+              }`}
+              title={ev.error || "Sintaxis válida"}
+            >
+              <span>{ev.isValid ? "✓ Código verificado" : `⚠️ ${ev.error}`}</span>
+              <span className="text-zinc-400 font-sans font-medium">({ev.language}, {ev.lineCount} lin)</span>
+              {ev.complexity?.time && (
+                <span className="text-amber-300 font-bold bg-amber-950/90 border border-amber-600/40 px-1.5 py-0.2 rounded">
+                  {ev.complexity.time}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

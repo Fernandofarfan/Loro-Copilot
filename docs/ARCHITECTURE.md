@@ -302,6 +302,8 @@ Analizador en tiempo real de los patrones de comunicación vocal del candidato:
 |---|---|---|
 | `Ctrl + 1` | Global | Enfocar la pestaña principal del Copiloto en vivo. |
 | `Ctrl + 2` | Global | Abrir o enfocar la ventana emergente flotante del Teleprompter HUD. |
+| `Ctrl + Shift + S` | Global Copiloto | **Screen Vision & Live OCR:** Capturar pantalla/pestaña para resolver LeetCode o diagramas de arquitectura. |
+| `Ctrl + Shift + Q` | Global Copiloto | **Cierre de Oro:** Generar al instante 3 repreguntas estratégicas ancladas a los dolores del entrevistador. |
 | `Escape` | Teleprompter HUD | Activar / Desactivar el modo Panic (ocultar pantalla de inmediato). |
 
 ---
@@ -341,20 +343,63 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 | Módulo / Componente | Archivo | Responsabilidad Principal |
 |---|---|---|
-| **Página Principal Copiloto** | `app/app/page.tsx` | Orquestación general, switches de audio dual, vúmetro estéreo, render de transcripción, respuestas y atajos globales. |
-| **Hook Audio / STT** | `app/hooks/useDeepgram.ts` | Captura dual (Mic + Pestaña), `ChannelMergerNode`, ciclo de vida WebSocket Deepgram, VAD local, barge-in y reconexión. |
-| **Hook Respuestas LLM** | `app/hooks/useAnswerStream.ts` | Saludo instantáneo (<10ms), matching en memoria (<50ms), RAG de CV, streaming SSE principal y Dual Stream de trampas en background. |
-| **Hook Teleprompter** | `app/hooks/useTeleprompter.ts` | Apertura de ventana emergente y sincronización bidireccional vía `BroadcastChannel` y `localStorage`. |
+| **Página Principal Copiloto** | `app/app/page.tsx` | Orquestación general, switches de audio dual, vúmetro estéreo, Screen Vision (`Ctrl+Shift+S`), Susurro al Oído, Cierre de Oro (`Ctrl+Shift+Q`), render de transcripción, respuestas y atajos globales. |
+| **Hook Audio / STT** | `app/hooks/useDeepgram.ts` | Captura dual (Mic + Pestaña), `ChannelMergerNode`, ciclo de vida WebSocket Deepgram, VAD local, barge-in, reconexión y pre-fetching especulativo en turnos largos. |
+| **Hook Respuestas LLM** | `app/hooks/useAnswerStream.ts` | Saludo instantáneo (<10ms), matching en memoria (<50ms), RAG de CV, streaming SSE principal, pre-fetch especulativo, callback `onPunchline`, Dual Stream de trampas en background y soporte multimodal. |
+| **Hook Screen Vision** | `app/hooks/useScreenVision.ts` | Captura en vivo de pantalla vía `getDisplayMedia`, renderizado en `HTMLCanvasElement`, compresión WebP base64 ultraliviana para Vision Coding. |
+| **Hook Susurro al Oído** | `app/hooks/useEarbudWhisper.ts` | Sintetizador de voz Web Speech API acelerado (1.5x) para dictado privado del punchline `[KEY]` al auricular del candidato. |
+| **Hook Teleprompter** | `app/hooks/useTeleprompter.ts` | Apertura de ventana emergente y sincronización bidireccional en tiempo real vía `BroadcastChannel` y `localStorage`. |
 | **Hook Contexto Entrevista** | `app/hooks/useInterviewContext.ts` | Gestión de perfiles de entrevista, CVs, empresa, rol, modelo seleccionado y persistencia del banco maestro. |
 | **Worklet de Audio PCM16** | `public/pcm-worklet.js` | AudioWorklet en hilo de audio: downsampling lineal a 16kHz, conversión Float32 a Int16 estéreo, RMS dual y VAD local. |
-| **Segmentación RAG de CV** | `app/lib/cvChunker.ts` | Chunking semántico del CV y recuperación quirúrgica de fragmentos (`selectRelevantCvChunks`) por relevancia semántica. |
+| **Segmentación RAG & Grafo Temporal** | `app/lib/cvChunker.ts` | Chunking semántico del CV, inferencia de seniority (`Architect`, `Lead`, `Senior`), extracción de impacto cuantitativo ($ / % / QPS) y recuperación ordenada por recencia temporal. |
+| **Sandbox de Código & Big-O** | `app/lib/codeEvaluator.ts` | Validador estático client-side de sintaxis (JS/TS/Python), balanceo de delimitadores, sangría en Python y extracción de complejidades Big-O temporal y espacial. |
 | **Speech Coach** | `app/lib/speechCoach.ts` | Telemetría en vivo: cálculo de WPM, ratio de conversación (Talk-to-Listen) y detección de muletillas. |
 | **Helpers de Entrevista** | `app/lib/interviewHelpers.ts` | Sinónimos canónicos, clasificación temprana de preguntas, detector de preguntas trampa, buscador en memoria y parser de 4 bloques. |
-| **Clientes y Parsers LLM** | `app/lib/llm.ts` | Clientes HTTP y parsers SSE para OpenCode, OpenRouter, Google Gemini, OpenAI y Anthropic con fallback automático. |
+| **Clientes y Parsers LLM** | `app/lib/llm.ts` | Clientes HTTP y parsers SSE para OpenCode, Google Gemini, OpenAI y Anthropic con soporte multimodal (`options.image`), timeouts y fallback. |
 | **Seguridad y Rate Limiting** | `app/lib/security.ts` | Verificación de `Origin`/`Referer`, rate limiter en memoria (35 req/min) y comprobación de capacidad del servidor. |
-| **HUD Teleprompter** | `app/teleprompter/page.tsx` | Ventana pop-out flotante stealth con Lectura Biónica, chips `[KEY]`, alerta de trampas y botón Panic (`Escape`). |
+| **HUD Teleprompter** | `app/teleprompter/page.tsx` | Ventana pop-out flotante stealth con Always-on-Top nativo (`documentPictureInPicture`), control de opacidad, Lectura Biónica, chips `[KEY]`, alerta de trampas y botón Panic (`Escape`). |
 | **Página Simulador** | `app/simulador/page.tsx` | Interfaz de entrenamiento interactivo con voz TTS (Web Speech API) y reporte evaluativo post-entrevista. |
-| **API Generación Respuestas** | `app/api/answer/route.ts` | Runtime Edge, Prompt Caching (KV-Cache), Punchline First, Spanglish técnico y detector de trampas en background (`mode: "trap_detector"`). |
+| **API Generación Respuestas** | `app/api/answer/route.ts` | Runtime Edge, Prompt Caching (KV-Cache), Punchline First, Spanglish técnico, Vision Coding (`mode: "vision_coding"`), Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`). |
 | **API Token Deepgram** | `app/api/deepgram-token/route.ts` | Emisión de tokens efímeros de 60 segundos para aislar la API key de Deepgram del frontend. |
 | **API Simulador** | `app/api/simulador/route.ts` | Generador de preguntas dinámicas y evaluación estructurada JSON de la entrevista simulada. |
 | **API Resumen Post-Entrevista** | `app/api/summary/route.ts` | Generador de minutas y resúmenes ejecutivos en Markdown de la entrevista completa. |
+
+---
+
+## 🚀 10. Las 8 Capacidades Estratégicas Avanzadas
+
+### 1. Screen Vision & Live OCR Multimodal (`Ctrl+Shift+S`)
+- **Problema resuelto:** En live-coding (LeetCode, HackerRank, CoderPad) o diagramas de arquitectura en Miro/Excalidraw, transcribir el enunciado o código a mano consume tiempo valioso y genera errores.
+- **Implementación:** `useScreenVision` captura la pantalla o ventana del ejercicio mediante `getDisplayMedia()`, dibuja el frame en un canvas invisible de 1280px y lo codifica a WebP (calidad 0.82) en Base64. Se envía al endpoint `/api/answer` con `mode: "vision_coding"` procesado por modelos multimodales (Gemini 2.5 Flash, GPT-4o, Claude 3.5 Sonnet, OpenCode).
+- **Salida:** Enfoque algorítmico estructurado, código de producción limpio con tipado estricto y análisis formal Big-O de tiempo y espacio.
+
+### 2. Generación Especulativa Temprana (Pre-Warming)
+- **Problema resuelto:** Esperar a que el entrevistador finalice una pregunta extensa (10-20 segundos) acumulando 1.5s de debounce añade latencia innecesaria.
+- **Implementación:** `useDeepgram` monitoriza el canal del entrevistador (`speaker 0`). Al acumularse más de 30 caracteres en un turno activo continuo, dispara un pre-fetch especulativo en background (`startSpeculativePreFetch`). Cuando el entrevistador finaliza su turno formalmente, si la pregunta definitiva es continuación del prefijo pre-calentado, `useAnswerStream` adopta el `Response` ya en vuelo en 0ms.
+
+### 3. Modo "Cierre de Oro" (Reverse Interviewer / `Ctrl+Shift+Q`)
+- **Problema resuelto:** Al final de la entrevista ("¿Tenés alguna pregunta para nosotros?"), hacer preguntas genéricas reduce el impacto del candidato.
+- **Implementación:** El motor analiza todo el transcript acumulado de la sesión, identifica tecnologías mencionadas, desafíos de escalabilidad y dolores organizacionales expresados por el entrevistador, y formula 3 repreguntas quirúrgicas de alto nivel (Arquitectura/Deuda Técnica, Cultura/Autonomía y Métricas de Éxito a 90 días).
+
+### 4. Modo "Susurro al Oído" (Earbud Audio Whisperer)
+- **Problema resuelto:** En entrevistas con webcam activa, desviar la mirada al teleprompter puede delatar la lectura de notas.
+- **Implementación:** `useEarbudWhisper` se engancha al evento `onPunchline` del streaming. Apenas el LLM emite el bloque `[KEY]` (primeros 500ms), la Web Speech API sintetiza el punchline a 1.5x de velocidad en una voz sintetizada enviada exclusivamente al auricular privado del candidato.
+
+### 5. Sandbox de Validación de Código Client-Side & Big-O
+- **Problema resuelto:** Respuestas de live-coding con pequeños errores tipográficos o de sintaxis pueden arruinar una prueba técnica.
+- **Implementación:** `codeEvaluator.ts` analiza estáticamente todo bloque de código en la respuesta Markdown:
+  - En JavaScript/TypeScript: compila un árbol de sintaxis abstracta virtual verificando llaves, corchetes, comillas y tokens sin ejecutar código (`new Function`).
+  - En Python: verifica balance de delimitadores y valida que las líneas que siguen a dos puntos (`:`) cuenten con sangría requerida.
+  - Extractor Big-O: extrae la cota temporal y espacial y renderiza badges visuales en `AnswerCard` con verificación de sintaxis y conteo de líneas.
+
+### 6. Code-Switching Dinámico Automático (Spanglish Técnico)
+- **Problema resuelto:** Entrevistas bilingües donde el entrevistador alterna entre inglés y español según el tema o interlocutor.
+- **Implementación:** Detección de idioma por turno con umbrales de vocabulario (`detectedLang`). Si la pregunta se formula en inglés, el copiloto entrega respuesta prioritaria en inglés formal con guía fonética `[PHO]`. Si es en español, preserva la terminología técnica nativa en inglés (ej. *throughput*, *deadlock*, *event loop*, *connection pool*).
+
+### 7. Overlay Stealth HUD Always-on-Top (`documentPictureInPicture`)
+- **Problema resuelto:** Ventanas emergentes comunes se van al fondo al hacer clic en Zoom o el navegador de la llamada.
+- **Implementación:** `app/teleprompter/page.tsx` soporta la Picture-in-Picture Document API nativa (`window.documentPictureInPicture.requestWindow()`). El HUD queda anclado Always-on-Top en la esquina superior directamente debajo de la webcam, e incluye un slider de opacidad interactivo (30% - 100%) para mimetizarse con el fondo.
+
+### 8. Grafo Temporal de Conocimiento del CV
+- **Problema resuelto:** Modelos de lenguaje citan proyectos de hace 8 años como si fueran el trabajo actual del candidato.
+- **Implementación:** `cvChunker.ts` extrae rangos temporales (`extractYears`), detecta si es el rol vigente (`isCurrent`), infiere nivel de seniority (`Architect`, `Lead`, `Staff`, `Senior`, `Mid`, `Junior`) y extrae métricas de impacto numérico ($ / % / QPS / ms / usuarios). `selectRelevantCvChunks` prioriza sistemáticamente los roles más recientes y con métricas comprobables.
