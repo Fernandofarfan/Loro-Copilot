@@ -5,6 +5,8 @@ import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
 import { MarkdownText } from "./MarkdownText";
 import { classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
 import { extractAndEvaluateCode } from "../lib/codeEvaluator";
+import ArchitectureCanvas from "./ArchitectureCanvas";
+import { extractMermaidBlocks } from "../lib/mermaidParser";
 
 export type Feedback = "up" | "down" | null;
 
@@ -42,8 +44,8 @@ interface AnswerCardProps {
 
 export function AnswerCard({
   answer: a,
-  isCurrent,
-  compactUi,
+  isCurrent = false,
+  compactUi = false,
   copiedId,
   onCopy,
   onFeedback,
@@ -58,6 +60,11 @@ export function AnswerCard({
   const codeEvaluations = useMemo(() => {
     const full = a.text || a.cleanText || "";
     return extractAndEvaluateCode(full);
+  }, [a.text, a.cleanText]);
+
+  const mermaidBlocks = useMemo(() => {
+    const full = a.text || a.cleanText || "";
+    return extractMermaidBlocks(full);
   }, [a.text, a.cleanText]);
 
   const handleSaveMemory = () => {
@@ -188,6 +195,11 @@ export function AnswerCard({
           ))}
         </div>
       )}
+
+      {/* Canvas de Arquitectura System Design (Mermaid) */}
+      {mermaidBlocks.map((mCode, idx) => (
+        <ArchitectureCanvas key={`arch_${idx}`} mermaidCode={mCode} />
+      ))}
 
       {/* Contenido Principal (Bilingüe orden EN -> PHO -> ES vs Estándar) */}
       {a.bilingual ? (

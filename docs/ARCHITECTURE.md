@@ -403,3 +403,36 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 ### 8. Grafo Temporal de Conocimiento del CV
 - **Problema resuelto:** Modelos de lenguaje citan proyectos de hace 8 años como si fueran el trabajo actual del candidato.
 - **Implementación:** `cvChunker.ts` extrae rangos temporales (`extractYears`), detecta si es el rol vigente (`isCurrent`), infiere nivel de seniority (`Architect`, `Lead`, `Staff`, `Senior`, `Mid`, `Junior`) y extrae métricas de impacto numérico ($ / % / QPS / ms / usuarios). `selectRelevantCvChunks` prioriza sistemáticamente los roles más recientes y con métricas comprobables.
+
+---
+
+## 🏛️ 11. Capacidades de Nivel Élite (FAANG / Staff Level)
+
+### 1. Anti-LLM Pattern Detector (Humanización & Cero "AI Slop")
+- **Problema resuelto:** Entrevistadores de FAANG identifican al vuelo estructuras vacías de ChatGPT/Claude (*"Certainly, let's delve into..."*, respuestas balanceadas académicas).
+- **Implementación:** `app/lib/antiSlopFilter.ts` depura los prefijos formuláicos del stream en vivo y el prompt impone una directiva de ingeniería de producción pragmática (arranque directo con la decisión técnica, trade-offs de costos, límites de memoria y latencia p99).
+
+### 2. Live Architecture Canvas (Diagramas Visuales para System Design)
+- **Problema resuelto:** En System Design te piden dibujar los componentes en Excalidraw o Miro y traspasar texto a una topología mental en 30 segundos genera fatiga.
+- **Implementación:** El prompt inyecta directivas para emitir bloques ````mermaid flowchart LR````. `app/lib/mermaidParser.ts` extrae nodos y aristas semánticamente y `app/components/ArchitectureCanvas.tsx` renderiza un diagrama SVG interactivo con nodos tipados (Client 💻, Gateway 🌐, Service ⚙️, Cache ⚡, Database 🗄️, Queue 📬).
+
+### 3. Fact Ledger & Session Memory Graph (Consistencia Multi-Turno)
+- **Problema resuelto:** En entrevistas largas de 60 minutos con repreguntas, el modelo puede contradecir una elección técnica o número de escala previo.
+- **Implementación:** `app/lib/factLedger.ts` extrae hechos confirmados de cada respuesta emitida (`Stack / Tecnología`, `Métrica / Escala`, `Patrón de arquitectura`) y los inyecta en el prompt de las siguientes repreguntas bajo el mandato `PROHIBIDO CONTRADECIR O CAMBIAR`.
+
+### 4. Gaze Tracker & Eye-Contact Assistant (Webcam Local Anti-Lookaway)
+- **Problema resuelto:** Mirar continuamente hacia abajo para leer notas o el teleprompter delata al candidato frente a la webcam.
+- **Implementación:** `app/hooks/useGazeTracker.ts` analiza en un canvas invisible local a 4 FPS el ratio de luminosidad vertical de la postura de la cabeza. Si el usuario mira hacia abajo por más de 2.2 segundos, notifica visualmente en el botón de la barra superior (*"👁️ Mirá a la cámara"*). 100% privado en el cliente, sin streaming de video ni consumo de red.
+
+### 5. Company Dossier & Tech Stack Enrichment (Contexto de 20+ Empresas)
+- **Problema resuelto:** Desconocer la jerga interna y librerías clave de la empresa donde se entrevista resta fit cultural.
+- **Implementación:** `app/lib/companyDossier.ts` cuenta con perfiles arquitectónicos y culturales de más de 20 empresas líderes (MercadoLibre, Uber, Stripe, Netflix, Amazon, Google, Meta, Globant, Nubank, etc.). Si el usuario ingresa la empresa, se inyectan automáticamente en el prompt herramientas propietarias (ej. *Fury PaaS*, *Schemaless*, *Sorbet*, *Chaos Monkey*) y principios de liderazgo.
+
+### 6. Copiloto Táctico de Negociación Salarial (Modo Oferta & HR)
+- **Problema resuelto:** Preguntas sobre pretensión salarial o compensación actual pueden desvalorizar al candidato en minutos.
+- **Implementación:** `app/lib/interviewHelpers.ts` clasifica estas preguntas como `salary_negotiation` y `app/api/answer/route.ts` aplica la directiva de deflexión cortés hacia el valor y alcance del rol, anclas salariales en percentiles altos (75-90) y evasión diplomática de la compensación actual.
+
+### 7. Filtro de Voz Paso-Alto y Noise Gate Adaptativo en AudioWorklet
+- **Problema resuelto:** Clicks mecánicos de teclado, zumbido de ventiladores o ruido ambiental hacen que Deepgram alucine palabras o detecte falsos turnos.
+- **Implementación:** `public/pcm-worklet.js` aplica un filtro paso-alto digital (atenuando rumble de baja frecuencia <150Hz) y una compuerta de ruido (*soft noise gate*) que atenúa un 65% las señales por debajo del piso de ruido ambiente en los canales de entrada.
+

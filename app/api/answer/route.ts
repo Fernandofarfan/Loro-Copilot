@@ -10,6 +10,7 @@ import {
 } from "../../lib/llm";
 import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
 import { detectQuestionLanguage, classifyQuestionType } from "../../lib/interviewHelpers";
+import { getCompanyDossier, formatCompanyDossierPrompt } from "../../lib/companyDossier";
 
 export const runtime = "edge";
 
@@ -30,6 +31,11 @@ Tu tarea: Responder con máxima señal técnica, fit con el puesto y comunicaci�
 ## Criterio sobre la pregunta (<question>)
 - Viene de voz en vivo (STT): si tiene palabras mal transcritas o ruido, inferí la intención real usando el contexto.
 - Respondé ÚNICAMENTE a lo pedido en <question>. No acumules preguntas previas.
+
+## TONO DE INGENIERÍA DE PRODUCCIÓN (CERO "AI SLOP" Y CERO CLICHÉS):
+- PROHIBIDO usar fórmulas vacías como "Certainly", "In today's fast-paced world", "It is crucial to remember", "Delve into", "First and foremost", "Sure thing".
+- PROHIBIDO hablar como un ensayo académico balanceado ("Por un lado... por el otro lado...").
+- Hablá con el tono pragmático de un ingeniero con cicatrices de producción: directo a la decisión técnica, citando trade-offs concretos (costos, latencia p99, límites de memoria, complejidad operativa).
 
 ## Estándar de Respuesta Senior
 - **Técnica & Arquitectura:** Apertura conceptual directa (1 frase) → Mecánica interna / cómo funciona por debajo o cómo se diseña la infraestructura/código → Trade-offs y cuándo usar cuál → Anclaje real en producción con tu CV.
@@ -140,6 +146,7 @@ export async function POST(req: Request) {
     extraInstructions?: string;
     previousAnswers?: { q: string; a: string }[];
     image?: { mimeType: string; data: string } | null;
+    facts?: Array<string | { category: string; statement: string }>;
   };
 
   try {
@@ -315,7 +322,8 @@ ${spanglishRule}
     categoryDirective = `\n## DIRECTIVA SYSTEM DESIGN:
 - Comenzá indicando escala/QPS o supuestos clave si aplica.
 - Explicá la arquitectura por componentes (Ingress, API Gateway, Cache, Storage, Async Workers).
-- Destacá 1 trade-off clave (ej. consistencia eventual vs. latencia, CAP theorem).`;
+- Destacá 1 trade-off clave (ej. consistencia eventual vs. latencia, CAP theorem).
+- Incluí un bloque \`\`\`mermaid flowchart LR con la topología de la arquitectura (Client --> ALB --> API --> Cache/DB/Queue).`;
   } else if (questionCategory === "live_coding") {
     categoryDirective = `\n## DIRECTIVA LIVE CODING / ALGORITMOS:
 - Indicá primero la complejidad en 1 frase: Big-O temporal ($O(N)$) y espacial ($O(1)$).
@@ -324,6 +332,12 @@ ${spanglishRule}
   } else if (questionCategory === "behavioral") {
     categoryDirective = `\n## DIRECTIVA COMPORTAMENTAL (STAR):
 - Situación breve (1 frase) → Tarea/Desafío → Tu acción concreta (yo lideré/diseñé) → Resultado medible con métricas o impacto.`;
+  } else if (questionCategory === "salary_negotiation") {
+    categoryDirective = `\n## DIRECTIVA NEGOCIACIÓN SALARIAL (TÁCTICAS DE HR & OFERTAS):
+- ESTRATEGIA: Deflexión cortés hacia el valor y alcance del rol antes de cerrar un número rígido.
+- Si insisten en un número o rango: indicá un rango competitivo de mercado anclado al seniority (percentil 75-90), aclarando que dependés del paquete total (equity, bonus, beneficios).
+- Si preguntan salario actual: evadilo diplomáticamente ("Mi compensación actual responde a otro alcance; para este desafío busco un rango de mercado entre X e Y").
+- Mantener tono colaborativo, seguro y de alto valor sin mostrar desesperación ni rigidez.`;
   } else if (questionCategory === "fit") {
     categoryDirective = `\n## DIRECTIVA FIT CULTURAL / SCREENING:
 - Comunicación asertiva, motivación genuina por el producto y anclaje en tu experiencia real del CV.`;
@@ -332,6 +346,17 @@ ${spanglishRule}
   const answerLangLabel = isEnglish
     ? `INFO DE SISTEMA: La pregunta o intervención actual del entrevistador fue detectada en **INGLÉS**. Debés responder OBLIGATORIAMENTE usando los bloques [KEY], [EN] (para que el candidato lo diga en la llamada) y [ES] (resumen conceptual).`
     : `INFO DE SISTEMA: La pregunta o intervención actual del entrevistador fue detectada en **ESPAÑOL**. Respondé en ${dialectInstruction}.`;
+
+  const companyDossier = getCompanyDossier(company);
+  const companyDossierSection = companyDossier ? `\n\n${formatCompanyDossierPrompt(companyDossier)}\n` : "";
+
+  let factsSection = "";
+  if (Array.isArray(body.facts) && body.facts.length > 0) {
+    const lines = body.facts
+      .slice(-10)
+      .map((f: unknown) => (typeof f === "string" ? `- ${f}` : `- [${(f as { category: string }).category}] ${(f as { statement: string }).statement}`));
+    factsSection = `\n## HECHOS PREVIOS DE LA SESIÓN (NO CONTRADECIR):\n${lines.join("\n")}\n`;
+  }
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
   const effectiveSystemPrompt = basePrompt + autoLanguageSuffix + categoryDirective;
@@ -355,7 +380,8 @@ ${spanglishRule}
 <cv>
 ${profile || "(sin perfil cargado)"}
 </cv>
-
+${companyDossierSection}
+${factsSection}
 ${extraInstructions ? `<candidate_notes>\n${extraInstructions}\n</candidate_notes>\n` : ""}
 
 ${answerLangLabel}

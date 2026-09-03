@@ -22,6 +22,7 @@ import { useAnswerStream, type Answer } from "../hooks/useAnswerStream";
 import { useTeleprompter } from "../hooks/useTeleprompter";
 import { useScreenVision } from "../hooks/useScreenVision";
 import { useEarbudWhisper } from "../hooks/useEarbudWhisper";
+import { useGazeTracker } from "../hooks/useGazeTracker";
 import {
   SparkleIcon,
   OpenAIMark,
@@ -147,11 +148,15 @@ export default function CopilotPage() {
   // Hook de Susurro Privado en Auricular
   const earbudWhisper = useEarbudWhisper({ defaultEnabled: false });
 
+  // Hook de Gaze Tracker (Asistente de Contacto Visual con la Cámara)
+  const gazeTracker = useGazeTracker({ defaultEnabled: false } as any);
+
   // Hook de Respuestas LLM & Streaming
   const {
     answers,
     isGenerating,
     generationError,
+    sessionFacts,
     requestAnswer,
     startSpeculativePreFetch,
     stopGenerating,
@@ -754,6 +759,32 @@ export default function CopilotPage() {
                 >
                   <span>{earbudWhisper.isEnabled ? "🎧 Susurro ON" : "🎧 Susurro OFF"}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={gazeTracker.toggleTracking}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                    gazeTracker.isTracking
+                      ? gazeTracker.isLookingAway
+                        ? "bg-amber-950/90 border-amber-500 text-amber-300 animate-pulse font-bold"
+                        : "bg-emerald-950/80 border-emerald-500/60 text-emerald-300 font-bold"
+                      : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title="Entrenador de contacto visual con la cámara (100% privado en tu navegador)"
+                >
+                  <span>👁️</span>
+                  <span>{gazeTracker.isTracking ? (gazeTracker.isLookingAway ? "Mirá a la cámara" : "Contacto OK") : "Eye Coach"}</span>
+                </button>
+
+                {sessionFacts.length > 0 && (
+                  <span
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 text-cyan-300 text-xs font-mono"
+                    title={`${sessionFacts.length} hechos técnicos consolidados en esta sesión para garantizar coherencia`}
+                  >
+                    <span>📜</span>
+                    <span>{sessionFacts.length} hechos</span>
+                  </span>
+                )}
 
                 <button
                   type="button"

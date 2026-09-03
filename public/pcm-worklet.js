@@ -21,6 +21,11 @@ class PCMWorklet extends AudioWorkletProcessor {
     this.interviewerSilenceSamples = 0;
     this.speechThreshold = 0.025;
     this.silenceThreshold = 0.015;
+
+    // Filtro de voz y noise gate para el micrófono (Canal 0)
+    this.hpPrevX0 = 0;
+    this.hpPrevY0 = 0;
+    this.noiseGateThreshold = 0.008;
   }
 
   process(inputs) {
@@ -114,6 +119,16 @@ class PCMWorklet extends AudioWorkletProcessor {
           let s0 = count ? sum0 / count : 0;
           let s1 = count ? sum1 / count : 0;
 
+          // Filtro paso-alto y supresión suave de ruido ambiente (Canal 0: Micrófono)
+          const hpY0 = s0 - this.hpPrevX0 + 0.95 * this.hpPrevY0;
+          this.hpPrevX0 = s0;
+          this.hpPrevY0 = hpY0;
+          s0 = hpY0;
+
+          if (Math.abs(s0) < this.noiseGateThreshold) {
+            s0 *= 0.35;
+          }
+
           s0 = Math.max(-1, Math.min(1, s0));
           s1 = Math.max(-1, Math.min(1, s1));
 
@@ -174,6 +189,15 @@ class PCMWorklet extends AudioWorkletProcessor {
           }
 
           let s0 = count ? sum0 / count : 0;
+          const hpY0 = s0 - this.hpPrevX0 + 0.95 * this.hpPrevY0;
+          this.hpPrevX0 = s0;
+          this.hpPrevY0 = hpY0;
+          s0 = hpY0;
+
+          if (Math.abs(s0) < this.noiseGateThreshold) {
+            s0 *= 0.35;
+          }
+
           s0 = Math.max(-1, Math.min(1, s0));
           blockSumSq0 += s0 * s0;
 

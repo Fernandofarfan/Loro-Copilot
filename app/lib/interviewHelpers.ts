@@ -27,6 +27,7 @@ export type QuestionCategory =
   | "live_coding"
   | "behavioral"
   | "fit"
+  | "salary_negotiation"
   | "technical";
 
 /**
@@ -62,13 +63,22 @@ export function classifyQuestionType(q: string): QuestionCategory {
     return "behavioral";
   }
 
-  // 4. Fit Cultural / Screening
+  // 4. Fit Cultural / Screening compuesto
   if (
-    /tell me about yourself|contame de vos|cu[eé]ntame de ti|presentate|introduce yourself|why do you want to join|por qu[eé] quer[eé]s trabajar|why this company|por qu[eé] nuestra empresa|salary expectations|pretensi[oó]n salarial|expectativa salarial|where do you see yourself|d[oó]nde te ves/i.test(
+    /tell me about yourself|contame de vos|cu[eé]ntame de ti|presentate|introduce yourself|why do you want to join|por qu[eé] quer[eé]s trabajar|why this company|por qu[eé] nuestra empresa|where do you see yourself|d[oó]nde te ves/i.test(
       lower
     )
   ) {
     return "fit";
+  }
+
+  // 5. Negociación Salarial / Compensación
+  if (
+    /salary expectation(?:s)?|pretensi[oó]n(?:es)? salarial(?:es)?|expectativa(?:s)? salarial(?:es)?|sueldo pretendido|cu[aá]nto quer[eé]s ganar|cu[aá]nto cobr[aá]s|what are your compensation expectations|salary range|current compensation|rango(?:s)? salarial(?:es)?|remuneraci[oó]n|otra oferta|counter-offer|counteroffer|contraoferta/i.test(
+      lower
+    )
+  ) {
+    return "salary_negotiation";
   }
 
   return "technical";

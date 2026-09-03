@@ -10,6 +10,8 @@ import {
 import { parseModelJson } from "../lib/llm";
 import { track } from "../lib/track";
 import { type TeleprompterPayload } from "./useTeleprompter";
+import { extractFactsFromAnswer, mergeSessionFacts, type SessionFact } from "../lib/factLedger";
+import { cleanAiSlop } from "../lib/antiSlopFilter";
 
 export type Feedback = "up" | "down" | null;
 
@@ -61,9 +63,12 @@ export function useAnswerStream() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [sessionFacts, setSessionFacts] = useState<SessionFact[]>([]);
 
   const answersRef = useRef(answers);
   answersRef.current = answers;
+  const sessionFactsRef = useRef(sessionFacts);
+  sessionFactsRef.current = sessionFacts;
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const speculativeJobRef = useRef<{
@@ -321,6 +326,7 @@ export function useAnswerStream() {
           mode,
           image,
           previousAnswers,
+          facts: sessionFactsRef.current,
         };
 
         let res: Response;
@@ -443,6 +449,20 @@ export function useAnswerStream() {
 
         const finalParsed = parseBlocks(accumulatedText);
         const latencyMs = Date.now() - startTime;
+
+        // 1. Extraer y consolidar hechos en el Fact Ledger de la sesión
+        const newFacts = extractFactsFromAnswer(accumulatedText);
+        if (newFacts.length > 0) {
+          setSessionFacts((prev) => mergeSessionFacts(prev, newFacts));
+        }
+
+        // 2. Limpieza de AI slop formuláico para entregar texto más humano y directo
+        if (finalParsed.cleanText) {
+          finalParsed.cleanText = cleanAiSlop(finalParsed.cleanText);
+        }
+        if (finalParsed.enText) {
+          finalParsed.enText = cleanAiSlop(finalParsed.enText);
+        }
 
         if (onPunchline && !punchlineTriggeredRef.current) {
           if (finalParsed.keyWords && finalParsed.keyWords.length > 0) {
@@ -637,6 +657,8 @@ export function useAnswerStream() {
     answers,
     isGenerating,
     generationError,
+    sessionFacts,
+    clearSessionFacts: () => setSessionFacts([]),
     requestAnswer,
     startSpeculativePreFetch,
     stopGenerating,
