@@ -4,9 +4,9 @@ Contexto para agentes de IA (Claude Code, Cursor, Antigravity, etc.) que trabaje
 
 ## Qué es esto
 
-**Loro Copilot** — asistente profesional de entrevistas con IA en tiempo real. Escucha la entrevista por micrófono o audio de pestaña (Meet/Zoom), transcribe en vivo con Deepgram y, al dispararse el turno ("Responder"), genera respuestas inmediatas con LLM ancladas al CV, empresa y puesto del usuario.
+**Loro Copilot** — asistente profesional de entrevistas con IA en tiempo real. Escucha la entrevista por micrófono, audio de pestaña (Meet/Zoom) o en modo de **Audio Dual Simultáneo** (Micrófono para vos + Pestaña para el entrevistador), transcribe en vivo con Deepgram multicanal y, al detectarse el turno o silencio local (VAD <80ms), genera respuestas inmediatas con LLM ancladas al CV mediante RAG dinámico, empresa y puesto del usuario.
 
-Incluye modo de **Teleprompter HUD pop-out**, **asistencia bilingüe directa (`[EN]`, `[ES]`)**, **Banco de Memoria Inteligente y Caché Instantánea (<50ms)**, **simulador de entrevistas con evaluación automatizada** y soporte multi-modelo (`opencode`, `gemini`, `anthropic`, `openai`).
+Incluye modo de **Teleprompter HUD pop-out con Lectura Biónica y botón Panic (`Escape`)**, **asistencia bilingüe directa (`[EN]`, `[PHO]`, `[ES]`) con estructura Punchline First (`[KEY]`)**, **Dual Stream para detección de preguntas trampa en segundo plano**, **Banco de Memoria Inteligente (<50ms)**, **Speech Coach en vivo (WPM, balance de habla y muletillas)**, **simulador de entrevistas con evaluación automatizada** y soporte multi-modelo (`opencode`, `gemini`, `anthropic`, `openai`) con optimización de **Prompt Caching en Edge**.
 
 Deploy: Next.js 14 (App Router) en Vercel. Proyecto: `loro-copilot`. URL de producción: `https://loro-copilot.vercel.app`.
 
@@ -19,38 +19,45 @@ npm run dev
 ```
 
 ### Comandos de Validación
-- Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 90 tests en `__tests__/`).
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 105 tests en `__tests__/`).
 - **Chequeo de tipos:** `npx tsc --noEmit`.
 - **Build de producción:** `npm run build`.
 
 ## Estructura de Archivos
 
-- `app/app/page.tsx` — Vista principal del Copiloto en vivo (estado de audio, WebSocket a Deepgram con endpointing rápido de 800ms, renderizado en streaming, banco de memoria instantánea, sincronización con Teleprompter).
+- `app/app/page.tsx` — Vista principal del Copiloto en vivo (soporte Audio Dual 🎧, vúmetro estéreo, WebSocket a Deepgram, renderizado en streaming, banco de memoria instantánea, RAG de CV, sincronización con Teleprompter y atajos `Ctrl+1`/`Ctrl+2`).
 - `app/simulador/page.tsx` — Simulador interactivo de entrevistas (Avatar, TTS con Web Speech API, reporte de métricas y feedback).
-- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; sincronizado vía `BroadcastChannel` y `localStorage`.
+- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; Lectura Biónica, chips `[KEY]`, alerta de trampas, botón Panic (`Escape`) sincronizado vía `BroadcastChannel` y `localStorage`.
 - `app/components/` — Componentes modulares de UI (`AnswerCard`, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
 - `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles, contexto y banco de respuestas maestras (`masterAnswers`).
-- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab), remuestreo AudioWorklet PCM16 y eventos STT.
-- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas, matching de memoria instantánea con aislamiento por empresa y rol, feedback y generador de preguntas típicas.
+- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab/dual), remuestreo estéreo AudioWorklet PCM16, VAD local y auto-cancelación por Barge-in.
+- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas, Punchline First (`keyWords`), Dual Stream de trampas en background, feedback y generador de preguntas típicas.
 - `app/hooks/useTeleprompter.ts` — Hook para pop-out de ventana HUD y sincronización en tiempo real vía `BroadcastChannel` y `localStorage`.
-- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE y soporte multi-modelo (`DeepSeek`, `Gemini`, `GPT`, `Claude`).
+- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Prompt Caching (KV-Cache), Punchline First, clasificación temprana de preguntas, Spanglish técnico y detector de trampas en background (`mode: "trap_detector"`).
 - `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
 - `app/api/simulador/route.ts` — Generador de preguntas dinámicas y feedback estructurado JSON.
 - `app/api/waitlist/route.ts` — Captura y registro de lista de espera con rate limiting.
 - `app/api/summary/route.ts` — Generador de resumen post-entrevista en Markdown.
+- `app/lib/cvChunker.ts` — Segmentación semántica de CV y recuperación quirúrgica de proyectos relevantes por pregunta (RAG local).
+- `app/lib/speechCoach.ts` — Análisis de telemetría de habla: cálculo de WPM, ratio de escucha/habla y conteo de muletillas (*fillers*).
 - `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider con timeouts (`AbortController`) y fallback inteligente.
 - `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria con lazy cleanup.
-- `app/lib/interviewHelpers.ts` — Clasificador de preguntas, detector de preguntas trampa, parser de bloques (`[EN]`, `[PHO]`, `[ES]`), diccionario de sinónimos canónicos (`CANONICAL_SYNONYMS`), aisladores `matchesCompany()` / `matchesRole()` y motor de búsqueda de memoria `findMatchingAnswer()`.
+- `app/lib/interviewHelpers.ts` — Clasificador temprano de preguntas (`classifyQuestionType`), detector de preguntas trampa, parser de bloques (`[KEY]`, `[EN]`, `[PHO]`, `[ES]`), sinónimos canónicos (`CANONICAL_SYNONYMS`), aisladores `matchesCompany()` / `matchesRole()` y motor de búsqueda de memoria `findMatchingAnswer()`.
 - `app/lib/track.ts` — Wrapper fail-safe de analytics (`track()`, `identify()`).
-- `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a Int16 (PCM16 16kHz).
-- `master_answers_all_roles.md` — Enciclopedia universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs (Cloud, DBA, Python, Full Stack, SAP, Solutions Architect) con soporte bilingüe, fonética y aislamiento por rol `[Rol: ...]`.
-- `__tests__/` — Suite de 90 tests unitarios automatizados (`interviewHelpers`, `llm`, `parseBlocks`, `security`, `deepgramToken`, `useAnswerStream`, `useInterviewContext`, `useDeepgram`, `useTeleprompter`).
+- `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a PCM16 16kHz estéreo con cálculo RMS y VAD local.
+- `docs/` — Centro de documentación técnica:
+  - `docs/ARCHITECTURE.md` — Mapeo completo del flujo de datos y diagramas de secuencia Mermaid.
+  - `docs/master_answers_all_roles.md` — Enciclopedia universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
+  - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
+  - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
+  - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.
+- `__tests__/` — Suite de 105 tests unitarios automatizados (`interviewHelpers`, `cvChunker`, `speechCoach`, `llm`, `parseBlocks`, `security`, `deepgramToken`, `useAnswerStream`, `useInterviewContext`, `useDeepgram`, `useTeleprompter`).
 
 ## Convenciones de Código
 
 - **Comentarios en español**: Solo para el "por qué" no obvio (constraints, decisiones de producto, workarounds). No comentar lo evidente.
 - **Analytics**: Siempre a través de `track()` / `identify()` de `app/lib/track.ts`. Nombres de eventos en `snake_case` (ej. `answer_requested`).
-- **Disparo de respuestas**: Tanto manual como automático por detección de fin de turno (`UtteranceEnd`), controlado por el usuario.
+- **Disparo de respuestas**: Tanto manual como automático por detección de fin de turno (`UtteranceEnd` / VAD local), controlado por el usuario.
 - **Runtime `edge`**: Mantener `export const runtime = "edge"` en todas las rutas de `app/api/`. Evitar módulos exclusivos de Node.js (como `fs` o `net`).
 - **Seguridad**: Toda nueva ruta de API debe invocar `verifyOrigin(req)` y `checkRateLimit(req)`.
 
@@ -70,4 +77,3 @@ npm run dev
 
 - La rama `main` despliega automáticamente a producción en Vercel al hacer `git push`.
 - Asegurarse de correr `npm test` y `npx tsc --noEmit` antes de pushear cambios a `main`.
-

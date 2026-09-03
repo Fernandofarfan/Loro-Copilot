@@ -11,20 +11,49 @@ interface TeleprompterData {
   isGenerating?: boolean;
   modelName?: string;
   fromMemory?: boolean;
+  keyWords?: string[];
+  alert?: string;
 }
 
 // Valida que el payload tiene la forma TeleprompterData antes de usarlo
 function isValidTeleprompterData(data: unknown): data is TeleprompterData {
   if (!data || typeof data !== "object") return false;
   const d = data as Record<string, unknown>;
-  // Al menos uno de los campos esperados debe estar presente
   return (
     typeof d.question === "string" ||
     typeof d.enText === "string" ||
     typeof d.esText === "string" ||
     typeof d.cleanText === "string" ||
-    typeof d.isGenerating === "boolean"
+    typeof d.isGenerating === "boolean" ||
+    Array.isArray(d.keyWords) ||
+    typeof d.alert === "string"
   );
+}
+
+// Formateador de Lectura Biónica (Bionic Reading)
+function renderBionicText(text: string): React.ReactNode {
+  if (!text) return null;
+  const lines = text.split("\n");
+  return lines.map((line, lIdx) => {
+    const words = line.split(" ");
+    return (
+      <React.Fragment key={lIdx}>
+        {words.map((word, wIdx) => {
+          if (!word) return <span key={wIdx}> </span>;
+          const mid = Math.ceil(word.length / 2);
+          const boldPart = word.slice(0, mid);
+          const restPart = word.slice(mid);
+          return (
+            <span key={wIdx}>
+              <strong className="text-white font-black">{boldPart}</strong>
+              <span className="text-zinc-300 font-normal">{restPart}</span>{" "}
+            </span>
+          );
+        })}
+        {lIdx < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
 }
 
 export default function TeleprompterPage() {
@@ -32,9 +61,12 @@ export default function TeleprompterPage() {
     question: "Esperando pregunta de la entrevista...",
     enText: "Las respuestas sugeridas aparecerán aquí en vivo.",
     esText: "",
+    keyWords: [],
   });
   const [fontSize, setFontSize] = useState(15);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [bionicReading, setBionicReading] = useState(true);
+  const [isPanicHidden, setIsPanicHidden] = useState(false);
 
   useEffect(() => {
     // 1. Cargar estado inicial desde localStorage
@@ -55,6 +87,7 @@ export default function TeleprompterPage() {
       bc.onmessage = (event) => {
         if (isValidTeleprompterData(event.data)) {
           setData(event.data);
+          setIsPanicHidden(false); // restaurar ante nueva pregunta
         }
       };
     }
@@ -66,25 +99,43 @@ export default function TeleprompterPage() {
           const parsed = JSON.parse(e.newValue);
           if (isValidTeleprompterData(parsed)) {
             setData(parsed);
+            setIsPanicHidden(false);
           }
         } catch {}
       }
     };
     window.addEventListener("storage", handleStorage);
 
+    // Atajo de pánico en teclado: Escape para ocultar / mostrar
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsPanicHidden((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
   useEffect(() => {
-    if (autoScroll) {
+    if (autoScroll && !isPanicHidden) {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
-  }, [data, autoScroll]);
+  }, [data, autoScroll, isPanicHidden]);
 
   const mainText = data.enText || data.cleanText || "";
+
+  if (isPanicHidden) {
+    return (
+      <main className="min-h-screen bg-[#09090b] text-zinc-600 flex items-center justify-center p-4 font-mono text-xs select-none">
+        <span>Pantalla en pausa. Presioná Escape para reanudar.</span>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -114,6 +165,16 @@ export default function TeleprompterPage() {
         </div>
       </header>
 
+      {/* Alerta de Trampa / Red Flag (Stream 2) */}
+      {data.alert && (
+        <section className="mb-2.5 animate-fadeIn">
+          <div className="flex items-start gap-1.5 bg-amber-950/40 border border-amber-500/50 rounded-lg p-2 text-amber-300 text-[0.88em]">
+            <span className="text-amber-400 font-bold shrink-0">⚠️ TIP TÁCTICO:</span>
+            <span>{data.alert}</span>
+          </div>
+        </section>
+      )}
+
       {/* Pregunta detectada */}
       <section className="mb-2.5">
         <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-0.5">
@@ -124,14 +185,41 @@ export default function TeleprompterPage() {
         </div>
       </section>
 
+      {/* Palabras Clave Punchline First */}
+      {data.keyWords && data.keyWords.length > 0 && (
+        <section className="mb-2.5">
+          <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">
+            ⚡ Punchline Clave (Decilo de entrada)
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {data.keyWords.map((kw, i) => (
+              <span
+                key={i}
+                className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md font-bold text-[0.85em]"
+              >
+                {kw}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Respuesta principal en inglés */}
       <section className="mb-2.5">
         <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-0.5 flex items-center justify-between">
           <span>⭐ Lo que decís (Inglés)</span>
           {data.modelName && <span className="text-zinc-500 text-[9px] font-mono">{data.modelName}</span>}
         </div>
-        <div className="text-zinc-100 font-semibold bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800 whitespace-pre-wrap">
-          {mainText || "(Las sugerencias aparecerán acá...)"}
+        <div className="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800 whitespace-pre-wrap leading-relaxed">
+          {mainText ? (
+            bionicReading ? (
+              renderBionicText(mainText)
+            ) : (
+              <span className="text-zinc-100 font-semibold">{mainText}</span>
+            )
+          ) : (
+            <span className="text-zinc-500 italic">(Las sugerencias aparecerán acá...)</span>
+          )}
         </div>
       </section>
 
@@ -163,6 +251,17 @@ export default function TeleprompterPage() {
       <footer className="fixed bottom-2 right-2 flex items-center gap-1.5 bg-zinc-900/90 backdrop-blur border border-zinc-800 p-1 rounded-lg shadow-lg">
         <button
           type="button"
+          onClick={() => setBionicReading((b) => !b)}
+          className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
+            bionicReading ? "bg-amber-950 text-amber-300 border border-amber-700/50" : "bg-zinc-800 text-zinc-400"
+          }`}
+          title="Lectura Biónica para leer de un vistazo sin mover los ojos"
+        >
+          {bionicReading ? "Biónica ON" : "Biónica OFF"}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setFontSize((s) => Math.max(11, s - 1))}
           className="px-2 py-0.5 text-[11px] font-bold rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
           title="Reducir tamaño de letra"
@@ -187,6 +286,14 @@ export default function TeleprompterPage() {
           title="Alternar auto-scroll"
         >
           {autoScroll ? "Scroll ON" : "Scroll OFF"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsPanicHidden(true)}
+          className="px-2 py-0.5 text-[10px] font-bold rounded bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-800/40 transition-colors"
+          title="Ocultar inmediatamente por si compartís pantalla (Escape)"
+        >
+          Panic
         </button>
       </footer>
     </main>

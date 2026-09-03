@@ -11,6 +11,7 @@ import {
   matchesRole,
   checkInstantGreeting,
   parseInterviewMarkdownToMasterAnswers,
+  classifyQuestionType,
   type MasterAnswer,
 } from "../app/lib/interviewHelpers";
 
@@ -396,6 +397,33 @@ Me comunico fluidamente con equipos globales en dailies y revisiones de arquitec
     it("debe formatear timestamps correctamente", () => {
       const str = fmtTime(1700000000000);
       expect(str).toMatch(/\d{2}:\d{2}:\d{2}/);
+    });
+  });
+
+  describe("classifyQuestionType", () => {
+    it("debe clasificar preguntas de System Design", () => {
+      expect(classifyQuestionType("How would you design a scalable rate limiter?")).toBe("system_design");
+      expect(classifyQuestionType("¿Cómo diseñarías una arquitectura distribuida con Kafka y microservicios?")).toBe("system_design");
+    });
+
+    it("debe clasificar preguntas de Live Coding / Algoritmos", () => {
+      expect(classifyQuestionType("Write a function to invert a binary tree and state its time complexity")).toBe("live_coding");
+      expect(classifyQuestionType("¿Cuál es la complejidad Big-O de esta función y cómo resolverías el LeetCode?")).toBe("live_coding");
+    });
+
+    it("debe clasificar preguntas de comportamiento STAR", () => {
+      expect(classifyQuestionType("Tell me about a time you had a conflict with a team member")).toBe("behavioral");
+      expect(classifyQuestionType("Contame de una situación donde lideraste bajo mucha presión")).toBe("behavioral");
+    });
+
+    it("debe clasificar preguntas de Fit / Screening", () => {
+      expect(classifyQuestionType("Tell me about yourself and your background")).toBe("fit");
+      expect(classifyQuestionType("¿Por qué querés trabajar en nuestra empresa y cuáles son tus expectativas salariales?")).toBe("fit");
+    });
+
+    it("debe clasificar por defecto como technical", () => {
+      expect(classifyQuestionType("How does garbage collection work in Python?")).toBe("technical");
+      expect(classifyQuestionType("Explicame cómo funciona el Event Loop de Node")).toBe("technical");
     });
   });
 });

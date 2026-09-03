@@ -118,4 +118,37 @@ El GIL es un mutex que protege el acceso a los objetos de Python.`;
     expect(parsed.cleanText).not.toContain("</think>");
     expect(parsed.cleanText).toContain("El GIL es un mutex");
   });
+
+  it("debe extraer [KEY] para estructura Punchline First", () => {
+    const raw = `[KEY]
+Idempotencia | Redis Locks | DLQ
+[/KEY]
+
+[EN]
+We achieved zero duplicate processing by using Redis distributed locks.
+- Each event includes an idempotency key.
+- Unprocessed events are routed to a DLQ.
+
+[ES]
+Garantizamos procesamiento único con locks de Redis y DLQ.`;
+
+    const parsed = parseBlocks(raw);
+    expect(parsed.keyWords).toEqual(["Idempotencia", "Redis Locks", "DLQ"]);
+    expect(parsed.enText).toContain("We achieved zero duplicate processing");
+    expect(parsed.cleanText).not.toContain("[KEY]");
+    expect(parsed.cleanText).not.toContain("[/KEY]");
+  });
+
+  it("debe extraer [TRAMPA] en la propiedad alert", () => {
+    const raw = `[TRAMPA]
+Cuidado: están buscando evaluar si sobrediseñás con microservicios prematuros.
+[/TRAMPA]
+
+[EN]
+We started with a clean modular monolith before splitting services.`;
+
+    const parsed = parseBlocks(raw);
+    expect(parsed.alert).toBe("Cuidado: están buscando evaluar si sobrediseñás con microservicios prematuros.");
+    expect(parsed.enText).toContain("We started with a clean modular monolith");
+  });
 });

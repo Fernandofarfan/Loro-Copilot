@@ -31,6 +31,7 @@ export interface Answer {
   latencyMs?: number;
   modelName?: string;
   fromMemory?: boolean;
+  keyWords?: string[];
 }
 
 interface RequestAnswerParams {
@@ -234,6 +235,7 @@ export function useAnswerStream() {
         ts: Date.now(),
         feedback: null,
         modelName: modelLabel,
+        keyWords: [],
       };
 
       setAnswers((prev) => [initialAnswer, ...prev]);
@@ -250,6 +252,34 @@ export function useAnswerStream() {
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
+
+      // Stream 2: Detector Asíncrono de Trampas / Red Flags en segundo plano
+      if (type === "answer" && question.length >= 10) {
+        fetch("/api/answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            question,
+            role,
+            company,
+            provider,
+            model,
+            mode: "trap_detector",
+          }),
+        })
+          .then((r) => (r.ok ? r.text() : ""))
+          .then((trapRaw) => {
+            const trapMatch = trapRaw.match(/\[TRAMPA\]([\s\S]*?)\[\/TRAMPA\]/i);
+            if (trapMatch && trapMatch[1].trim()) {
+              const trapAlert = trapMatch[1].trim();
+              setAnswers((prev) =>
+                prev.map((a) => (a.id === currentId ? { ...a, alert: trapAlert } : a))
+              );
+            }
+          })
+          .catch(() => {});
+      }
 
       try {
         const previousAnswers = (answersRef.current || []).slice(0, 2).map((a) => ({
@@ -333,6 +363,7 @@ export function useAnswerStream() {
                       alert: parsed.alert,
                       cheats: parsed.cheats,
                       snippet: parsed.snippet,
+                      keyWords: parsed.keyWords || [],
                     }
                   : a
               )
@@ -346,6 +377,8 @@ export function useAnswerStream() {
               cleanText: parsed.cleanText,
               isGenerating: true,
               modelName: modelLabel,
+              keyWords: parsed.keyWords,
+              alert: parsed.alert,
             });
           }
         }
@@ -369,6 +402,7 @@ export function useAnswerStream() {
                   alert: finalParsed.alert,
                   cheats: finalParsed.cheats,
                   snippet: finalParsed.snippet,
+                  keyWords: finalParsed.keyWords || [],
                 }
               : a
           )
@@ -382,6 +416,8 @@ export function useAnswerStream() {
           cleanText: finalParsed.cleanText,
           isGenerating: false,
           modelName: modelLabel,
+          keyWords: finalParsed.keyWords,
+          alert: finalParsed.alert,
         });
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {

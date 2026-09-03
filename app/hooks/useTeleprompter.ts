@@ -11,6 +11,8 @@ export interface TeleprompterPayload {
   isGenerating?: boolean;
   modelName?: string;
   fromMemory?: boolean;
+  keyWords?: string[];
+  alert?: string;
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";

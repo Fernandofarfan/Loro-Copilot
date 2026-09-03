@@ -15,6 +15,7 @@ import {
   isIncompleteQuestion,
   type MasterAnswer,
 } from "../lib/interviewHelpers";
+import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { useInterviewContext } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
 import { useAnswerStream, type Answer } from "../hooks/useAnswerStream";
@@ -218,6 +219,11 @@ export default function CopilotPage() {
       if (recentText && recentText.length >= 6) {
         lastProcessedLineIdRef.current = newLastId;
         const lang = detectQuestionLanguage(recentText);
+        const focusedProfile =
+          profile && profile.length > 800
+            ? selectRelevantCvChunks(recentText, chunkCv(profile))
+            : profile;
+
         requestAnswer({
           question: recentText,
           transcript: currentLines
@@ -225,7 +231,7 @@ export default function CopilotPage() {
             .join("\n"),
           company,
           role,
-          profile,
+          profile: focusedProfile,
           extraInstructions,
           provider: selectedModel.provider,
           model: selectedModel.model,
@@ -254,24 +260,62 @@ export default function CopilotPage() {
     syncTeleprompter,
   ]);
 
-  // Hook de Audio y Conexión Deepgram
+  // Hook de Audio y Conexión Deepgram (con soporte de Audio Dual y Barge-in)
   const {
     status: sttStatus,
     errorMessage: sttError,
     isPaused: isSttPaused,
     activeMode: audioMode,
+    energy: audioEnergy,
     connect: connectDeepgram,
     disconnect: disconnectDeepgram,
     togglePause: togglePauseStt,
   } = useDeepgram({
     onTranscript: handleTranscript,
     onUtteranceEnd: handleUtteranceEnd,
+    onBargeIn: () => {
+      // Auto-cancelación por Barge-in: si el entrevistador habla, pausar el LLM
+      if (isGeneratingRef.current) {
+        stopGenerating();
+      }
+    },
     onLanguageDetected: (detected) => {
       const normalized = detected.toLowerCase().startsWith("en") ? "en" : "es";
       setSttLang(normalized);
     },
     lang: sttLang,
   });
+
+  // Atajos de teclado para frases de rescate
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+
+      if (e.ctrlKey && e.key === "1") {
+        e.preventDefault();
+        const rescue = {
+          icon: "⏳",
+          label: "Ganar tiempo",
+          en: "That's a great question, let me organize my thoughts for a second.",
+        };
+        navigator.clipboard.writeText(rescue.en);
+        syncTeleprompter({ enText: rescue.en, question: "Frase de rescate (Ganar tiempo)" });
+      } else if (e.ctrlKey && e.key === "2") {
+        e.preventDefault();
+        const rescue = {
+          icon: "🎯",
+          label: "Clarificar",
+          en: "To make sure I understand, are you asking about...?",
+        };
+        navigator.clipboard.writeText(rescue.en);
+        syncTeleprompter({ enText: rescue.en, question: "Frase de rescate (Clarificar)" });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [syncTeleprompter]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -530,19 +574,28 @@ export default function CopilotPage() {
                   <>
                     <button
                       type="button"
+                      onClick={() => connectDeepgram("dual")}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md shadow-emerald-950"
+                      title="Captura combinada: Micrófono (Vos) + Pestaña (Entrevistador)"
+                    >
+                      <span>Audio Dual 🎧</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => connectDeepgram("mic")}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md shadow-emerald-950"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-all"
+                      title="Solo micrófono"
                     >
                       <MicIcon />
-                      <span>Escuchar Micrófono</span>
+                      <span>Solo Mic</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => connectDeepgram("tab")}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-all"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-all"
                       title="Capturar audio de Meet/Zoom compartiendo pestaña"
                     >
-                      <span>Pestaña (Meet/Zoom)</span>
+                      <span>Solo Pestaña</span>
                     </button>
                   </>
                 ) : (
@@ -565,6 +618,20 @@ export default function CopilotPage() {
                     >
                       {isSttPaused ? "Reanudar" : "Pausar"}
                     </button>
+
+                    {/* Vúmetro de Audio Dual */}
+                    {audioMode === "dual" && (
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
+                        <span className="flex items-center gap-1">
+                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.micRms > 0.012 ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`} />
+                          <span>Vos</span>
+                        </span>
+                        <span className="flex items-center gap-1 ml-1">
+                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.tabRms > 0.012 ? "bg-sky-400 animate-pulse" : "bg-zinc-700"}`} />
+                          <span>Ellos</span>
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
 

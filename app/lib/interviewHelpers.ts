@@ -22,6 +22,58 @@ export function detectTrickQuestion(q: string): string | null {
   return null;
 }
 
+export type QuestionCategory =
+  | "system_design"
+  | "live_coding"
+  | "behavioral"
+  | "fit"
+  | "technical";
+
+/**
+ * Clasifica tempranamente la pregunta en <5ms para inyectar micro-directivas especializadas
+ */
+export function classifyQuestionType(q: string): QuestionCategory {
+  const lower = (q || "").toLowerCase();
+
+  // 1. System Design
+  if (
+    /system design|diseño de sistemas|architecture|arquitectura|scalab|escalab|microservice|microservicio|distributed|distribu|load balancer|balanceador|rate limit|caching strategy|sharding|high availability|disponibilidad|event-driven|event driven|kafka|pub\/sub|message queue/i.test(
+      lower
+    )
+  ) {
+    return "system_design";
+  }
+
+  // 2. Live Coding / Algoritmos / Queries
+  if (
+    /algorithm|algoritmo|leetcode|big-o|big o|time complexity|space complexity|complejidad|binary tree|arbol binario|linked list|lista enlazada|two pointers|sliding window|dynamic programming|escribi una funcion|escribí una función|write a function|implement a function|implement an algorithm|sql query|select \* from|code review|debug/i.test(
+      lower
+    )
+  ) {
+    return "live_coding";
+  }
+
+  // 3. Behavioral (STAR)
+  if (
+    /tell me about a time|cu[eé]ntame de una vez|contame de una situaci|describe a situation|describ[ií] una situaci|conflict|conflicto|disagreement|desacuerdo|mistake|error que cometiste|fracaso|failed|proud of|orgullos|difficult feedback|feedback dif[ií]cil|deadline|presi[oó]n|lead a team|lideraste|tough decision|decisi[oó]n dif[ií]cil/i.test(
+      lower
+    )
+  ) {
+    return "behavioral";
+  }
+
+  // 4. Fit Cultural / Screening
+  if (
+    /tell me about yourself|contame de vos|cu[eé]ntame de ti|presentate|introduce yourself|why do you want to join|por qu[eé] quer[eé]s trabajar|why this company|por qu[eé] nuestra empresa|salary expectations|pretensi[oó]n salarial|expectativa salarial|where do you see yourself|d[oó]nde te ves/i.test(
+      lower
+    )
+  ) {
+    return "fit";
+  }
+
+  return "technical";
+}
+
 /**
  * Detecta dinámicamente si una pregunta o fragmento de audio está en inglés o español.
  * Analiza caracteres propios del español, palabras de apertura interrogativa y stopwords comunes.
@@ -181,18 +233,30 @@ export interface ParsedBlocks {
   alert: string;
   cheats: string[];
   snippet: string;
+  keyWords?: string[];
 }
 
 export function parseBlocks(raw: string): ParsedBlocks {
-  const phoMatch = raw.match(/\[PHO\]([\s\S]*?)(?=\[(?:EN|ES|ALERT|CHEATS|SNIPPET)\]|$)/i);
-  const enMatch = raw.match(/\[EN\]([\s\S]*?)(?=\[(?:ES|PHO|ALERT|CHEATS|SNIPPET)\]|$)/i);
-  const esMatch = raw.match(/\[ES\]([\s\S]*?)(?=\[(?:EN|PHO|ALERT|CHEATS|SNIPPET)\]|$)/i);
+  const phoMatch = raw.match(/\[PHO\]([\s\S]*?)(?=\[(?:EN|ES|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
+  const enMatch = raw.match(/\[EN\]([\s\S]*?)(?=\[(?:ES|PHO|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
+  const esMatch = raw.match(/\[ES\]([\s\S]*?)(?=\[(?:EN|PHO|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
 
   let cleanText = raw;
 
-  // Solo extraer ALERT, CHEATS, SNIPPET si tienen tag de cierre explícito
-  // para no tragar texto en streaming parcial antes de que el modelo termine el bloque.
-  const alertMatch = cleanText.match(/\[ALERT\]([\s\S]*?)\[\/ALERT\]/i);
+  // Extraer [KEY] (Palabras clave telegráficas para Punchline First)
+  const keyMatch = cleanText.match(/\[KEY\]([\s\S]*?)(?=\[\/?(?:EN|ES|PHO|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
+  let keyWords: string[] = [];
+  if (keyMatch) {
+    const rawKeys = keyMatch[1].replace(/\[\/KEY\]/gi, "").trim();
+    keyWords = rawKeys
+      .split(/[|•,]/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+    cleanText = cleanText.replace(keyMatch[0], "").replace(/\[\/KEY\]/gi, "");
+  }
+
+  // Extraer ALERT / TRAMPA
+  const alertMatch = cleanText.match(/\[(?:ALERT|TRAMPA)\]([\s\S]*?)\[\/(?:ALERT|TRAMPA)\]/i);
   const alert = alertMatch ? alertMatch[1].trim() : "";
   if (alertMatch) cleanText = cleanText.replace(alertMatch[0], "");
 
@@ -224,12 +288,12 @@ export function parseBlocks(raw: string): ParsedBlocks {
 
   // Remover marcas de bloques de cleanText
   cleanText = cleanText
-    .replace(/\[(?:EN|ES|PHO)\]/gi, "")
-    .replace(/\[\/(?:ALERT|CHEATS|SNIPPET)\]/gi, "")
+    .replace(/\[(?:EN|ES|PHO|KEY)\]/gi, "")
+    .replace(/\[\/(?:ALERT|CHEATS|SNIPPET|KEY|TRAMPA)\]/gi, "")
     .trim();
 
   const cleanBlock = (m: RegExpMatchArray | null) =>
-    m ? m[1].replace(/\[(ALERT|CHEATS|SNIPPET)\][\s\S]*?\[\/\1\]/gi, "").trim() : "";
+    m ? m[1].replace(/\[(ALERT|CHEATS|SNIPPET|KEY|TRAMPA)\][\s\S]*?\[\/\1\]/gi, "").trim() : "";
 
   const enText = cleanBlock(enMatch);
   const esText = cleanBlock(esMatch);
@@ -244,6 +308,7 @@ export function parseBlocks(raw: string): ParsedBlocks {
     alert,
     cheats,
     snippet,
+    keyWords,
   };
 }
 
