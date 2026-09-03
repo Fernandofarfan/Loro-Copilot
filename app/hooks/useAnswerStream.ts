@@ -181,7 +181,7 @@ export function useAnswerStream() {
 
       // 2. Verificación de Memoria Inteligente Local (<50ms)
       if (type === "answer" && masterAnswers.length > 0) {
-        const memoryMatch = findMatchingAnswer(question, masterAnswers, 0.70, company);
+        const memoryMatch = findMatchingAnswer(question, masterAnswers, 0.65, company, role);
         if (memoryMatch) {
           const match = memoryMatch.match;
           const memAnswer: Answer = {

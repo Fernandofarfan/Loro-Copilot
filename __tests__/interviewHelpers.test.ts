@@ -8,6 +8,7 @@ import {
   extractCurrentTurnQuestion,
   fmtTime,
   findMatchingAnswer,
+  matchesRole,
   checkInstantGreeting,
   parseInterviewMarkdownToMasterAnswers,
   type MasterAnswer,
@@ -237,8 +238,123 @@ describe("interviewHelpers", () => {
     });
 
     it("debe devolver null si la pregunta no tiene relación", () => {
-      const res = findMatchingAnswer("¿Cómo cocinarías una receta tradicional?", memory, 0.70);
+      const res = findMatchingAnswer("¿Cómo cocinarías una receta tradicional?", memory, 0.65);
       expect(res).toBeNull();
+    });
+
+    it("debe matchear preguntas con sinónimos canónicos (pets vs dogs, weekend vs saturday)", () => {
+      const screeningMem: MasterAnswer[] = [
+        {
+          id: "pets_q",
+          question: "Do you have animals or pets in your home?",
+          enText: "Yes, I have pets at home.",
+          esText: "Sí, tengo mascotas.",
+          company: "General",
+          createdAt: Date.now(),
+        },
+        {
+          id: "weekend_q",
+          question: "What did you do the last weekend or what are your weekend plans?",
+          enText: "I went cycling and rested.",
+          esText: "Salí a pedalear y descansé.",
+          company: "General",
+          createdAt: Date.now(),
+        },
+      ];
+
+      // "dogs" es sinónimo canónico de "pets"
+      const resDog = findMatchingAnswer("Do you have any dogs?", screeningMem, 0.65);
+      expect(resDog).not.toBeNull();
+      expect(resDog?.match.id).toBe("pets_q");
+
+      // Consulta corta sobre weekend
+      const resWeekend = findMatchingAnswer("What did you do the last weekend?", screeningMem, 0.65);
+      expect(resWeekend).not.toBeNull();
+      expect(resWeekend?.match.id).toBe("weekend_q");
+    });
+
+    it("NO debe mezclar respuestas de DBA en una entrevista con puesto Cloud Engineer", () => {
+      const multiRoleMem: MasterAnswer[] = [
+        {
+          id: "cloud_pitch",
+          question: "Can you introduce yourself or tell me about your background? [Rol: Cloud & DevOps Architect]",
+          enText: "I am a Senior Cloud Architect specializing in GCP, GKE, and Terraform.",
+          esText: "Soy Cloud Architect especializado en GCP, GKE y Terraform.",
+          role: "Cloud & DevOps Architect",
+          company: "General",
+          createdAt: Date.now(),
+        },
+        {
+          id: "dba_pitch",
+          question: "Can you introduce yourself or tell me about your background? [Rol: DBA & Data Engineer]",
+          enText: "I am a Senior DBA specializing in PostgreSQL, SQL Server, and BigQuery.",
+          esText: "Soy DBA Senior especializado en PostgreSQL, SQL Server y BigQuery.",
+          role: "DBA & Data Engineer",
+          company: "General",
+          createdAt: Date.now(),
+        },
+        {
+          id: "python_pitch",
+          question: "Can you introduce yourself or tell me about your background? [Rol: Python Backend Engineer & Tech Lead]",
+          enText: "I am a Senior Python Engineer specializing in FastAPI and microservices.",
+          esText: "Soy Ingeniero Python especializado en FastAPI y microservicios.",
+          role: "Python Backend Engineer & Tech Lead",
+          company: "General",
+          createdAt: Date.now(),
+        },
+      ];
+
+      // 1. Cuando la entrevista activa es Cloud Engineer, debe devolver exclusivamente el pitch de Cloud
+      const cloudRes = findMatchingAnswer(
+        "Can you introduce yourself or tell me about your background?",
+        multiRoleMem,
+        0.65,
+        "Globant",
+        "GCP Cloud Engineer"
+      );
+      expect(cloudRes).not.toBeNull();
+      expect(cloudRes?.match.id).toBe("cloud_pitch");
+      expect(cloudRes?.match.role).toBe("Cloud & DevOps Architect");
+
+      // 2. Cuando la entrevista activa es DBA, debe devolver el pitch de DBA
+      const dbaRes = findMatchingAnswer(
+        "Can you introduce yourself or tell me about your background?",
+        multiRoleMem,
+        0.65,
+        "TechCorp",
+        "DBA & Data Specialist"
+      );
+      expect(dbaRes).not.toBeNull();
+      expect(dbaRes?.match.id).toBe("dba_pitch");
+
+      // 3. Cuando la entrevista activa es Python Backend, debe devolver el pitch de Python
+      const pythonRes = findMatchingAnswer(
+        "Can you introduce yourself or tell me about your background?",
+        multiRoleMem,
+        0.65,
+        "EPAM",
+        "Python Backend Developer"
+      );
+      expect(pythonRes).not.toBeNull();
+      expect(pythonRes?.match.id).toBe("python_pitch");
+    });
+  });
+
+  describe("matchesRole", () => {
+    it("debe permitir ítems generales en cualquier puesto", () => {
+      expect(matchesRole("General", "Cloud Engineer")).toBe(true);
+      expect(matchesRole("Multi-Role Senior Specialist", "DBA Engineer")).toBe(true);
+      expect(matchesRole("", "Python Backend")).toBe(true);
+    });
+
+    it("debe rechazar roles incompatibles (DBA vs Cloud)", () => {
+      expect(matchesRole("DBA & Data Engineer", "GCP Cloud Engineer")).toBe(false);
+      expect(matchesRole("SAP Basis Specialist", "React Frontend Developer")).toBe(false);
+    });
+
+    it("debe aceptar roles compatibles", () => {
+      expect(matchesRole("Cloud & DevOps Architect", "Senior GCP Cloud Engineer")).toBe(true);
+      expect(matchesRole("Python Backend Engineer", "Lead Python Developer")).toBe(true);
     });
   });
 

@@ -102,3 +102,25 @@ Cuando el sistema detecta que la pregunta fue en inglés, el LLM estructura la s
 - **Kill Switch de Capacidad (`checkCapacity`):** Apagado inmediato con HTTP 503 ante picos de demanda imprevistos mediante `CAPACITY_CLOSED=1`.
 - **Rate Limiter en Memoria (`checkRateLimit`):** Ventana deslizante por IP (ej. 40 req/min para respuestas) con limpieza periódica de buckets cada 5 minutos para prevenir fugas de memoria.
 - **Control de Abortos (`AbortController`):** Cada nuevo turno de respuesta cancela inmediatamente cualquier petición previa aún en curso para evitar consumo innecesario de tokens.
+
+---
+
+## 🧠 6. Banco de Memoria Inteligente y Caché Local (<50ms)
+
+El sistema integra un motor de búsqueda y recuperación en memoria local diseñado para eliminar por completo la latencia del LLM en preguntas típicas, de screening o de presentación personal.
+
+### Algoritmo de Búsqueda Semántica (`app/lib/interviewHelpers.ts`)
+1. **Normalización y Sinónimos Canónicos:**
+   - La función `tokenize()` remueve acentos (NFD), caracteres especiales y stop-words en español e inglés.
+   - `CANONICAL_SYNONYMS` mapea variantes lingüísticas a un único identificador conceptual (ej. `dogs`, `cats`, `pets`, `mascotas` ➔ `pet_concept`; `salary`, `rate`, `hourly`, `sueldo` ➔ `salary_concept`; `weekend`, `saturday`, `finde` ➔ `weekend_concept`).
+2. **Scoring Multidimensional con Ponderación de Longitud:**
+   - Combina Jaccard (25%), Sørensen-Dice (35%) y Cobertura Efectiva (40%).
+   - Para consultas cortas (1-3 tokens clave como *"What about salary?"*), la cobertura de la consulta pondera al 70%, evitando penalizar preguntas guardadas con títulos descriptivos.
+   - Bonus de inclusión de frase (+0.15) y bonus por tags (+0.08).
+   - Umbral calibrado en `0.65` para permitir variaciones conversacionales naturales sin falsos positivos.
+
+### Aislamiento de Procesos y Perfiles (Multi-CV)
+Para candidatos que aplican a distintos perfiles profesionales (ej. Cloud Architect, DBA, Python Backend, SAP, Full Stack), el motor previene la contaminación cruzada mediante dos filtros determinísticos:
+- **Aislamiento por Empresa (`matchesCompany`):** Si una memoria pertenece a una empresa específica (`Acme Inc`), no se utiliza cuando la entrevista activa es otra (`Globant`), salvo que sea de naturaleza `General`.
+- **Aislamiento por Rol / Puesto (`matchesRole`):** Compara el dominio técnico del rol guardado contra el puesto activo configurado en el Copiloto. Si el usuario está en una entrevista de `GCP Cloud Engineer`, el sistema descarta memorias etiquetadas como `[Rol: DBA & Data Engineer]` o `[Rol: SAP Basis]` y selecciona exclusivamente la de Cloud, garantizando respuestas precisas y consistentes con el CV presentado.
+

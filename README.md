@@ -15,7 +15,8 @@
   - Clasificador automático de preguntas (Técnica, STAR/Comportamental, Pretensión Salarial, General).
   - Detector de preguntas trampa/delicadas con tips estratégicos al instante.
   - Frases de rescate rápido ("Ganar tiempo", "Pedir repetición", "Clarificar", "Cierre seguro").
-  - Banco de memoria inteligente con caché instantánea (<50ms) y autoaprendizaje.
+  - Banco de memoria inteligente con caché instantánea (<50ms), normalización de sinónimos canónicos (`CANONICAL_SYNONYMS`) y aislamiento estricto por empresa y rol (`matchesRole`) para perfiles con múltiples CVs.
+  - Banco maestro universal de 107 preguntas y respuestas en 12 capítulos (`master_answers_all_roles.md`) para Cloud, DBA, Python, Full Stack, SAP y Solutions Architect.
 - **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste.
 
 ---
@@ -68,7 +69,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador (recomendado
 
 ## 🧪 Tests y Validación
 
-Para ejecutar la suite completa de pruebas unitarias:
+Para ejecutar la suite completa de 90 pruebas unitarias automatizadas:
 ```bash
 npm test
 ```

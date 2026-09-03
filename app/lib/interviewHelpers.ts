@@ -320,6 +320,13 @@ export function parseInterviewMarkdownToMasterAnswers(
     const tokens = tokenize(question);
     const tags = Array.from(new Set(tokens)).slice(0, 7);
 
+    // Extraer rol específico si la pregunta o sección lo define (ej: "[Rol: Cloud & DevOps Architect]" o "(Rol: DBA)")
+    let itemRole = role;
+    const roleInQuestion = question.match(/[\(\[](?:Rol|Role|Puesto):\s*([^\]\)]+)[\)\]]/i);
+    if (roleInQuestion) {
+      itemRole = roleInQuestion[1].trim();
+    }
+
     results.push({
       id: `imported_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
       question,
@@ -328,7 +335,7 @@ export function parseInterviewMarkdownToMasterAnswers(
       category,
       tags,
       company: company || "General",
-      role: role || "",
+      role: itemRole || "",
       favorite: true,
       createdAt: Date.now(),
     });
@@ -382,34 +389,113 @@ export function matchesCompany(itemCompany?: string, targetCompany?: string): bo
   return icWords.some(w => tcWords.includes(w));
 }
 
+const GENERIC_ROLE_WORDS = new Set([
+  "engineer", "ingeniero", "developer", "desarrollador", "architect", "arquitecto",
+  "senior", "lead", "specialist", "especialista", "tech", "technical", "general",
+  "multi", "role", "puesto", "consultant", "analyst"
+]);
+
+export function matchesRole(itemRole?: string, targetRole?: string): boolean {
+  const ir = (itemRole || "").toLowerCase().trim();
+  const tr = (targetRole || "").toLowerCase().trim();
+
+  // Si el ítem no tiene rol asignado o es general / multi-role, es universal para cualquier puesto
+  if (!ir || ir === "general" || ir.includes("multi-role") || ir === "all") return true;
+
+  // Si la entrevista activa no tiene puesto definido, permitimos el ítem
+  if (!tr) return true;
+
+  if (ir === tr || ir.includes(tr) || tr.includes(ir)) return true;
+
+  // Comparar palabras clave de dominio técnico (ignorando términos genéricos de cargo)
+  const irDomainWords = tokenize(ir).filter(w => !GENERIC_ROLE_WORDS.has(w));
+  const trDomainWords = tokenize(tr).filter(w => !GENERIC_ROLE_WORDS.has(w));
+
+  if (irDomainWords.length === 0 || trDomainWords.length === 0) return true;
+
+  return irDomainWords.some(w => trDomainWords.includes(w));
+}
+
+const CANONICAL_SYNONYMS: Record<string, string> = {
+  // Mascotas / Pets / Animals
+  pets: "pet_concept", pet: "pet_concept", animals: "pet_concept", animal: "pet_concept",
+  mascota: "pet_concept", mascotas: "pet_concept", perro: "pet_concept", perros: "pet_concept",
+  gato: "pet_concept", gatos: "pet_concept", dog: "pet_concept", dogs: "pet_concept",
+  cat: "pet_concept", cats: "pet_concept",
+
+  // Fin de semana / Weekend
+  weekend: "weekend_concept", weekends: "weekend_concept", saturday: "weekend_concept",
+  sunday: "weekend_concept", finde: "weekend_concept", sabado: "weekend_concept", domingo: "weekend_concept",
+
+  // Salario / Remuneración / Rate
+  salary: "salary_concept", salario: "salary_concept", sueldo: "salary_concept",
+  tarifa: "salary_concept", rate: "salary_concept", hourly: "salary_concept",
+  compensation: "salary_concept", remuneracion: "salary_concept", pretension: "salary_concept",
+  pretensiones: "salary_concept", cobrar: "salary_concept",
+
+  // Jefe / Manager / Leader
+  boss: "boss_concept", jefe: "boss_concept", manager: "boss_concept",
+  leader: "boss_concept", lider: "boss_concept", superior: "boss_concept",
+
+  // Ubicación / Clima / Salta
+  weather: "location_concept", clima: "location_concept", city: "location_concept",
+  ciudad: "location_concept", salta: "location_concept", live: "location_concept",
+  living: "location_concept", vives: "location_concept", viviendo: "location_concept",
+
+  // Hobbies / Tiempo libre
+  hobby: "hobby_concept", hobbies: "hobby_concept", freetime: "hobby_concept",
+  pasatiempo: "hobby_concept", pasatiempos: "hobby_concept",
+
+  // Debilidades / Defectos / Mejora
+  weakness: "weakness_concept", weaknesses: "weakness_concept", debilidad: "weakness_concept",
+  debilidades: "weakness_concept", defect: "weakness_concept", defecto: "weakness_concept",
+  defectos: "weakness_concept", improvement: "weakness_concept", mejora: "weakness_concept",
+
+  // Fortalezas / Virtudes / Strengths
+  strength: "strength_concept", strengths: "strength_concept", fortaleza: "strength_concept",
+  fortalezas: "strength_concept", virtud: "strength_concept", virtudes: "strength_concept",
+};
+
+function canonicalizeToken(token: string): string {
+  return CANONICAL_SYNONYMS[token.toLowerCase()] || token;
+}
+
 /**
  * Busca coincidencias en el banco de memoria local con alta precisión semántica y balance de longitud.
- * Aísla automáticamente las memorias por empresa/proceso sin borrar el aprendizaje de otras entrevistas.
+ * Aísla automáticamente las memorias por empresa y por rol/puesto sin borrar el aprendizaje de otras entrevistas.
  */
 export function findMatchingAnswer(
   query: string,
   answers: MasterAnswer[],
-  threshold = 0.70,
-  currentCompany?: string
+  threshold = 0.65,
+  currentCompany?: string,
+  currentRole?: string
 ): { match: MasterAnswer; score: number } | null {
   if (!query || !answers || answers.length === 0) return null;
 
-  const queryTokens = Array.from(new Set(tokenize(query)));
+  const rawQueryTokens = tokenize(query);
+  const queryTokens = Array.from(new Set(rawQueryTokens.map(canonicalizeToken)));
   if (queryTokens.length === 0) return null;
 
   let bestMatch: MasterAnswer | null = null;
   let highestScore = 0;
 
   for (const item of answers) {
-    // Si el ítem pertenece a una empresa específica distinta a la actual, no mezclar procesos
+    // 1. Aislamiento por empresa
     if (!matchesCompany(item.company, currentCompany)) {
       continue;
     }
 
-    const itemTokens = Array.from(new Set(tokenize(item.question)));
+    // 2. Aislamiento por rol/puesto (para evitar que respuestas de DBA aparezcan en entrevistas de Cloud)
+    if (!matchesRole(item.role, currentRole)) {
+      continue;
+    }
+
+    const rawItemTokens = tokenize(item.question);
+    const itemTokens = Array.from(new Set(rawItemTokens.map(canonicalizeToken)));
     if (itemTokens.length === 0) continue;
 
-    // 1. Intersección de tokens significativos exactos
+    // 1. Intersección de tokens significativos exactos y canónicos
     let intersection = 0;
     queryTokens.forEach((qToken) => {
       if (itemTokens.includes(qToken)) {
@@ -425,8 +511,12 @@ export function findMatchingAnswer(
     const queryCoverage = intersection / queryTokens.length;
     const itemCoverage = intersection / itemTokens.length;
 
-    // Ponderación balanceada: requiere que tanto la pregunta buscada como la guardada coincidan sustancialmente
-    let score = (jaccardScore * 0.3) + (diceScore * 0.4) + (Math.min(queryCoverage, itemCoverage) * 0.3);
+    // Ponderación balanceada: consultas cortas (1-3 tokens) no se penalizan si su cobertura es alta
+    const effectiveCoverage = queryTokens.length <= 3
+      ? (queryCoverage * 0.7 + itemCoverage * 0.3)
+      : Math.min(queryCoverage, itemCoverage);
+
+    let score = (jaccardScore * 0.25) + (diceScore * 0.35) + (effectiveCoverage * 0.4);
 
     // 2. Bonus por coincidencia de frase o inclusión completa
     const cleanQ = query.toLowerCase().trim();
@@ -435,12 +525,13 @@ export function findMatchingAnswer(
       score += 0.15;
     }
 
-    // 3. Bonus por tags SOLO si el score base ya es alto (>= 0.55) para evitar falsos positivos
-    if (score >= 0.55 && item.tags && item.tags.length > 0) {
+    // 3. Bonus por tags SOLO si el score base ya es alto (>= 0.50) para evitar falsos positivos
+    if (score >= 0.50 && item.tags && item.tags.length > 0) {
       let tagMatches = 0;
       item.tags.forEach((tag) => {
         const cleanTag = tag.toLowerCase().trim();
-        if (cleanTag && query.toLowerCase().includes(cleanTag)) {
+        const canonicalTag = canonicalizeToken(cleanTag);
+        if (cleanTag && (query.toLowerCase().includes(cleanTag) || queryTokens.includes(canonicalTag))) {
           tagMatches++;
         }
       });
