@@ -12,6 +12,15 @@ import {
   type Provider,
 } from "../../lib/llm";
 import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
+import {
+  analyzeCvVulnerabilities,
+  buildVulnerabilitySystemPrompt,
+} from "../../lib/vulnerabilityRadar";
+import {
+  PERSONA_DIRECTIVES,
+  buildInterviewerSystemPrompt,
+  type Persona,
+} from "../../lib/simuladorPersonas";
 
 export const runtime = "edge";
 
@@ -22,23 +31,7 @@ function sanitizeForPrompt(text: string): string {
     .replace(/>/g, "›");  // reemplazar > por guillemet derecho
 }
 
-const SYSTEM_PROMPT_INTERVIEWER = `Sos el ENTREVISTADOR. Estás en la llamada haciendo la entrevista en vivo al candidato, ahora mismo.
-
-Recibís:
-1. EMPRESA y DESCRIPCIÓN DEL PUESTO (contexto).
-2. El PERFIL del candidato (su CV, experiencia, logros).
-3. El TIPO DE ENTREVISTA (Técnica, Comportamiento, HR, General).
-4. El HISTORIAL de la entrevista hasta ahora (preguntas hechas y respuestas del candidato).
-
-Tu tarea: Generar la SIGUIENTE PREGUNTA de la entrevista.
-Reglas:
-1. Sé un entrevistador profesional, realista y directo.
-2. Si el HISTORIAL está vacío, da una breve bienvenida (máximo 1 oración) y haz la primera pregunta natural.
-3. Si ya hay historial, evaluá la última respuesta. Si fue vaga o incompleta, hacé un follow-up directo. Si fue sólida, avanzá a la siguiente pregunta.
-4. Mantené tu respuesta corta y conversacional (máximo 2-3 oraciones en total).
-5. Hacé una sola pregunta a la vez.
-6. Si aparece "## CIERRE": la entrevista terminó. Despedite cordialmente en 1-2 oraciones avisando que le preparás el informe.
-7. Devolvé ÚNICAMENTE el texto que diría el entrevistador, sin etiquetas.`;
+const SYSTEM_PROMPT_INTERVIEWER = buildInterviewerSystemPrompt("standard");
 
 const SYSTEM_PROMPT_FEEDBACK = `Sos un COACH DE ENTREVISTAS experto ("El Loro" 🦜). Tu tarea es analizar una simulación de entrevista completa y generar un reporte de feedback detallado, constructivo y accionable en formato JSON.
 
@@ -164,7 +157,8 @@ async function getFeedbackJson(provider: Provider, models: string[], systemPromp
     return new Response(`Error generando feedback (${provider}): ${lastError || "No se pudo obtener respuesta del modelo."}`, { status: 502 });
   }
 
-  for (const model of models) {
+  const geminiModels = provider === "gemini" ? models : FALLBACK_MODELS.gemini;
+  for (const model of geminiModels) {
     if (!model) continue;
     try {
       const res = await fetchWithTimeout(
@@ -227,7 +221,8 @@ export async function POST(req: Request) {
   }
 
   let body: {
-    action?: "next-question" | "feedback" | "closing";
+    action?: "next-question" | "feedback" | "closing" | "vulnerability-radar";
+    persona?: "standard" | "amazon_bar_raiser" | "skeptic_architect" | "faang_recruiter";
     profile?: string;
     company?: string;
     role?: string;
@@ -246,12 +241,19 @@ export async function POST(req: Request) {
   }
 
   const action = body.action || "next-question";
-  const provider: Provider = resolveProvider(body.provider);
-  const model = resolveModel(provider, (body.model || "").slice(0, 100));
-
   const profile = sanitizeForPrompt((body.profile || "").slice(0, 6000));
   const company = sanitizeForPrompt((body.company || "").slice(0, 200));
   const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
+
+  // Manejo de escaneo de radar de vulnerabilidades previo a la entrevista
+  if (action === "vulnerability-radar") {
+    const vulns = analyzeCvVulnerabilities(profile, role, company);
+    return NextResponse.json({ vulnerabilities: vulns });
+  }
+
+  const provider: Provider = resolveProvider(body.provider);
+  const model = resolveModel(provider, (body.model || "").slice(0, 100));
+
   const interviewType = sanitizeForPrompt((body.interviewType || "General").slice(0, 100));
   const answerLang = body.answerLang === "en" ? "en" : "es";
 
@@ -281,7 +283,9 @@ export async function POST(req: Request) {
       : "Español rioplatense (Argentina). Formulá tus preguntas con voseo porteño.";
 
   const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## DESCRIPCIÓN DEL PUESTO\n${role || "(sin especificar)"}\n\n## PERFIL DEL CANDIDATO\n${profile || "(sin perfil)"}\n\n## TIPO DE ENTREVISTA\n${interviewType}\n\n## PROGRESO\n${progressText}\n\n## ${isFeedback ? "IDIOMA DEL REPORTE" : "IDIOMA DE LA RESPUESTA"}\n${answerLangLabel}\n${isClosing ? "\n## CIERRE\nLa entrevista TERMINÓ. Despedite amablemente.\n" : ""}\n## HISTORIAL\n${historyText}`;
-  const systemPrompt = isFeedback ? SYSTEM_PROMPT_FEEDBACK : SYSTEM_PROMPT_INTERVIEWER;
+  const systemPrompt = isFeedback
+    ? SYSTEM_PROMPT_FEEDBACK
+    : buildInterviewerSystemPrompt(body.persona || "standard");
 
   const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
 

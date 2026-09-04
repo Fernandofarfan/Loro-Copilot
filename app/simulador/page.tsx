@@ -27,6 +27,7 @@ import {
 
 import { Dropdown } from "../components/Dropdown";
 import { useDeepgram, type TranscriptLine } from "../hooks/useDeepgram";
+import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
 
 type Line = { id: number; text: string; final: boolean };
 type Lang = "es" | "en";
@@ -34,6 +35,7 @@ type Provider = "gemini" | "anthropic" | "openai" | "opencode";
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 
 type InterviewType = "general" | "technical" | "behavioral" | "hr";
+type Persona = "standard" | "amazon_bar_raiser" | "skeptic_architect" | "faang_recruiter";
 
 // Fases del turno de entrevista. El flujo es automático: el entrevistador
 // habla (speaking), escucha (listening) y cierra la respuesta por silencio
@@ -82,41 +84,39 @@ function OpenCodeMark() {
 }
 
 const MODELS: ModelOption[] = [
-  // ⚡ Nivel Ultra Rápido (6s - 8s) — Óptimo en Vivo
-  { id: "gemini-3-6-flash", label: "Gemini 3.6 Flash ⚡ (6.0s)", provider: "gemini", model: "gemini-3.6-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (6.2s)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.5s)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (6.6s)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (6.7s)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (6.9s)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
-  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (7.6s)", provider: "opencode", model: "qwen-3.8-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯 (7.9s)", provider: "opencode", model: "mimo-v2.5-pro", tag: "Ultra Rápido" },
+  // ⚡ Nivel Ultra Rápido (< 8s) — Óptimo en Vivo
+  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡ (1.0s)", provider: "gemini", model: "gemini-flash-latest", tag: "Ultra Rápido" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (1.5s)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (1.5s)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (1.6s)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1.6s)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (1.0s)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Ultra Rápido" },
 
-  // 🚀 Nivel Rápido / Balanceado (9s - 15s)
-  { id: "grok-4-6", label: "Grok 4.6 ⚡ (9.2s)", provider: "opencode", model: "grok-4.6", tag: "Balanceado" },
-  { id: "glm-5-3", label: "GLM 5.3 (9.6s)", provider: "opencode", model: "glm-5.3", tag: "Balanceado" },
-  { id: "minimax-m2-7", label: "MiniMax M2.7 (10.2s)", provider: "opencode", model: "minimax-m2.7", tag: "Balanceado" },
-  { id: "glm-5-1", label: "GLM 5.1 (11.1s)", provider: "opencode", model: "glm-5.1", tag: "Balanceado" },
-  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻 (12.3s)", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
-  { id: "kimi-k3", label: "Kimi K3 🧠 (13.6s)", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
-  { id: "kimi-k2-6", label: "Kimi K2.6", provider: "opencode", model: "kimi-k2.6", tag: "Balanceado" },
-  { id: "muse-spark-1-2", label: "Muse Spark 1.2 ✨ (15.4s)", provider: "opencode", model: "muse-spark-1.2", tag: "Balanceado" },
+  // 🚀 Nivel Rápido / Balanceado
+  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Balanceado" },
+  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Balanceado" },
+  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  { id: "kimi-k3", label: "Kimi K3 🧠", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
+  { id: "gemini-3-6-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
 
-  // 🧠 Nivel Razonamiento / Deep Think (> 15s)
-  { id: "hy4-preview", label: "Hy4 Preview 🔮 (16.7s)", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
-  { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠 (20.5s)", provider: "opencode", model: "qwen-3.8-max", tag: "Deep Think" },
-  { id: "minimax-m3", label: "MiniMax M3 (21.6s)", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
-  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🚀 (29.1s)", provider: "opencode", model: "gpt-5.6-luna", tag: "Deep Think" },
-  { id: "gemini-2-5-flash", label: "Gemini 2.5 Flash (31.4s)", provider: "gemini", model: "gemini-2.5-flash", tag: "Google" },
-  { id: "gemini-3-5-flash", label: "Gemini 3.5 Flash (35.2s)", provider: "gemini", model: "gemini-3.5-flash", tag: "Google" },
-  { id: "gemini-3-7-flash", label: "Gemini 3.7 Flash (45.9s)", provider: "gemini", model: "gemini-3.7-flash", tag: "Google" },
-  { id: "hy3", label: "Hy3 (46.9s)", provider: "opencode", model: "hy3", tag: "Deep Think" },
-  { id: "longcat-2-0", label: "LongCat 2.0 🐱 (64.7s)", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
-  { id: "qwen-3-7-max", label: "Qwen 3.7 Max (76.3s)", provider: "opencode", model: "qwen-3.7-max", tag: "Deep Think" },
-  { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen-3.7-plus", tag: "Deep Think" },
-  { id: "qwen-3-6-plus", label: "Qwen 3.6 Plus", provider: "opencode", model: "qwen-3.6-plus", tag: "Deep Think" },
+  // 🧠 Nivel Razonamiento / Deep Think
+  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
+  { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠", provider: "opencode", model: "qwen3.8-max", tag: "Deep Think" },
+  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Deep Think" },
+  { id: "longcat-2-0", label: "LongCat 2.0 🐱", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
+  { id: "qwen-3-7-max", label: "Qwen 3.7 Max", provider: "opencode", model: "qwen3.7-max", tag: "Deep Think" },
+  { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen3.7-plus", tag: "Deep Think" },
+  { id: "qwen-3-6-plus", label: "Qwen 3.6 Plus", provider: "opencode", model: "qwen3.6-plus", tag: "Deep Think" },
+
+  // Direct Providers
+  { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
+  { id: "claude-haiku", label: "Claude 3.5 Haiku 🧠", provider: "anthropic", model: "claude-3-5-haiku-20241022", tag: "Anthropic" },
 ];
-const DEFAULT_MODEL_ID = "gemini-3-6-flash";
+const DEFAULT_MODEL_ID = "gemini-flash-latest";
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   return (
@@ -285,6 +285,9 @@ export default function SimuladorPage() {
   const [lang, setLang] = useState<Lang>("es");
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [interviewType, setInterviewType] = useState<InterviewType>("general");
+  const [persona, setPersona] = useState<Persona>("standard");
+  const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityItem[] | null>(null);
+  const [showVulnModal, setShowVulnModal] = useState(false);
   // Largo fijo de la entrevista (el selector se quitó del setup a pedido).
   const questionsCount = 5;
 
@@ -684,6 +687,7 @@ export default function SimuladorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: closing ? "closing" : "next-question",
+          persona,
           profile,
           company,
           role,
@@ -1218,6 +1222,21 @@ export default function SimuladorPage() {
                 ]}
               />
             </div>
+            <div className="field">
+              <label className="mono form-label">Personalidad del Entrevistador 🎭</label>
+              <Dropdown
+                value={persona}
+                onChange={(id) => setPersona(id as Persona)}
+                ariaLabel="Personalidad del Entrevistador"
+                alignRight
+                options={[
+                  { id: "standard", label: "🎯 Estándar / Balanceado" },
+                  { id: "amazon_bar_raiser", label: "🏹 Amazon Bar Raiser (Métricas)" },
+                  { id: "skeptic_architect", label: "🏗️ Skeptic Architect (Sistemas)" },
+                  { id: "faang_recruiter", label: "🤝 FAANG Cultural Recruiter (EQ)" },
+                ]}
+              />
+            </div>
           </div>
 
           {error && <div className="mono sim-error-box" style={{ marginTop: 10 }}>⚠️ {error}</div>}
@@ -1225,30 +1244,53 @@ export default function SimuladorPage() {
           <div className="panel" style={{ marginTop: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
               <label className="mono form-label" style={{ marginBottom: 0 }}>Contexto del Puesto</label>
-              <button
-                type="button"
-                className="btn-action mono"
-                style={{
-                  padding: "2px 10px",
-                  fontSize: 11,
-                  background: "rgba(16, 185, 129, 0.15)",
-                  border: "1px solid var(--loro-green)",
-                  color: "var(--loro-green)",
-                  fontWeight: 700,
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  setCompany("EPAM Systems");
-                  setRole(
-                    "Senior Python Engineer (EPAM Technical Interview - 100% English).\nFocus: Python Core (LEGB scope, iterators/generators, context managers, mutability, copy vs deepcopy), Concurrency & Async (Asyncio vs multiprocessing vs threading, GIL), Debugging/Profiling (cProfile, tracemalloc), Testing (pytest fixtures), Live Coding & Algorithms."
-                  );
-                  setLang("en");
-                  setInterviewType("technical");
-                }}
-              >
-                ⚡ Preset EPAM (Inglés / Técnico)
-              </button>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="btn-action mono"
+                  style={{
+                    padding: "2px 10px",
+                    fontSize: 11,
+                    background: "rgba(245, 158, 11, 0.15)",
+                    border: "1px solid #f59e0b",
+                    color: "#f59e0b",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    const vulns = analyzeCvVulnerabilities(profile, role, company);
+                    setVulnerabilities(vulns);
+                    setShowVulnModal(true);
+                  }}
+                >
+                  🛡️ Radar de Vulnerabilidades
+                </button>
+                <button
+                  type="button"
+                  className="btn-action mono"
+                  style={{
+                    padding: "2px 10px",
+                    fontSize: 11,
+                    background: "rgba(16, 185, 129, 0.15)",
+                    border: "1px solid var(--loro-green)",
+                    color: "var(--loro-green)",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setCompany("EPAM Systems");
+                    setRole(
+                      "Senior Python Engineer (EPAM Technical Interview - 100% English).\nFocus: Python Core (LEGB scope, iterators/generators, context managers, mutability, copy vs deepcopy), Concurrency & Async (Asyncio vs multiprocessing vs threading, GIL), Debugging/Profiling (cProfile, tracemalloc), Testing (pytest fixtures), Live Coding & Algorithms."
+                    );
+                    setLang("en");
+                    setInterviewType("technical");
+                  }}
+                >
+                  ⚡ Preset EPAM (Inglés / Técnico)
+                </button>
+              </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -1536,6 +1578,86 @@ export default function SimuladorPage() {
               onRestart={() => setPhaseBoth("setup")}
             />
           )}
+        </div>
+      )}
+
+      {showVulnModal && vulnerabilities && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setShowVulnModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "#0f172a",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              borderRadius: 12,
+              maxWidth: 640,
+              width: "100%",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              padding: 20,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.8)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #1e293b", paddingBottom: 12, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 20 }}>🛡️</span>
+                <h3 className="mono" style={{ margin: 0, fontSize: 16, color: "#f59e0b", fontWeight: 700 }}>
+                  Radar de Vulnerabilidades del CV (Red Team)
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowVulnModal(false)}
+                style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 18 }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
+              Flancos débiles detectados en tu perfil y cómo los atacará un entrevistador senior. Prepará estas respuestas antes de iniciar la llamada:
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {vulnerabilities.map((v, idx) => (
+                <div key={v.id || idx} style={{ backgroundColor: "#1e293b", borderRadius: 8, padding: 12, border: "1px solid #334155" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>{v.title}</span>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      backgroundColor: v.severity === "high" ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                      color: v.severity === "high" ? "#ef4444" : "#f59e0b",
+                      border: `1px solid ${v.severity === "high" ? "#ef4444" : "#f59e0b"}`,
+                    }}>
+                      Severidad: {v.severity}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#38bdf8", marginBottom: 6, fontWeight: 600 }}>
+                    ❓ Pregunta trampa: &quot;{v.trapQuestion}&quot;
+                  </div>
+                  <div style={{ fontSize: 11, color: "#cbd5e1", backgroundColor: "rgba(15, 23, 42, 0.7)", padding: 8, borderRadius: 6 }}>
+                    <div style={{ fontWeight: 700, color: "#10b981", marginBottom: 3 }}>🎯 Estrategia de pivote (STAR):</div>
+                    <div><strong>S/T:</strong> {v.starPivot.situation} {v.starPivot.task}</div>
+                    <div><strong>Acción:</strong> {v.starPivot.action}</div>
+                    <div><strong>Resultado:</strong> {v.starPivot.result}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </main>

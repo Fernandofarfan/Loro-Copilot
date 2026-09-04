@@ -35,9 +35,9 @@ sequenceDiagram
     Note over DG,UI: 2. Transcripción y Detección de Turnos Quirúrgica
     DG-->>UI: Transcripción Canal 0 = Candidato (speaker 1)
     DG-->>UI: Transcripción Canal 1 = Entrevistador (speaker 0)
-    opt Barge-in / Interrupción del Entrevistador
-        WK-->>UI: Evento bargeIn (Entrevistador comenzó a hablar)
-        UI->>UI: Auto-cancela streaming LLM o lectura previa (AbortController)
+    opt Barge-in / Interrupción Sustancial del Entrevistador (>=15 chars & >4.5s)
+        WK-->>UI: Evento bargeIn / Transcripción entrevistador
+        UI->>UI: Cancela streaming LLM si superó ventana de gracia (AbortController)
     end
     DG-->>UI: Evento UtteranceEnd (pausa de habla del entrevistador)
     Note over UI: Turn-Taking: Debounce (1000ms) + extractCurrentTurnQuestion() + isIncompleteQuestion()
@@ -110,8 +110,10 @@ El sistema resuelve de raíz el problema clásico del audio en llamadas (donde c
 - **VAD Local y Medición RMS Dual (<80ms):**
   - Calcula la energía RMS independiente para `micRms` y `tabRms` en cada frame.
   - Detecta actividad de voz o silencio localmente en menos de 80ms, reduciendo la dependencia de latencias de red.
-- **Auto-Cancelación por Barge-in (Interrupción del Entrevistador):**
-  - Si el entrevistador comienza a hablar (energía detectada en Canal 1 o mensaje `barge_in` del worklet) mientras el LLM está generando una respuesta o el usuario está leyendo, el Copiloto aborta inmediatamente el `AbortController` activo, evitando que la IA quede desfasada respecto a la conversación.
+- **Auto-Cancelación por Barge-in Inteligente (Interrupción del Entrevistador):**
+  - Si el entrevistador comienza a hablar con una intervención sustancial (`transcript.length >= 15`), el Copiloto evalúa la ventana temporal: solo si ya transcurrieron más de **4.5 segundos** desde el inicio de la generación de la respuesta (`generationStartTimeRef`), se activa la cancelación vía `AbortController`. Esto previene de forma determinante que ecos finales de la pregunta, fragmentos breves ("ok", "sí") o ruidos de fondo de la pestaña aborten la respuesta en curso.
+- **Limpieza de Nodos Web Audio:**
+  - En modo Dual, `micSource`, `tabSource` y `merger` quedan registrados en `dualSourcesRef` y se desconectan de manera estricta junto al `AudioContext` para evitar acumulación de handles y fugas de memoria en el navegador.
 
 ### Fase 3: Transcripción Multicanal en Streaming (Deepgram Nova-2)
 - **Credenciales Efímeras Seguras (`/api/deepgram-token`):**
@@ -261,7 +263,15 @@ graph LR
 2. **`[EN]`:** Respuesta hablada concisa en primera persona para perfiles Senior (apertura directa de 1 frase + 2 a 3 viñetas breves de 8 a 14 palabras).
 3. **`[PHO]`:** Fonética simplificada en español con acentuación tónica en mayúsculas (ej. `DE-ko-rei-ter`, `kub-er-NE-tis`, `AR-ki-tek-chur`).
 4. **`[ES]`:** Resumen conceptual rápido en español para tranquilidad cognitiva.
-5. **`[TRAMPA]`:** Bloque opcional emitido por el detector asíncrono de trampas que resalta sesgos, premisas falsas o trucos en la pregunta.
+5. **`[WHY_NOT]`:** Alternativa popular descartada con justificación técnica cuantitativa (latencia, costo, límites de memoria).
+6. **`[EDGE_CASES]`:** Casos límite y trampas de test cases a consensuar antes de programar en vivo.
+7. **`[DRY_RUN]`:** Trazado de estados paso a paso para relatar la ejecución de algoritmos con naturalidad.
+8. **`[TRAMPA]`:** Bloque opcional emitido por el detector asíncrono de trampas que resalta sesgos, premisas falsas o trucos en la pregunta.
+
+### Parser de Bloques en Streaming y Filtro Anti-Slop
+- **Extracción Dinámica en Streaming (`extractAndRemove`):** Extrae bloques terminales (`[WHY_NOT]`, `[DRY_RUN]`, `[EDGE_CASES]`) en tiempo real mientras el modelo emite tokens, evitando que texto en progreso se filtre de forma desordenada en el cuerpo principal de la respuesta.
+- **Limpieza de Marcadores de Razonamiento:** Remueve automáticamente etiquetas de pensamiento residuales (`🧠 *Analizando respuesta...*`) para garantizar tarjetas limpias.
+- **Filtro Anti-Slop Seguro (`cleanAiSlop`):** Remueve muletillas formuláicas de modelos conversacionales con salvaguarda estricta `MAX_ITERATIONS = 10` y verificación de longitud (`match[0].length > 0`), asegurando que jamás se bloquee el Event Loop de JavaScript.
 
 ---
 
@@ -435,4 +445,162 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 ### 7. Filtro de Voz Paso-Alto y Noise Gate Adaptativo en AudioWorklet
 - **Problema resuelto:** Clicks mecánicos de teclado, zumbido de ventiladores o ruido ambiental hacen que Deepgram alucine palabras o detecte falsos turnos.
 - **Implementación:** `public/pcm-worklet.js` aplica un filtro paso-alto digital (atenuando rumble de baja frecuencia <150Hz) y una compuerta de ruido (*soft noise gate*) que atenúa un 65% las señales por debajo del piso de ruido ambiente en los canales de entrada.
+
+---
+
+## 💎 12. Nuevas Capacidades de Ventaja Personal (FAANG & Senior Advantage)
+
+### 1. Radar de Vulnerabilidades del CV (Red Team Heuristic & LLM Auditor)
+- **Problema resuelto:** Los entrevistadores senior detectan rápidamente flancos débiles en un CV (gaps temporales, permanencias cortas <1 año, saltos bruscos de stack o bullets vagos sin métricas cuantitativas) y atacan allí con preguntas trampa.
+- **Implementación:** `app/lib/vulnerabilityRadar.ts` realiza un escaneo estático heurístico del perfil e infiere vulnerabilidades críticas:
+  - *Short Tenure Attack:* Si hay roles de menos de 12 meses, anticipa la pregunta de retención y fit.
+  - *Metrics Vacuum Attack:* Si los logros no indican números (% de mejora, QPS, latencia o USD), prepara el cuestionamiento sobre impacto real.
+  - *Buzzword Stacking Attack:* Si se listan muchas tecnologías sin proyectos concretos que las respalden, genera repreguntas de profundidad interna.
+  - *Pivot STAR:* Cada vulnerabilidad incluye una estrategia de defensa estructurada (Situación/Tarea, Acción técnica concreta y Resultado cuantitativo defendible).
+- **Acceso:** Disponible desde el botón `🛡️ Radar CV` en el copiloto y `🛡️ Radar de Vulnerabilidades` en el simulador.
+
+### 2. Personalidades FAANG en el Simulador de Entrevistas
+- **Problema resuelto:** Practicar contra un entrevistador genérico no prepara para los diferentes perfiles y sesgos de evaluación de las Big Tech.
+- **Implementación:** `app/lib/simuladorPersonas.ts` y `app/api/simulador/route.ts` configuran directivas especializadas en el system prompt:
+  - **🏹 Amazon Bar Raiser:** Evalúa con rigor según los Leadership Principles de Amazon (Customer Obsession, Ownership, Dive Deep, Have Backbone). Exige números duros y repregunta inmediatamente sobre trade-offs y alternativas descartadas.
+  - **🏗️ Skeptic Architect:** Asume que todo sistema distribuido fallará bajo estrés (hot keys en caché, retry storms, particiones de red, split-brain, consistencia eventual vs fuerte).
+  - **🤝 FAANG Cultural Recruiter:** Enfocado en inteligencia emocional, gestión de la ambigüedad, resolución de conflictos con pares difíciles y recepción de feedback duro.
+  - **🎯 Estándar / Balanceado:** Enfoque equilibrado entre profundidad técnica y fluidez conversacional.
+
+### 3. Karaoke Speech Pacer (~135 WPM) & Alerta Visual Stealth en Teleprompter
+- **Problema resuelto:** La ansiedad durante la entrevista provoca hablar demasiado rápido o desviar la mirada cuando el copiloto detecta una pregunta trampa.
+- **Implementación:**
+  - **Karaoke Pacer:** `app/teleprompter/page.tsx` calcula el ritmo de lectura óptimo (~135 palabras por minuto) y resalta visualmente palabra por palabra con estilo neón esmeralda (`bg-emerald-500/20 text-emerald-300 font-bold`). Puede activarse o pausarse con el botón `🎤 Pacer ON/OFF`.
+  - **Stealth Visual Alert:** Cuando el detector de trampas en background identifica una pregunta capciosa (`data.alert`), en lugar de emitir sonido o bloquear la pantalla, envuelve el borde del HUD en un pulso ámbar sutil (`ring-2 ring-amber-500/80 animate-pulse`), alertando al candidato de forma invisible para la cámara.
+
+### 4. Exportación 1-Click a Excalidraw & Descarga SVG
+- **Problema resuelto:** En entrevistas de System Design donde el entrevistador comparte una pizarra virtual (Excalidraw, Miro), redibujar componentes a mano consume minutos críticos.
+- **Implementación:**
+  - `app/lib/excalidrawExport.ts` traduce la topología de nodos y flechas del bloque Mermaid a elementos JSON nativos de Excalidraw.
+  - El botón `📋 Copiar a Excalidraw` en `ArchitectureCanvas.tsx` copia la carga con el tipo MIME `application/vnd.excalidraw+json` al portapapeles. El usuario solo presiona `Ctrl+V` en cualquier pizarra de Excalidraw para pegar los rectángulos y conectores vectoriales editables instantáneamente.
+  - El botón `💾 Descargar SVG` permite guardar el diagrama vectorizado completo con un solo clic.
+
+### 5. Scorecard Predictor FAANG & Follow-up Thank-You Note
+- **Problema resuelto:** Al finalizar la entrevista, no se tiene claridad del veredicto probable del panel ni se cuenta con un correo de agradecimiento técnico que consolide la impresión de contratación.
+- **Implementación:** `app/api/summary/route.ts` evalúa la transcripción completa de la llamada y los hechos del Fact Ledger bajo la rúbrica formal FAANG:
+  - Clasificación de hiring decision: `Strong Hire`, `Hire`, `Lean Hire` o `No Hire`.
+  - Desglose en 4 dimensiones: *Problem Solving & Algorithmic Rigor*, *System Design & Scale*, *Communication & EQ*, y *Cultural & Leadership Alignment*.
+  - Borrador de Thank-You Note: redacta un correo en inglés o español formal citando un trade-off técnico específico debatido durante la llamada, demostrando alta retención y proactividad post-entrevista.
+
+### 6. Bóveda de Historias STAR Reales (Personal Career Brain)
+- **Problema resuelto:** Los modelos de IA suelen inventar proyectos o empresas ficticias al responder preguntas de comportamiento (*"Tell me about a time you..."*).
+- **Implementación:**
+  - Persistencia local en `useInterviewContext` (`starStories`) con guardado de Título, Situación/Tarea, Acción Técnica Real y Resultado Cuantitativo.
+  - Inyección prioritaria en `/api/answer` (`starStories: starStoriesRef.current`).
+  - Al responder preguntas de comportamiento o System Design, el LLM tiene la directiva estricta de anclar las anécdotas exclusivamente en estas historias reales verificables, eliminando alucinaciones de experiencia.
+
+---
+
+## 🚀 13. Suite Táctica de Ventaja Injusta para Uso Personal (Elite Interview Mastery)
+
+Diseñada específicamente para las entrevistas reales y de alta exigencia técnica de Fernando, priorizando sigilo absoluto, cero fricción motriz, latencias mínimas y máximo rigor ante arquitectos y comités de contratación:
+
+### 1. Live Coding Edge-Case Synthesizer & "Why NOT X?" Trade-Offs Matrix (`[EDGE_CASES]` & `[WHY_NOT]`)
+- **Problema:** En entrevistas de LeetCode/System Design, un candidato promedio se lanza a codear o proponer una arquitectura sin anticipar límites. Un Staff+ Engineer siempre pregunta: *"¿Qué casos de borde rompen esto?"* y *"¿Por qué NO usamos la alternativa popular X?"*.
+- **Implementación:**
+  - `app/lib/interviewHelpers.ts`: `parseBlocks` extrae de forma reactiva y en streaming los bloques `[EDGE_CASES]` y `[WHY_NOT]`.
+  - `app/api/answer/route.ts`: Inyecta directivas en el system prompt y en `VISION_CODING_PROMPT` para sintetizar de 3 a 5 casos límite (arrays vacíos, duplicados, desbordes de entero, timeouts de red) y una justificación concisa de por qué soluciones intuitivas alternativas fallan en producción.
+  - Renderizado visual prioritario con badges ámbar y esmeralda en `AnswerCard.tsx` y en el HUD del `teleprompter/page.tsx`.
+
+### 2. Detector de Silencio Incómodo (>3.5s) con Frase Puente Flotante
+- **Problema:** En momentos de silencio prolongado (>3-4 segundos), el entrevistador asume bloqueo mental, falta de preparación o desconexión.
+- **Implementación:**
+  - `app/teleprompter/page.tsx` monitorea la inactividad de habla mediante un timer de 3.5 segundos tras cada turno del entrevistador.
+  - Al cumplirse el umbral sin que el candidato comience a hablar, despliega en la parte superior del HUD un banner flotante con animación suave (`animate-in fade-in slide-in-from-top-2`) sugiriendo frases puente contextuales (ej. *"That's a great angle, let me break down the trade-offs before proposing the schema..."*).
+  - El banner se desvanece de inmediato en cuanto se detecta voz o respuesta.
+
+### 3. Single-Key Stealth Hotkeys (`F2`, `F3`, `F4`, `` ` ``)
+- **Problema:** Mover el mouse o presionar combinaciones complejas (`Ctrl+Shift+Alt+...`) altera el lenguaje corporal, desvía la mirada y genera clicks audibles en el micrófono.
+- **Implementación:**
+  - `app/app/page.tsx` intercepta pulsaciones de teclas funcionales sin necesidad de modificadores (evitando conflicto en campos de texto):
+    - **`F2` (Ultra Conciso):** Solicita de inmediato una destilación del concepto en máximo 2 oraciones directas.
+    - **`F3` (Trade-offs & Why NOT):** Dispara un refinamiento focalizado en la matriz de decisión y por qué descartar alternativas.
+    - **`F4` (Cierre de Oro):** Genera 3 preguntas de alto filo técnico para devolverle al entrevistador.
+    - **`` ` `` (Backtick):** Dispara una captura instantánea de pantalla silenciosa para Screen Vision LeetCode / diagramas.
+
+### 4. Cheat Sheet Flotante de Números Universales de System Design (Jeff Dean Numbers)
+- **Problema:** Durante entrevistas de arquitectura a gran escala, memorizar o recordar con precisión los números de latencia de hardware y capacidades de almacenamiento genera vacilación.
+- **Implementación:**
+  - `app/teleprompter/page.tsx`: Panel modal emergente accesible con un solo clic en el botón `🔢 Números` del HUD.
+  - Despliega una tabla compacta con las latencias críticas de Jeff Dean actualizadas:
+    - L1 Cache: ~0.5 ns
+    - RAM: ~100 ns
+    - SSD NVMe Read: ~16 µs
+    - Round-trip dentro del mismo Datacenter: ~500 µs
+    - Round-trip CA a NY: ~40 ms
+    - Round-trip Transatlántico: ~150 ms
+    - Cálculos rápidos de QPS: 1M req/día ≈ 12 QPS / 86,400s por día.
+
+### 5. Inyector Masivo de Preguntas Glassdoor / Blind / Reddit en Banco de Memoria (<50ms)
+- **Problema:** Antes de una entrevista con una empresa específica (ej. Mercado Libre, Globant, Amazon, Stripe), se consultan foros de Glassdoor y Blind con preguntas pasadas de candidatos, pero transcribirlas una a una en el copiloto lleva demasiado tiempo.
+- **Implementación:**
+  - Botón `📥 Glassdoor / Blind` en la pestaña de Memoria de `app/app/page.tsx`.
+  - Modal donde Fernando puede pegar listas de preguntas crudas copiadas directamente de internet (formatos con números, viñetas o texto libre).
+  - El parser sanitiza las líneas y las inyecta de forma masiva en el `MasterAnswer Bank` asociadas a la empresa y rol actual.
+  - Al escuchar cualquiera de esas preguntas durante la llamada en vivo, el match semántico responde en menos de 50ms sin consultar al LLM.
+
+### 6. Selector de Hardware de Audio & Soporte para VB-CABLE / Mezcla Estéreo
+- **Problema:** En entornos corporativos donde la entrevista se realiza en las aplicaciones de escritorio nativas de Zoom o Microsoft Teams, compartir pestaña del navegador para capturar el audio no está disponible o levanta sospechas.
+- **Implementación:**
+  - Panel `⚙️ Entradas` en `app/app/page.tsx` con enumeración de dispositivos (`navigator.mediaDevices.enumerateDevices`).
+  - Soporte de selector independiente para el micrófono personal (Canal Izquierdo) y para la entrada del entrevistador (Canal Derecho) mediante cables virtuales como **VB-Audio Virtual Cable** o **Stereo Mix (Mezcla Estéreo)** de Windows.
+  - `useDeepgram.ts` conecta directamente a los deviceIds seleccionados, permitiendo capturar el audio de llamadas en apps nativas de escritorio con 100% de sigilo y sin requerir compartir pantalla.
+
+### 7. Análisis Forense & Detección de Fugas (Post-Mortem Técnico) en `/api/summary`
+- **Problema:** Después de la llamada, evaluar únicamente si fue una "buena" entrevista no ayuda a detectar errores tácticos sutiles (ej. contradecir el CV, no justificar un trade-off o dar una respuesta teórica sin anécdota real).
+- **Implementación:**
+  - `app/api/summary/route.ts` incorpora una sección dedicada de **Análisis Forense & Detección de Fugas**:
+    - Cruza las respuestas emitidas por el candidato contra los consejos y sugerencias en tiempo real de la IA.
+    - Identifica "fugas de seniority": momentos donde se titubeó o se usaron clichés en lugar de defender métricas de producción.
+    - Detalla los momentos clave donde el pivote de trade-offs salvó la pregunta.
+    - Emite un plan de acción correctivo para la siguiente ronda con el hiring manager.
+
+---
+
+## 🎯 12. Las 6 Capacidades Tácticas de Nivel Élite para Triunfo Personal
+
+### 1. Sugeridor Automático de Historias STAR (Auto-Match Heurístico)
+- **Problema:** Ante preguntas conductuales de liderazgo, conflictos o migraciones complejas, recordar cuál de las 10 historias de la bóveda es la más contundente mientras se habla bajo presión genera dudas o anécdotas débiles.
+- **Implementación:**
+  - Motor heurístico `matchSTARStory()` en `app/lib/interviewHelpers.ts`: extrae tokens significativos filtrando stopwords y los compara contra títulos, situaciones, tareas, acciones, resultados y tags con ponderación semántica.
+  - Al recibir una pregunta conductual en vivo, resalta de inmediato en el HUD flotante y en la interfaz principal la tarjeta de la historia más relevante con su título, Acción Técnica real y Resultado de Negocio cuantificado.
+
+### 2. "Dry-Run Stepper" para Live Coding (Trazado Paso a Paso)
+- **Problema:** En entrevistas de LeetCode / HackerRank, una vez escrito el código, el evaluador siempre solicita: *"¿Podés correrlo paso a paso con este ejemplo?"*. Rastrear punteros e índices mentalmente en inglés conduce a errores involuntarios.
+- **Implementación:**
+  - Directiva `[DRY_RUN]` en el prompt de `vision_coding` y `live_coding` en `app/api/answer/route.ts`.
+  - El modelo genera una tabla o lista de trazado de estados de 3 a 5 pasos (Estado inicial, Paso 1, Paso 2, Paso final con condición de retorno).
+  - Parser en `app/lib/interviewHelpers.ts` (`parseBlocks`), visualizado tanto en `app/components/AnswerCard.tsx` como en `app/teleprompter/page.tsx` para narrar el debugging con total fluidez.
+
+### 3. Dossier & Perfil Psicológico del Entrevistador (Pre-Interview Intel)
+- **Problema:** Una respuesta técnica debe calibrarse al sesgo del interlocutor: un Staff ex-Google busca concurrencia, particiones y latencia p99; un VP de Producto busca time-to-market, costo y métricas de negocio.
+- **Implementación:**
+  - Campo `interviewerBio` en el perfil del candidato persistido en `localStorage` vía `useInterviewContext`.
+  - En `app/api/answer/route.ts`, se inyecta la directiva `[DOSSIER PSICOLÓGICO DEL ENTREVISTADOR]` que modula el tono, vocabulario y profundidad técnica de la respuesta según el background detectado.
+
+### 4. Detector de "Pruebas de Seguridad / Desafíos de Firmeza" (Have Backbone)
+- **Problema:** En entrevistas FAANG (especialmente Amazon y Meta), el entrevistador desafía deliberadamente: *"¿Estás seguro de eso? ¿No convendría mejor desnormalizar?"*. Titubear o ceder sin argumentos califica como *No Hire* por falta de convicción.
+- **Implementación:**
+  - Heurística `detectFirmnessChallenge()` en `app/lib/interviewHelpers.ts`: identifica patrones de cuestionamiento y escepticismo ("are you sure", "wouldn't it be better", "¿estás seguro?", "¿no es sobreingeniería?").
+  - Emite una alerta visual destacada en HUD y `AnswerCard`: *"⚠️ TEST DE FIRMEZA DETECTADO: No cedas ni te disculpes. Reconocé el punto, explicá el trade-off técnico y defendé tu decisión con métricas"*.
+
+### 5. Fast-Transpiler Multilenguaje Instantáneo
+- **Problema:** Si preparás una solución en Python o TypeScript y el entrevistador pide: *"¿Lo podrías pasar a Go / Java / C++?"*, reescribir la lógica en otro lenguaje durante la llamada genera pánico.
+- **Implementación:**
+  - Toolbar integrado en `AnswerCard.tsx` con botones rápidos para `Original`, `Go`, `Python`, `TS`, `Java` y `C++`.
+  - Endpoint `/api/answer` (`type: "transpile"`) con streaming SSE que convierte la sintaxis preservando modismos de cada lenguaje (goroutines, canales, punteros, generics).
+
+### 6. Modo Camuflaje "IDE / Terminal" para el Teleprompter
+- **Problema:** Si accidentalmente se comparte la pantalla equivocada o hay personas cerca en una videollamada, una ventana llamada "Teleprompter" o con estética de asistente levanta sospechas.
+- **Implementación:**
+  - Selector de modo en `app/teleprompter/page.tsx`: **Normal**, **IDE (VS Code)** y **Terminal (Linux Bash)**.
+  - **Modo IDE:** Simula una pestaña de VS Code (`solution.ts`) con números de línea y la respuesta formateada como comentarios de código y types.
+  - **Modo Terminal:** Simula una consola tailing de logs de servidor (`[INFO]`, `[WARN]`, `[EXEC]`), 100% indistinguible de una terminal de desarrollo activa.
+
+
 

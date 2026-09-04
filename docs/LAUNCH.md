@@ -9,7 +9,7 @@ esto es código: son cuentas, límites y llaves que solo puede tocar el dueño.
 
 ## 1. Gemini: salir del free tier (bloqueante)
 
-El free tier de `gemini-2.5-flash` tiene límites del orden de **~10 requests
+El free tier de `gemini-3.6-flash` tiene límites del orden de **~10 requests
 por minuto y ~250 por día**. Con eso, `/api/answer` muere con los primeros
 ~30 usuarios del día — justo cuando el post empieza a funcionar.
 
@@ -17,7 +17,7 @@ por minuto y ~250 por día**. Con eso, `/api/answer` muere con los primeros
 - [ ] Activar billing (tier pago) para la key / proyecto.
 - [ ] En Google Cloud Console → Billing → **Budgets & alerts**: crear un presupuesto (ej. US$50/mes) con alertas al 50/90/100%.
 
-Referencia de costo: `gemini-2.5-flash` cuesta centavos por millón de tokens;
+Referencia de costo: `gemini-3.6-flash` cuesta centavos por millón de tokens;
 el LLM **no** es el gasto grande acá. El gasto grande es Deepgram.
 
 ## 2. Deepgram: crédito y límites de gasto (bloqueante)

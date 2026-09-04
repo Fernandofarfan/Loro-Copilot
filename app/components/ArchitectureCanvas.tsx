@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { parseMermaidFlowchart, ArchitectureNode } from "../lib/mermaidParser";
+import { copyGraphToExcalidraw } from "../lib/excalidrawExport";
 
 interface ArchitectureCanvasProps {
   mermaidCode: string;
@@ -22,7 +23,9 @@ const TYPE_CONFIG: Record<
 
 export default function ArchitectureCanvas({ mermaidCode }: ArchitectureCanvasProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedExcalidraw, setCopiedExcalidraw] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   const graph = parseMermaidFlowchart(mermaidCode);
 
@@ -30,6 +33,28 @@ export default function ArchitectureCanvas({ mermaidCode }: ArchitectureCanvasPr
     navigator.clipboard.writeText(mermaidCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyExcalidraw = async () => {
+    const ok = await copyGraphToExcalidraw(graph);
+    if (ok) {
+      setCopiedExcalidraw(true);
+      setTimeout(() => setCopiedExcalidraw(false), 2000);
+    }
+  };
+
+  const handleDownloadSvg = () => {
+    if (!svgRef.current) return;
+    const svgData = new XMLSerializer().serializeToString(svgRef.current);
+    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `system-design-${Date.now()}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (!graph.nodes.length) {
@@ -98,7 +123,7 @@ export default function ArchitectureCanvas({ mermaidCode }: ArchitectureCanvasPr
             {graph.nodes.length} nodos · {graph.edges.length} aristas
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setShowRaw(!showRaw)}
             className="rounded px-2 py-1 text-[11px] font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
@@ -106,10 +131,24 @@ export default function ArchitectureCanvas({ mermaidCode }: ArchitectureCanvasPr
             {showRaw ? "Ver Canvas" : "Ver Código"}
           </button>
           <button
-            onClick={handleCopy}
-            className="rounded bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            onClick={handleCopyExcalidraw}
+            className="rounded bg-sky-950/80 border border-sky-600/40 px-2 py-1 text-[11px] font-medium text-sky-300 hover:bg-sky-900 hover:text-white transition-colors"
+            title="Copia el diagrama en formato Excalidraw para pegar con Ctrl+V en Excalidraw.com o Miro"
           >
-            {copied ? "✓ Copiado" : "📋 Copiar Mermaid"}
+            {copiedExcalidraw ? "✓ Copiado a Excalidraw!" : "📋 Copiar a Excalidraw"}
+          </button>
+          <button
+            onClick={handleDownloadSvg}
+            className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            title="Descargar diagrama en archivo SVG vectorial limpio"
+          >
+            💾 Descargar SVG
+          </button>
+          <button
+            onClick={handleCopy}
+            className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            {copied ? "✓ Copiado" : "📋 Mermaid"}
           </button>
         </div>
       </div>
@@ -121,6 +160,7 @@ export default function ArchitectureCanvas({ mermaidCode }: ArchitectureCanvasPr
       ) : (
         <div className="relative overflow-x-auto">
           <svg
+            ref={svgRef}
             viewBox={`0 0 ${totalWidth} ${totalHeight}`}
             className="w-full min-w-[480px] select-none"
             style={{ minHeight: "180px", maxHeight: "320px" }}

@@ -11,7 +11,7 @@ export type LLMOptions = {
 };
 
 export const DEFAULT_MODELS: Record<Provider, string> = {
-  gemini: process.env.GEMINI_MODEL || "gemini-3.6-flash",
+  gemini: process.env.GEMINI_MODEL || "gemini-flash-latest",
   anthropic: "claude-3-5-haiku-20241022",
   openai: "gpt-4o-mini",
   opencode: process.env.OPENCODE_MODEL || "deepseek-v4-flash",
@@ -23,18 +23,19 @@ export const FALLBACK_MODELS: Record<Provider, string[]> = {
     new Set([
       ...(process.env.OPENCODE_MODEL ? [process.env.OPENCODE_MODEL] : []),
       "deepseek-v4-flash",
-      "glm-5.3-flash",
       "mimo-v2.5",
+      "glm-5.3-flash",
     ])
   ).slice(0, 3),
-  openrouter: ["deepseek/deepseek-chat", "google/gemini-2.5-flash", "openai/gpt-4o-mini"],
+  openrouter: ["deepseek/deepseek-chat", "openai/gpt-4o-mini"],
   openai: ["gpt-4o-mini", "gpt-4o"],
   anthropic: ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
   gemini: Array.from(
     new Set([
       ...(process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : []),
+      "gemini-flash-latest",
+      "gemini-flash-lite-latest",
       "gemini-3.6-flash",
-      "gemini-2.5-flash",
     ])
   ).slice(0, 3),
 };
@@ -438,7 +439,7 @@ export async function streamOpenCode(
 
   if (!apiKey) {
     if (process.env.GEMINI_API_KEY) {
-      return streamGemini(["gemini-2.5-flash", "gemini-1.5-flash"], userContent, systemPrompt, options);
+      return streamGemini(FALLBACK_MODELS.gemini, userContent, systemPrompt, options);
     }
     return new Response(
       "Falta OPENCODE_API_KEY / OPENROUTER_API_KEY en las variables de entorno para usar OpenCode.",
@@ -455,7 +456,7 @@ export async function streamOpenCode(
         ...(envModel ? [envModel] : []),
         ...(isOpenCodeHost
           ? ["deepseek-v4-flash", "glm-5.3-flash", "mimo-v2.5"]
-          : ["deepseek/deepseek-chat", "google/gemini-2.5-flash"])
+          : ["deepseek/deepseek-chat", "google/gemini-flash-1.5"])
       ].filter(Boolean)
     )
   ).slice(0, 3);
@@ -547,7 +548,7 @@ export async function streamOpenCode(
   }
 
   if (process.env.GEMINI_API_KEY) {
-    return streamGemini(["gemini-2.5-flash", "gemini-1.5-flash"], userContent, systemPrompt, options);
+    return streamGemini(FALLBACK_MODELS.gemini, userContent, systemPrompt, options);
   }
 
   return new Response(`Error de API (${baseUrl}): ${detail || "La API no devolvió una respuesta válida."}`, { status: 502 });

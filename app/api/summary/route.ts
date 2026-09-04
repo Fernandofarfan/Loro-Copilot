@@ -19,25 +19,41 @@ function sanitizeForPrompt(text: string): string {
     .replace(/>/g, "›");  // reemplazar > por guillemet derecho
 }
 
-const SYSTEM_PROMPT = `Sos un experto en entrevistas técnicas y de Recursos Humanos. Tu tarea es analizar la transcripción completa de una entrevista de trabajo que acaba de terminar y darle feedback estructurado al candidato.
+const SYSTEM_PROMPT = `Sos un entrevistador y director de contratación técnico de nivel Staff/FAANG. Tu tarea es evaluar con máximo rigor la transcripción de una entrevista técnica/profesional que acaba de terminar y brindarle un análisis de nivel élite al candidato.
 
 Recibís:
 1. EMPRESA y ROL (contexto).
 2. PERFIL del candidato.
-3. TRANSCRIPCIÓN completa de la entrevista (etiquetada con [Entrevistador] y [Yo]).
+3. HECHOS Y DECISIONES TÉCNICAS CONFIRMADAS (Fact Ledger).
+4. TRANSCRIPCIÓN completa de la entrevista (etiquetada con [Entrevistador] y [Yo]).
 
-Devolvé el feedback en ESTRICTO formato Markdown usando exactamente estas secciones:
+Devolvé el análisis en ESTRICTO formato Markdown usando exactamente estas secciones:
+
+### 📊 Scorecard Predictor FAANG
+- **Veredicto:** [**STRONG HIRE** | **HIRE** | **LEAN HIRE** | **NO HIRE**]
+- **Claridad & Estructura:** [Puntaje]/100
+- **Profundidad Técnica & Arquitectura:** [Puntaje]/100
+- **Consistencia & Dominio (Fact Ledger):** [Puntaje]/100
+*(1 párrafo conciso fundamentando el veredicto en base a la solidez de las respuestas del candidato).*
 
 ### 🌟 Puntos Fuertes
-(2 o 3 viñetas destacando lo que el candidato respondió bien o dónde brilló su perfil).
+(2 o 3 viñetas destacando dónde brilló técnicamente, qué respuestas fueron sobresalientes y qué trade-offs explicó con madurez).
 
 ### ⚠️ Áreas de Mejora
-(1 o 2 viñetas donde dudó, respondió cortante, o podría haber dado mejores ejemplos).
+(1 o 2 viñetas señalando dónde faltaron métricas cuantitativas, dónde hubo respuestas difusas o qué puntos debió profundizar).
 
 ### 💡 Siguientes Pasos (Follow-up)
-(1 sugerencia clara de qué hacer ahora, ej: cómo mandar el mail de agradecimiento o qué tema repasar para la siguiente ronda).
+(1 recomendación estratégica concreta para encarar la siguiente ronda de entrevistas o afianzar temas débiles).
 
-No uses saludos ni despedidas, devolvé solo el Markdown solicitado.`;
+### 🕵️ Análisis Forense & Detección de Fugas (Post-Mortem Técnico)
+- **Ratio y Dinámica de Habla:** (Evaluación de si el candidato mantuvo diálogo bidireccional o cayó en monólogos de más de 2 minutos).
+- **Fugas Técnicas & Trade-offs Omitidos:** (Puntos donde el candidato omitió mencionar métricas duras, no justificó alternativas descartadas o titubeó).
+- **Muletillas & Tono:** (Señalamiento de muletillas frecuentes o momentos donde faltó asertividad).
+
+### ✉️ Nota de Agradecimiento Hiper-Personalizada (Thank-You Note)
+(Redactá un correo o mensaje de LinkedIn listo para copiar y enviar al entrevistador/reclutador. DEBE mencionar explícitamente al menos una decisión técnica, debate de arquitectura o herramienta específica debatida durante la sesión, mostrando genuino interés, proactividad y escucha activa).
+
+No agregues introducciones ni despedidas ajenas, devolvé únicamente el Markdown solicitado.`;
 
 export async function POST(req: Request) {
   // 0. Kill switch de capacidad
@@ -66,6 +82,7 @@ export async function POST(req: Request) {
     company?: string;
     role?: string;
     transcript?: string;
+    facts?: string[];
     model?: string;
     provider?: string;
   };
@@ -81,8 +98,11 @@ export async function POST(req: Request) {
   const company = sanitizeForPrompt((body.company || "").slice(0, 200));
   const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
   const transcript = sanitizeForPrompt((body.transcript || "").slice(0, 12000));
+  const factsList = Array.isArray(body.facts) && body.facts.length > 0
+    ? body.facts.map((f) => `- ${sanitizeForPrompt(String(f))}`).join("\n")
+    : "(Ningún hecho específico registrado)";
 
-  const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## ROL\n${role || "(sin especificar)"}\n\n## PERFIL\n${profile || "(sin especificar)"}\n\n## TRANSCRIPCIÓN\n${transcript || "(sin transcripción)"}`;
+  const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## ROL\n${role || "(sin especificar)"}\n\n## PERFIL\n${profile || "(sin especificar)"}\n\n## HECHOS Y DECISIONES TÉCNICAS CONFIRMADAS (Fact Ledger)\n${factsList}\n\n## TRANSCRIPCIÓN\n${transcript || "(sin transcripción)"}`;
 
   const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
 

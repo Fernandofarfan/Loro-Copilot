@@ -151,4 +151,35 @@ We started with a clean modular monolith before splitting services.`;
     expect(parsed.alert).toBe("Cuidado: están buscando evaluar si sobrediseñás con microservicios prematuros.");
     expect(parsed.enText).toContain("We started with a clean modular monolith");
   });
+
+  it("debe extraer [EDGE_CASES] para blindaje en live-coding", () => {
+    const raw = `[EDGE_CASES]
+1. Input array vacío o nulo | 2. Enteros de 32-bits que causen overflow | 3. Elementos repetidos / duplicados
+[/EDGE_CASES]
+
+[EN]
+We can solve Two Sum in O(N) using a Hash Map.`;
+
+    const parsed = parseBlocks(raw);
+    expect(parsed.edgeCases).toHaveLength(3);
+    expect(parsed.edgeCases?.[0]).toContain("Input array vacío");
+    expect(parsed.edgeCases?.[1]).toContain("overflow");
+    expect(parsed.edgeCases?.[2]).toContain("duplicados");
+    expect(parsed.cleanText).not.toContain("[EDGE_CASES]");
+    expect(parsed.enText).toContain("Two Sum");
+  });
+
+  it("debe extraer [WHY_NOT] para matriz de trade-offs de arquitectura", () => {
+    const raw = `[WHY_NOT]
+Descarté DynamoDB porque requeríamos transacciones ACID complejas con joins relacionales y el volumen no excedía 5k QPS.
+[/WHY_NOT]
+
+[EN]
+We selected PostgreSQL with hash partitioning to satisfy strict consistency.`;
+
+    const parsed = parseBlocks(raw);
+    expect(parsed.whyNot).toContain("Descarté DynamoDB");
+    expect(parsed.cleanText).not.toContain("[WHY_NOT]");
+    expect(parsed.enText).toContain("PostgreSQL");
+  });
 });

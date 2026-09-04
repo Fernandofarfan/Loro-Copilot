@@ -19,30 +19,33 @@ npm run dev
 ```
 
 ### Comandos de Validación
-- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 132 tests en 20 suites de `__tests__/`).
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 152 tests en 25 suites de `__tests__/`).
 - **Chequeo de tipos:** `npx tsc --noEmit`.
 - **Build de producción:** `npm run build`.
 
 ## Estructura de Archivos
 
-- `app/app/page.tsx` — Vista principal del Copiloto en vivo (soporte Audio Dual 🎧, vúmetro estéreo, Screen Vision `Ctrl+Shift+S`, Susurro al Oído, Cierre de Oro `Ctrl+Shift+Q`, Eye Coach, Fact Ledger badge, WebSocket a Deepgram, renderizado en streaming, banco de memoria instantánea, RAG de CV, sincronización con Teleprompter y atajos `Ctrl+1`/`Ctrl+2`).
-- `app/simulador/page.tsx` — Simulador interactivo de entrevistas (Avatar, TTS con Web Speech API, reporte de métricas y feedback).
-- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; modo Always-on-Top nativo (`documentPictureInPicture`), control de opacidad stealth, Lectura Biónica, chips `[KEY]`, alerta de trampas, botón Panic (`Escape`) sincronizado vía `BroadcastChannel` y `localStorage`.
-- `app/components/` — Componentes modulares de UI (`AnswerCard` con badges de validación Big-O y `ArchitectureCanvas` SVG para System Design, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
-- `app/components/ArchitectureCanvas.tsx` — Canvas interactivo que renderiza diagramas de flujo y arquitectura de infraestructura a partir de bloques `[MERMAID]`.
-- `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles, contexto y banco de respuestas maestras (`masterAnswers`).
-- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab/dual), remuestreo estéreo AudioWorklet PCM16 con filtro de voz y noise gate adaptativo, VAD local, barge-in y trigger de generación especulativa en turnos largos.
-- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas con pre-fetching especulativo, Punchline First (`keyWords`), callback de susurro `onPunchline`, Dual Stream de trampas en background, Fact Ledger acumulativo, depuración Anti-Slop, soporte multimodal/visión y generador de preguntas.
-- `app/hooks/useTeleprompter.ts` — Hook para pop-out de ventana HUD y sincronización en tiempo real vía `BroadcastChannel` y `localStorage`.
-- `app/hooks/useScreenVision.ts` — Captura de pantalla en WebP ultraliviano y Live OCR multimodal para LeetCode y diagramas de arquitectura (`Ctrl+Shift+S`).
+- `app/app/page.tsx` — Vista principal del Copiloto en vivo (soporte Audio Dual 🎧 con selector de hardware/VB-CABLE, ventana de gracia de 4.5s anti-falsos positivos en Barge-in, Hotkeys sigilosos `F2`/`F3`/`F4`/`` ` ``, Screen Vision multimodal `Ctrl+Shift+S`, Susurro al Oído, Cierre de Oro, Eye Coach, Fact Ledger badge, Radar de Vulnerabilidades del CV, Inyector de preguntas Glassdoor/Blind en Memoria (<50ms), Scorecard Predictor FAANG con Análisis Forense Post-Mortem, Bóveda de Historias STAR reales, Sugeridor Automático de Historias STAR con auto-match heurístico, Detector de Desafíos de Firmeza (Have Backbone), Dossier & Perfil Psicológico del Entrevistador (Pre-Interview Intel), WebSocket a Deepgram y sincronización con HUD).
+- `app/simulador/page.tsx` — Simulador interactivo de entrevistas (Avatar, selector de personalidades del entrevistador FAANG, Radar de Vulnerabilidades Red Team integrado, TTS con Web Speech API, reporte de métricas y feedback).
+- `app/teleprompter/page.tsx` — HUD flotante ultraliviano para ubicar debajo de la webcam; Modo Camuflaje "IDE (VS Code) / Terminal (Linux Bash)" para compartir pantalla sin sospechas, modo Always-on-Top nativo (`documentPictureInPicture`), control de opacidad stealth, Lectura Biónica, Karaoke Speech Pacer a ~135 WPM, Cheat Sheet de Números de System Design (Jeff Dean numbers), detector de silencio incómodo (>3.5s) con frase puente flotante, matriz de trade-offs `[WHY_NOT]`, casos borde `[EDGE_CASES]`, tabla de Dry-Run Stepper paso a paso, alerta visual de Have Backbone, sugeridor flotante de historias STAR coincidentes, chips `[KEY]`, botón Panic (`Escape`) sincronizado vía `BroadcastChannel` y `localStorage`.
+- `app/components/` — Componentes modulares de UI (`AnswerCard` con badges de validación Big-O, Fast-Transpiler Multilenguaje Instantáneo a Go/Python/TS/Java/C++, Dry-Run Stepper de ejecución paso a paso, banner Have Backbone, bloques `[EDGE_CASES]` y `[WHY_NOT]`, y `ArchitectureCanvas` SVG/Excalidraw para System Design, `RescuePhrases`, `Dropdown`, `Icons`, `InfoTip`, `ListenText`, `MarkdownText`).
+- `app/components/ArchitectureCanvas.tsx` — Canvas interactivo que renderiza diagramas de flujo y arquitectura a partir de bloques `[MERMAID]`, con exportación 1-click a Excalidraw ("📋 Copiar a Excalidraw") y descarga SVG vectorizado ("💾 Descargar SVG").
+- `app/hooks/useInterviewContext.ts` — Hook reutilizable para gestión y persistencia de perfiles, contexto, Dossier Psicológico del Entrevistador (`interviewerBio`), banco de respuestas maestras (`masterAnswers`) y Bóveda de Historias STAR reales (`starStories`).
+- `app/hooks/useDeepgram.ts` — Hook modular para ciclo de vida de WebSocket, captura de audio (mic/tab/dual) con soporte de deviceId físico y virtual (VB-CABLE), remuestreo estéreo AudioWorklet PCM16 con filtro de voz y noise gate adaptativo, VAD local, barge-in sustancial (>=15 chars), liberación estricta de nodos Web Audio y trigger de generación especulativa en turnos largos.
+- `app/hooks/useAnswerStream.ts` — Hook para streaming SSE de respuestas con pre-fetching especulativo, Punchline First (`keyWords`), callback de susurro `onPunchline`, extracción de `edgeCases`, `whyNot` y `dryRun` en tiempo real, Dual Stream de trampas en background, Fact Ledger acumulativo, inyección de historias STAR y Dossier Psicológico, depuración Anti-Slop con salvaguarda anti-loop, soporte multimodal/visión y generador de preguntas.
+- `app/hooks/useTeleprompter.ts` — Hook para pop-out de ventana HUD y sincronización en tiempo real vía `BroadcastChannel` y `localStorage` con soporte de `edgeCases`, `whyNot`, `dryRun`, `matchedStory` y `firmnessAlert`.
+- `app/hooks/useScreenVision.ts` — Captura de pantalla en WebP ultraliviano y Live OCR multimodal para LeetCode y diagramas de arquitectura (`Ctrl+Shift+S` o tecla `` ` ``) con generación de Dry-Run Stepper.
 - `app/hooks/useEarbudWhisper.ts` — Modo "Susurro al Oído" con sintetizador Web Speech API acelerado (1.5x) para dictado privado del punchline en auricular.
 - `app/hooks/useGazeTracker.ts` — Asistente de contacto visual (Eye-Contact Coach) con la webcam local (100% privado en navegador) para evitar desviar la mirada al teleprompter.
-- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Prompt Caching (KV-Cache), Punchline First, clasificación temprana de preguntas (`system_design`, `live_coding`, `behavioral`, `salary_negotiation`, `fit`), Company Dossier context injection, Fact Ledger consistency, Spanglish técnico, soporte multimodal para Vision Coding (`mode: "vision_coding"`), modo Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`).
+- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Fast-Transpiler Multilenguaje (`type: "transpile"`), calibración de sesgo y tono por Dossier Psicológico del Entrevistador (`interviewerBio`), directiva de trazado de estados Dry-Run Stepper (`[DRY_RUN]`), Prompt Caching (KV-Cache), Punchline First, directivas `[EDGE_CASES]` y `[WHY_NOT]`, clasificación temprana de preguntas (`system_design`, `live_coding`, `behavioral`, `salary_negotiation`, `fit`), Company Dossier context injection, Fact Ledger consistency, anclaje en Historias STAR reales, Spanglish técnico, soporte multimodal para Vision Coding (`mode: "vision_coding"`), modo Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`).
 - `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
-- `app/api/simulador/route.ts` — Generador de preguntas dinámicas y feedback estructurado JSON.
+- `app/api/simulador/route.ts` — Generador de preguntas dinámicas según personalidad elegida (`amazon_bar_raiser`, `skeptic_architect`, `faang_recruiter`, `standard`) y feedback estructurado JSON.
 - `app/api/waitlist/route.ts` — Captura y registro de lista de espera con rate limiting.
-- `app/api/summary/route.ts` — Generador de resumen post-entrevista en Markdown.
-- `app/lib/antiSlopFilter.ts` — Filtro de estilo y limpiador de clichés formuláicos de IA ("AI Slop") para asegurar tono pragmático de ingeniería de producción.
+- `app/api/summary/route.ts` — Generador de Scorecard Predictor FAANG (Strong Hire / Hire / Lean Hire / No Hire), Análisis Forense & Detección de Fugas (Post-Mortem Técnico) y borrador de Follow-up Thank-You Note en Markdown citando trade-offs y Fact Ledger de la sesión.
+- `app/lib/vulnerabilityRadar.ts` — Radar de Vulnerabilidades del CV (Red Team): motor heurístico de auditoría de CV y generador de prompts para anticipar flancos débiles, preguntas incisivas y estrategias de pivote STAR.
+- `app/lib/simuladorPersonas.ts` — Directivas especializadas y constructor de system prompts para las personalidades del simulador.
+- `app/lib/excalidrawExport.ts` — Conversor de diagramas Mermaid a formato nativo clipboard JSON de Excalidraw.
+- `app/lib/antiSlopFilter.ts` — Filtro de estilo y limpiador de clichés formuláicos de IA ("AI Slop") con protección estricta contra bucles infinitos (`MAX_ITERATIONS = 10`) para asegurar tono pragmático de ingeniería de producción.
 - `app/lib/factLedger.ts` — Grafo de memoria de sesión (Fact Ledger) para extracción, deduplicación e inyección de afirmaciones previas para evitar contradicciones.
 - `app/lib/companyDossier.ts` — Base de conocimiento de stacks tecnológicos reales, arquitecturas y principios culturales de más de 20 empresas de tecnología líderes.
 - `app/lib/mermaidParser.ts` — Parser liviano de diagramas Mermaid Flowchart para el Architecture Canvas.
@@ -51,7 +54,7 @@ npm run dev
 - `app/lib/speechCoach.ts` — Análisis de telemetría de habla: cálculo de WPM, ratio de escucha/habla y conteo de muletillas (*fillers*).
 - `app/lib/llm.ts` — Clientes HTTP y parsers SSE para cada provider (Gemini, OpenCode, Anthropic, OpenAI) con soporte multimodal (`image`), timeouts (`AbortController`) y fallback inteligente.
 - `app/lib/security.ts` — Verificación de `Origin`/`Referer` y Rate Limiter en memoria con lazy cleanup.
-- `app/lib/interviewHelpers.ts` — Clasificador temprano de preguntas (`classifyQuestionType` con `salary_negotiation`), detector de preguntas trampa, parser de bloques (`[KEY]`, `[EN]`, `[PHO]`, `[ES]`), sinónimos canónicos (`CANONICAL_SYNONYMS`), aisladores `matchesCompany()` / `matchesRole()` y motor de búsqueda de memoria `findMatchingAnswer()`.
+- `app/lib/interviewHelpers.ts` — Clasificador temprano de preguntas (`classifyQuestionType` con `salary_negotiation`), detector de preguntas trampa, parser de bloques (`[KEY]`, `[EN]`, `[PHO]`, `[ES]`, `[EDGE_CASES]`, `[WHY_NOT]`) con soporte para streaming en vivo y limpieza de marcadores de razonamiento, sinónimos canónicos (`CANONICAL_SYNONYMS`), aisladores `matchesCompany()` / `matchesRole()` y motor de búsqueda de memoria `findMatchingAnswer()`.
 - `app/lib/track.ts` — Wrapper fail-safe de analytics (`track()`, `identify()`).
 - `public/pcm-worklet.js` — AudioWorklet para remuestreo y conversión de Float32 a PCM16 16kHz estéreo con cálculo RMS, filtro de voz paso-alto, noise gate adaptativo y VAD local.
 - `docs/` — Centro de documentación técnica:
@@ -60,7 +63,7 @@ npm run dev
   - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
   - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
   - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.
-- `__tests__/` — Suite de 132 tests unitarios automatizados en 20 archivos (`antiSlopFilter`, `factLedger`, `companyDossier`, `salaryNegotiation`, `gazeTracker`, `mermaidParser`, `interviewHelpers`, `cvChunker`, `speechCoach`, `llm`, `parseBlocks`, `security`, `deepgramToken`, `useAnswerStream`, `useInterviewContext`, `useDeepgram`, `useTeleprompter`, `codeEvaluator`, `timelineRAG`, `screenVision`).
+- `__tests__/` — Suite de 152 tests unitarios automatizados en 25 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `vulnerabilityRadar`).
 
 ## Convenciones de Código
 

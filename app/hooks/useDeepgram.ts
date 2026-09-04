@@ -80,6 +80,7 @@ export function useDeepgram({
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const dualSourcesRef = useRef<AudioNode[]>([]);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const silentGainRef = useRef<GainNode | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -98,6 +99,7 @@ export function useDeepgram({
   const lineCounterRef = useRef(1);
   const currentInterimIdRef = useRef<number | null>(null);
   const lastSpeakerRef = useRef<number>(0);
+  const lastEnergyUpdateRef = useRef(0); // Throttle de actualizaciones de energía (evita re-renders a frecuencia de audio)
 
   const clearTimers = useCallback(() => {
     if (keepAliveTimerRef.current) {
@@ -154,6 +156,15 @@ export function useDeepgram({
         streamRef.current.getTracks().forEach((track) => track.stop());
       } catch {}
       streamRef.current = null;
+    }
+
+    if (dualSourcesRef.current.length > 0) {
+      dualSourcesRef.current.forEach((node) => {
+        try {
+          node.disconnect();
+        } catch {}
+      });
+      dualSourcesRef.current = [];
     }
 
     if (workletNodeRef.current) {
@@ -323,9 +334,14 @@ export function useDeepgram({
                 } else if (e.data.type === "local_vad_silence") {
                   onUtteranceEndRef.current?.();
                 } else if (e.data.type === "energy") {
-                  const energyData = { micRms: e.data.micRms, tabRms: e.data.tabRms };
-                  setEnergy(energyData);
-                  onEnergyRef.current?.(energyData);
+                  // Throttle de energía a max 5fps para evitar spam de setState
+                  const now = Date.now();
+                  if (now - lastEnergyUpdateRef.current >= 200) {
+                    lastEnergyUpdateRef.current = now;
+                    const energyData = { micRms: e.data.micRms, tabRms: e.data.tabRms };
+                    setEnergy(energyData);
+                    onEnergyRef.current?.(energyData);
+                  }
                 }
               }
             };
@@ -362,8 +378,8 @@ export function useDeepgram({
                   speaker = alt.words?.[0]?.speaker ?? 0;
                 }
 
-                // Barge-in: Si el entrevistador habla, notificar interrupción inmediata
-                if (speaker === 0) {
+                // Barge-in: Si el entrevistador habla con una intervención sustancial, notificar interrupción
+                if (speaker === 0 && transcript.length >= 15) {
                   onBargeInRef.current?.();
                 }
 
@@ -431,7 +447,7 @@ export function useDeepgram({
   );
 
   const connect = useCallback(
-    async (mode: AudioMode = "mic") => {
+    async (mode: AudioMode = "mic", micDeviceId?: string, interviewerDeviceId?: string) => {
       disconnect();
       const currentGen = ++connectionGenRef.current;
       intentionalCloseRef.current = false;
@@ -444,43 +460,65 @@ export function useDeepgram({
         let stream: MediaStream;
         let isDual = false;
 
+        const micConstraints: MediaTrackConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        };
+        if (micDeviceId) {
+          micConstraints.deviceId = { exact: micDeviceId };
+        }
+
         if (mode === "dual") {
           isDual = true;
 
           // 1. Micrófono del candidato
           const micStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
+            audio: micConstraints,
           });
 
-          // 2. Audio de la pestaña (Meet / Zoom)
+          // 2. Audio del entrevistador: o por dispositivo dedicado (Cable Virtual / Stereo Mix) o por pestaña
           let tabStream: MediaStream;
-          try {
-            tabStream = await navigator.mediaDevices.getDisplayMedia({
-              video: true,
-              audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-              },
-            });
-          } catch (tabErr) {
-            micStream.getTracks().forEach((t) => t.stop());
-            throw tabErr;
+          if (interviewerDeviceId) {
+            try {
+              tabStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  deviceId: { exact: interviewerDeviceId },
+                  echoCancellation: false,
+                  noiseSuppression: false,
+                  autoGainControl: false,
+                },
+              });
+            } catch (cableErr) {
+              micStream.getTracks().forEach((t) => t.stop());
+              throw cableErr;
+            }
+          } else {
+            try {
+              tabStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: {
+                  echoCancellation: false,
+                  noiseSuppression: false,
+                  autoGainControl: false,
+                },
+              });
+            } catch (tabErr) {
+              micStream.getTracks().forEach((t) => t.stop());
+              throw tabErr;
+            }
+
+            // Detener video inmediatamente para ahorrar recursos
+            tabStream.getVideoTracks().forEach((t) => t.stop());
           }
 
-          // Detener video inmediatamente para ahorrar recursos
-          tabStream.getVideoTracks().forEach((t) => t.stop());
           const tabAudioTracks = tabStream.getAudioTracks();
           if (tabAudioTracks.length === 0) {
             micStream.getTracks().forEach((t) => t.stop());
             tabStream.getTracks().forEach((t) => t.stop());
             setStatus("error");
             setErrorMessage(
-              "No se detectó audio en la pestaña. Asegurate de tildar 'Compartir audio del sistema / pestaña' al seleccionarla."
+              "No se detectó audio en la fuente del entrevistador. Si usás pestaña, asegurate de tildar 'Compartir audio del sistema / pestaña'."
             );
             return;
           }
@@ -518,10 +556,11 @@ export function useDeepgram({
           const micSource = audioCtx.createMediaStreamSource(micStream);
           const tabSource = audioCtx.createMediaStreamSource(tabStream);
           const merger = audioCtx.createChannelMerger(2);
+          dualSourcesRef.current = [micSource, tabSource, merger];
 
           // Canal 0 (L): Micrófono Candidato
           micSource.connect(merger, 0, 0);
-          // Canal 1 (R): Pestaña Entrevistador
+          // Canal 1 (R): Pestaña / Cable Entrevistador
           tabSource.connect(merger, 0, 1);
 
           const workletNode = new AudioWorkletNode(audioCtx, "pcm-worklet", {
@@ -605,11 +644,7 @@ export function useDeepgram({
           await connectWs(currentGen, stream, false);
         } else {
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
+            audio: micConstraints,
           });
 
           if (connectionGenRef.current !== currentGen) {

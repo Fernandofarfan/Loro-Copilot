@@ -46,6 +46,8 @@ Tu tarea: Responder con máxima señal técnica, fit con el puesto y comunicaci�
 ## Formato de Salida y Estructura "Punchline First"
 - Si respondés en inglés, comenzá OBLIGATORIAMENTE con el bloque [KEY] de 3 palabras clave telegráficas para dar dirección inmediata al candidato:
 [KEY] palabra1 | palabra2 | palabra3 [/KEY]
+- En preguntas técnicas, de arquitectura o diseño de sistemas, incluí OBLIGATORIAMENTE al final el bloque [WHY_NOT] con una alternativa popular descartada y el por qué métrico:
+[WHY_NOT] Descarté [Alternativa popular] porque [Métrica concreta de latencia, costo, consistencia o throughput] [/WHY_NOT]
 - 1 frase de apertura auto-suficiente (sin viñeta) que ya contesta el núcleo de la pregunta de inmediato.
 - Línea en blanco y 2 a 3 viñetas breves ("- ") continuando el discurso hablado con naturalidad (8 a 14 palabras por viñeta).
 - Sin introducciones tipo "Buena pregunta" ni preámbulos innecesarios.`;
@@ -70,12 +72,23 @@ Analizá la imagen provista y la pregunta o contexto:
 1. Si es un problema de algoritmos / Live Coding:
 - Arrancá OBLIGATORIAMENTE con el bloque [KEY] indicando el enfoque óptimo y complejidades Big-O:
 [KEY] Patrón (ej. Two Pointers / Hash Map) | O(N) tiempo | O(1) espacio [/KEY]
+- Incluí OBLIGATORIAMENTE el bloque [EDGE_CASES] con los 3 casos límite o trampas de test cases a verificar con el entrevistador antes de codear:
+[EDGE_CASES] Caso 1 (ej. input vacío/nulo) | Caso 2 (ej. enteros extremos o negativos / overflow 32-bit) | Caso 3 (ej. duplicados o ciclos) [/EDGE_CASES]
+- Incluí OBLIGATORIAMENTE el bloque [DRY_RUN] con una tabla de 3-4 filas mostrando el trazado paso a paso con un test case de ejemplo para relatar la ejecución en vivo:
+[DRY_RUN]
+| Paso | Variables / Punteros | Condición / Operación | Estado / Retorno |
+| :--- | :--- | :--- | :--- |
+| Inicial | i=0, j=n-1 | Input simple | Estado inicial |
+| Paso 1 | ... | ... | ... |
+| Fin | ... | ... | return resultado |
+[/DRY_RUN]
 - 1 frase clara explicando la idea núcleo del algoritmo.
 - Código limpio, fuertemente tipado, con nombres descriptivos y manejo de edge cases (en el lenguaje del puesto o TypeScript/Python).
 - 2 viñetas breves explicando por qué es la solución óptima y trade-offs.
 
 2. Si es un diagrama de arquitectura o bug en pantalla:
 - [KEY] Causa Raíz / Componente Clave | Acción Correctiva | Patrón [/KEY]
+- [WHY_NOT] Descarté [Alternativa popular] porque [Métrica/Trade-off concreto] [/WHY_NOT]
 - Apertura directa y diagnóstico en 1 frase.
 - 2 a 3 viñetas con la solución o arquitectura recomendada.`;
 
@@ -100,6 +113,13 @@ Tu respuesta debe ser EXCLUSIVAMENTE un array JSON válido sin formato markdown 
     "tags": ["tag1", "tag2"]
   }
 ]`;
+
+const TRANSPILER_PROMPT = `Sos un Senior Polyglot Software Engineer. Tu tarea es transpilar el código provisto al lenguaje solicitado de manera idiomática, limpia y con las mejores prácticas y tipos nativos (ej. goroutines y channels en Go, list comprehensions y type hints en Python, pointers y RAII en C++, streams o records en Java, TypeScript estricto).
+
+Respondé EXCLUSIVAMENTE con el bloque de código Markdown sin introducciones ni comentarios adicionales:
+\`\`\`<lenguaje>
+<código transpilado>
+\`\`\``;
 
 export async function POST(req: Request) {
   // 0. Kill switch de capacidad
@@ -141,12 +161,16 @@ export async function POST(req: Request) {
     bilingualMode?: boolean;
     simpleEnglish?: boolean;
     dialect?: "rioplatense" | "neutro" | "english";
-    type?: "answer" | "icebreaker" | "warmup" | "reverse_questions";
-    mode?: "default" | "trap_detector" | "vision_coding";
+    type?: "answer" | "icebreaker" | "warmup" | "reverse_questions" | "transpile";
+    mode?: "default" | "trap_detector" | "vision_coding" | "transpile";
     extraInstructions?: string;
+    interviewerBio?: string;
+    targetLang?: string;
+    code?: string;
     previousAnswers?: { q: string; a: string }[];
     image?: { mimeType: string; data: string } | null;
     facts?: Array<string | { category: string; statement: string }>;
+    starStories?: Array<{ title?: string; situation?: string; task?: string; action?: string; result?: string }>;
   };
 
   try {
@@ -175,13 +199,34 @@ export async function POST(req: Request) {
     const visionContent = `<role>${role || "Software Engineer"}</role>
 <company>${company || "Tech Company"}</company>
 <question>${question || "Analizá el ejercicio o código visible en la imagen y proveé la solución óptima."}</question>`;
-    const visionCandidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
+
+    // Si el proveedor seleccionado no es multimodal nativo (ej. OpenCode con DeepSeek/GLM solo texto),
+    // rutear inmediatamente al proveedor multimodal disponible (Gemini, OpenAI, Anthropic)
+    // para evitar un timeout de 25s en un modelo ciego.
+    let visionProvider = provider;
+    if (visionProvider === "opencode" || visionProvider === "openrouter") {
+      if (process.env.GEMINI_API_KEY) {
+        visionProvider = "gemini";
+      } else if (process.env.OPENAI_API_KEY) {
+        visionProvider = "openai";
+      } else if (process.env.ANTHROPIC_API_KEY) {
+        visionProvider = "anthropic";
+      }
+    }
+
+    const visionCandidates = Array.from(
+      new Set([
+        ...(visionProvider === provider ? [model] : []),
+        ...FALLBACK_MODELS[visionProvider],
+      ])
+    ).slice(0, 3);
+
     try {
-      return await (provider === "gemini"
+      return await (visionProvider === "gemini"
         ? streamGemini(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image })
-        : provider === "anthropic"
+        : visionProvider === "anthropic"
         ? streamAnthropic(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image })
-        : provider === "openai"
+        : visionProvider === "openai"
         ? streamOpenAI(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image })
         : streamOpenCode(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image }));
     } catch (err: unknown) {
@@ -230,6 +275,26 @@ ${transcript || "(sin transcripción previa acumulada)"}
     } catch (err: unknown) {
       console.error("Error en reverse questions:", err);
       return new Response("Error al generar preguntas de cierre.", { status: 500 });
+    }
+  }
+
+  // Modo Transpiler Rápido de Código Multilenguaje
+  if (body.type === "transpile" || body.mode === "transpile") {
+    const targetLang = sanitizeForPrompt((body.targetLang || "typescript").slice(0, 50));
+    const code = (body.code || "").slice(0, 6000);
+    const transpilePrompt = `<target_language>${targetLang}</target_language>\n\n<source_code>\n${code}\n</source_code>`;
+    const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 2);
+    try {
+      return await (provider === "gemini"
+        ? streamGemini(candidates, transpilePrompt, TRANSPILER_PROMPT)
+        : provider === "anthropic"
+        ? streamAnthropic(candidates, transpilePrompt, TRANSPILER_PROMPT)
+        : provider === "openai"
+        ? streamOpenAI(candidates, transpilePrompt, TRANSPILER_PROMPT)
+        : streamOpenCode(candidates, transpilePrompt, TRANSPILER_PROMPT));
+    } catch (err: unknown) {
+      console.error("Error en transpiler:", err);
+      return new Response("Error al transpilar código.", { status: 500 });
     }
   }
 
@@ -328,6 +393,14 @@ ${spanglishRule}
     categoryDirective = `\n## DIRECTIVA LIVE CODING / ALGORITMOS:
 - Indicá primero la complejidad en 1 frase: Big-O temporal ($O(N)$) y espacial ($O(1)$).
 - Explicá el enfoque (Two pointers, Hash Map, Sliding Window, DP).
+- Incluí OBLIGATORIAMENTE el bloque [DRY_RUN] con una tabla concisa de 3 a 4 filas mostrando el trazado paso a paso con un test case de ejemplo para que el candidato pueda relatar la ejecución sin trabarse:
+[DRY_RUN]
+| Paso | Variables / Punteros | Condición / Operación | Estado / Retorno |
+| :--- | :--- | :--- | :--- |
+| Inicial | i=0, j=n-1 | Input simple | Estado inicial |
+| Paso 1 | ... | ... | ... |
+| Fin | ... | ... | return resultado |
+[/DRY_RUN]
 - Mostrá código limpio, idiomático y tipado para el puesto.`;
   } else if (questionCategory === "behavioral") {
     categoryDirective = `\n## DIRECTIVA COMPORTAMENTAL (STAR):
@@ -350,12 +423,26 @@ ${spanglishRule}
   const companyDossier = getCompanyDossier(company);
   const companyDossierSection = companyDossier ? `\n\n${formatCompanyDossierPrompt(companyDossier)}\n` : "";
 
+  const interviewerBio = sanitizeForPrompt((body.interviewerBio || "").slice(0, 2000));
+  const interviewerBioSection = interviewerBio
+    ? `\n## 👤 DOSSIER & PERFIL PSICOLÓGICO DEL ENTREVISTADOR (CALIBRACIÓN DE TONO):\n"${interviewerBio}"\nDIRECTIVA DE CALIBRACIÓN: Adaptá tu vocabulario, ejemplos y nivel de detalle al perfil del evaluador. Si tiene fondo de infraestructura / bajo nivel / C++ / sistemas distribuidos, enfatizá latencia, concurrencia, límites de CPU/RAM y particionamiento. Si es VP / Engineering Manager / Producto, priorizá impacto comercial, time-to-market, costo operativo y trade-offs pragmáticos. Si es un reclutador, usá explicaciones claras y colaborativas sin jerga oscura.\n`
+    : "";
+
   let factsSection = "";
   if (Array.isArray(body.facts) && body.facts.length > 0) {
     const lines = body.facts
       .slice(-10)
       .map((f: unknown) => (typeof f === "string" ? `- ${f}` : `- [${(f as { category: string }).category}] ${(f as { statement: string }).statement}`));
     factsSection = `\n## HECHOS PREVIOS DE LA SESIÓN (NO CONTRADECIR):\n${lines.join("\n")}\n`;
+  }
+
+  let starStoriesSection = "";
+  if (Array.isArray(body.starStories) && body.starStories.length > 0) {
+    const storiesFormatted = body.starStories
+      .slice(0, 5)
+      .map((s) => `### ${sanitizeForPrompt(s.title || "Logro")}\n- **S/T:** ${sanitizeForPrompt(s.situation || "")} ${sanitizeForPrompt(s.task || "")}\n- **Acción:** ${sanitizeForPrompt(s.action || "")}\n- **Resultado:** ${sanitizeForPrompt(s.result || "")}`)
+      .join("\n\n");
+    starStoriesSection = `\n## BÓVEDA DE HISTORIAS STAR REALES DEL CANDIDATO (Priorizar estas experiencias):\n${storiesFormatted}\n`;
   }
 
   const basePrompt = body.type === "icebreaker" ? ICEBREAKER_PROMPT : SYSTEM_PROMPT;
@@ -381,7 +468,9 @@ ${spanglishRule}
 ${profile || "(sin perfil cargado)"}
 </cv>
 ${companyDossierSection}
+${interviewerBioSection}
 ${factsSection}
+${starStoriesSection}
 ${extraInstructions ? `<candidate_notes>\n${extraInstructions}\n</candidate_notes>\n` : ""}
 
 ${answerLangLabel}

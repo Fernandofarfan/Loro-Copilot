@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
 import { MarkdownText } from "./MarkdownText";
-import { classifyQuestion, detectTrickQuestion, fmtTime } from "../lib/interviewHelpers";
+import { classifyQuestion, detectTrickQuestion, detectFirmnessChallenge, fmtTime } from "../lib/interviewHelpers";
 import { extractAndEvaluateCode } from "../lib/codeEvaluator";
 import ArchitectureCanvas from "./ArchitectureCanvas";
 import { extractMermaidBlocks } from "../lib/mermaidParser";
@@ -28,6 +28,10 @@ export interface AnswerItem {
   latencyMs?: number;
   modelName?: string;
   fromMemory?: boolean;
+  edgeCases?: string[];
+  whyNot?: string;
+  dryRun?: string;
+  firmnessTip?: string;
 }
 
 interface AnswerCardProps {
@@ -42,7 +46,7 @@ interface AnswerCardProps {
   isSavedInMemory?: boolean;
 }
 
-export function AnswerCard({
+export const AnswerCard = React.memo(function AnswerCard({
   answer: a,
   isCurrent = false,
   compactUi = false,
@@ -54,18 +58,65 @@ export function AnswerCard({
   isSavedInMemory = false,
 }: AnswerCardProps) {
   const warning = detectTrickQuestion(a.question);
+  const firmness = useMemo(() => detectFirmnessChallenge(a.question), [a.question]);
   const cat = classifyQuestion(a.question);
   const [savedLocal, setSavedLocal] = useState(isSavedInMemory);
 
+  // Fast-Transpiler Multilenguaje State
+  const [transpiledCode, setTranspiledCode] = useState<{ [lang: string]: string }>({});
+  const [currentLang, setCurrentLang] = useState<string>("original");
+  const [isTranspiling, setIsTranspiling] = useState(false);
+
+  // Solo calcular evaluaciones de código y mermaid cuando la respuesta está completa
+  // para evitar parseos costosos en cada tick de streaming (50ms)
   const codeEvaluations = useMemo(() => {
+    if (!a.done) return [];
     const full = a.text || a.cleanText || "";
     return extractAndEvaluateCode(full);
-  }, [a.text, a.cleanText]);
+  }, [a.done, a.text, a.cleanText]);
 
   const mermaidBlocks = useMemo(() => {
+    if (!a.done) return [];
     const full = a.text || a.cleanText || "";
     return extractMermaidBlocks(full);
-  }, [a.text, a.cleanText]);
+  }, [a.done, a.text, a.cleanText]);
+
+  const handleTranspile = async (targetLang: string) => {
+    if (targetLang === "original") {
+      setCurrentLang("original");
+      return;
+    }
+    if (transpiledCode[targetLang]) {
+      setCurrentLang(targetLang);
+      return;
+    }
+    const sourceCode = codeEvaluations[0]?.code || a.snippet || "";
+    if (!sourceCode) return;
+    setIsTranspiling(true);
+    setCurrentLang(targetLang);
+    try {
+      const res = await fetch("/api/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "transpile", code: sourceCode, targetLang }),
+      });
+      if (res.ok && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          setTranspiledCode((prev) => ({ ...prev, [targetLang]: acc }));
+        }
+      }
+    } catch (e) {
+      console.warn("Error transpilando código:", e);
+    } finally {
+      setIsTranspiling(false);
+    }
+  };
 
   const handleSaveMemory = () => {
     setSavedLocal(true);
@@ -135,6 +186,18 @@ export function AnswerCard({
         </div>
       )}
 
+      {/* Test de Firmeza / Have Backbone Challenge */}
+      {(firmness.isChallenge || a.firmnessTip) && (
+        <div className="bg-amber-950/40 text-amber-200 p-2.5 rounded-lg text-xs mt-2 border-2 border-amber-500/50 shadow-md">
+          <div className="flex items-center gap-1.5 font-bold text-amber-400 mb-1">
+            <span>🛡️</span> TEST DE FIRMEZA DETECTADO (Have Backbone)
+          </div>
+          <p className="leading-relaxed text-[11.5px]">
+            {a.firmnessTip || firmness.tip}
+          </p>
+        </div>
+      )}
+
       {/* Banner de Alerta del Modelo */}
       {a.alert && (
         <div className="alert-banner bg-red-500/10 text-red-500 p-2.5 rounded-lg text-[0.9em] mt-2 border border-red-500/20">
@@ -171,6 +234,83 @@ export function AnswerCard({
         </div>
       )}
 
+      {/* Fast-Transpiler Multilenguaje Toolbar */}
+      {(codeEvaluations.length > 0 || a.snippet) && (
+        <div className="flex items-center justify-between flex-wrap gap-1.5 mt-2.5 p-1.5 rounded-lg bg-zinc-900/90 border border-zinc-800">
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium pl-1">
+            <span>🔀</span> <span className="hidden sm:inline">Transpilar:</span>
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {[
+              { id: "original", label: "Original" },
+              { id: "go", label: "Go" },
+              { id: "python", label: "Python" },
+              { id: "typescript", label: "TS" },
+              { id: "java", label: "Java" },
+              { id: "cpp", label: "C++" },
+            ].map((lang) => (
+              <button
+                key={lang.id}
+                type="button"
+                onClick={() => handleTranspile(lang.id)}
+                disabled={isTranspiling && currentLang !== lang.id}
+                className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
+                  currentLang === lang.id
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold"
+                    : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-zinc-700/50"
+                }`}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Código Transpilado a Otro Lenguaje */}
+      {currentLang !== "original" && (
+        <div className="snippet-container bg-zinc-950 text-emerald-200 p-3 rounded-lg mt-2 font-mono text-[0.85em] whitespace-pre-wrap overflow-x-auto relative border border-emerald-700/50">
+          <div className="flex justify-between items-center mb-2 pb-1 border-b border-zinc-800 text-[11px] text-zinc-400">
+            <span className="font-semibold text-emerald-400 flex items-center gap-1">
+              <span>🔀</span> Código en {currentLang.toUpperCase()} {isTranspiling && "(generando...)"}
+            </span>
+            <button
+              type="button"
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2 py-0.5 rounded text-[10px] transition-colors"
+              onClick={() => onCopy(a.id, transpiledCode[currentLang] || "")}
+            >
+              Copiar {currentLang.toUpperCase()}
+            </button>
+          </div>
+          {transpiledCode[currentLang] ? (
+            <code>{transpiledCode[currentLang]}</code>
+          ) : (
+            <span className="text-zinc-500 italic">Transpilando sintaxis a {currentLang}...</span>
+          )}
+        </div>
+      )}
+
+      {/* Dry-Run Stepper: Trazado Paso a Paso de Estados para Live Coding */}
+      {a.dryRun && (
+        <div className="my-2.5 p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/40 text-xs">
+          <div className="font-bold text-emerald-400 flex items-center justify-between mb-1.5">
+            <span className="flex items-center gap-1.5">
+              <span>🔍</span> Dry-Run Stepper (Trazado Paso a Paso de Estados):
+            </span>
+            <button
+              type="button"
+              onClick={() => onCopy(a.id, a.dryRun || "")}
+              className="text-[10px] text-zinc-400 hover:text-emerald-300 bg-zinc-900/60 px-2 py-0.5 rounded border border-zinc-800"
+            >
+              Copiar Traza
+            </button>
+          </div>
+          <div className="font-mono text-[11px] bg-black/50 p-2 rounded border border-emerald-900/40 whitespace-pre-wrap text-emerald-200/90 leading-relaxed overflow-x-auto">
+            {a.dryRun}
+          </div>
+        </div>
+      )}
+
       {/* Validación de Código y Complejidad en Vivo */}
       {codeEvaluations.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -200,6 +340,32 @@ export function AnswerCard({
       {mermaidBlocks.map((mCode, idx) => (
         <ArchitectureCanvas key={`arch_${idx}`} mermaidCode={mCode} />
       ))}
+
+      {/* Casos Borde a Clarificar antes de Codear */}
+      {a.edgeCases && a.edgeCases.length > 0 && (
+        <div className="my-2 p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-xs">
+          <div className="font-bold text-amber-400 flex items-center gap-1.5 mb-1">
+            <span>🎯</span> Casos Borde a Clarificar antes de Codear:
+          </div>
+          <ul className="list-disc list-inside space-y-0.5 text-amber-200/90 text-[11px]">
+            {a.edgeCases.map((ec, idx) => (
+              <li key={idx}>{ec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Matriz de Trade-offs: Why NOT X? */}
+      {a.whyNot && (
+        <div className="my-2 p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/30 text-xs">
+          <div className="font-bold text-indigo-400 flex items-center gap-1.5 mb-0.5">
+            <span>⚖️</span> Why NOT X? (Alternativa Descartada):
+          </div>
+          <p className="text-indigo-200/90 text-[11px] leading-relaxed">
+            {a.whyNot}
+          </p>
+        </div>
+      )}
 
       {/* Contenido Principal (Bilingüe orden EN -> PHO -> ES vs Estándar) */}
       {a.bilingual ? (
@@ -241,7 +407,7 @@ export function AnswerCard({
               style={{ color: "var(--ink)" }}
             >
               {a.enText ? (
-                <MarkdownText text={a.enText} />
+                a.done ? <MarkdownText text={a.enText} /> : <span className="whitespace-pre-wrap">{a.enText}</span>
               ) : (
                 <span className="mono answer-card-loading">generando respuesta en inglés…</span>
               )}
@@ -275,7 +441,7 @@ export function AnswerCard({
             </div>
             <div className="answer-card-text text-[0.95em] leading-relaxed" style={{ color: "var(--ink-dim)" }}>
               {a.esText ? (
-                <MarkdownText text={a.esText} />
+                a.done ? <MarkdownText text={a.esText} /> : <span className="whitespace-pre-wrap">{a.esText}</span>
               ) : (
                 <span className="mono answer-card-loading">generando resumen en español…</span>
               )}
@@ -287,7 +453,7 @@ export function AnswerCard({
           <span className="answer-card-label answer-card-label-a">⭐ Respuesta</span>
           <div className="answer-card-text text-[1.05em] font-medium" style={{ color: "var(--ink)" }}>
             {a.text ? (
-              <MarkdownText text={a.cleanText || a.text} />
+              a.done ? <MarkdownText text={a.cleanText || a.text} /> : <span className="whitespace-pre-wrap">{a.cleanText || a.text}</span>
             ) : (
               <span className="mono answer-card-loading">generando…</span>
             )}
@@ -321,7 +487,18 @@ export function AnswerCard({
       )}
     </div>
   );
-}
+}, (prev, next) => {
+  // Comparador personalizado: evitar re-renders innecesarios de tarjetas antiguas
+  // durante streaming. Solo re-renderizar si la respuesta misma cambió o si
+  // copiedId afecta a esta tarjeta.
+  if (prev.answer !== next.answer) return false;
+  if (prev.isCurrent !== next.isCurrent) return false;
+  if (
+    (prev.copiedId === prev.answer.id || next.copiedId === next.answer.id) &&
+    prev.copiedId !== next.copiedId
+  ) return false;
+  return true;
+});
 
 export default AnswerCard;
 

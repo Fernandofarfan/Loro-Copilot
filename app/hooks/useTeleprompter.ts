@@ -13,6 +13,20 @@ export interface TeleprompterPayload {
   fromMemory?: boolean;
   keyWords?: string[];
   alert?: string;
+  edgeCases?: string[];
+  whyNot?: string;
+  dryRun?: string;
+  matchedStory?: {
+    storyIndex: number;
+    title: string;
+    action: string;
+    result: string;
+    score: number;
+  } | null;
+  firmnessAlert?: {
+    isChallenge: boolean;
+    tip?: string;
+  } | null;
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";
@@ -52,10 +66,12 @@ export function useTeleprompter() {
     };
   }, [clearCheckTimer]);
 
-  const syncTeleprompter = useCallback((payload: TeleprompterPayload) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {}
+  const syncTeleprompter = useCallback((payload: TeleprompterPayload, persist = true) => {
+    if (persist) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch {}
+    }
 
     if (bcRef.current) {
       try {

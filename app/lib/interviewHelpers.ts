@@ -244,48 +244,123 @@ export interface ParsedBlocks {
   cheats: string[];
   snippet: string;
   keyWords?: string[];
+  edgeCases?: string[];
+  whyNot?: string;
+  dryRun?: string;
 }
 
 export function parseBlocks(raw: string): ParsedBlocks {
-  const phoMatch = raw.match(/\[PHO\]([\s\S]*?)(?=\[(?:EN|ES|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
-  const enMatch = raw.match(/\[EN\]([\s\S]*?)(?=\[(?:ES|PHO|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
-  const esMatch = raw.match(/\[ES\]([\s\S]*?)(?=\[(?:EN|PHO|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
+  // Parser basado en indexOf — O(n) lineal en vez de regex con lookaheads O(n*m)
+  // Crítico: esta función se ejecuta cada 120-250ms durante streaming
+  const upperRaw = raw.toUpperCase();
+
+  // Tags conocidos para detectar inicio de bloques
+  const BLOCK_TAGS = ["[EN]", "[ES]", "[PHO]", "[KEY]", "[ALERT]", "[TRAMPA]", "[CHEATS]", "[SNIPPET]", "[EDGE_CASES]", "[CASOS_BORDE]", "[WHY_NOT]", "[TRADE_OFFS]", "[DRY_RUN]", "[TRAZADO]"];
+
+  // Buscar texto hasta el siguiente bloque conocido o fin
+  function extractUntilNextBlock(from: number): number {
+    let earliest = raw.length;
+    for (const tag of BLOCK_TAGS) {
+      const idx = upperRaw.indexOf(tag, from);
+      if (idx !== -1 && idx < earliest) earliest = idx;
+    }
+    return earliest;
+  }
+
+  // Extraer contenido entre [TAG] y [/TAG], o hasta siguiente bloque
+  function extractBlock(tag: string, altTag?: string): string {
+    const tags = altTag ? [tag, altTag] : [tag];
+    for (const t of tags) {
+      const openTag = `[${t}]`;
+      const closeTag = `[/${t}]`;
+      const start = upperRaw.indexOf(openTag);
+      if (start === -1) continue;
+      const contentStart = start + openTag.length;
+      const closeIdx = upperRaw.indexOf(closeTag, contentStart);
+      if (closeIdx !== -1) return raw.slice(contentStart, closeIdx).trim();
+      const endIdx = extractUntilNextBlock(contentStart);
+      return raw.slice(contentStart, endIdx).trim();
+    }
+    return "";
+  }
+
+  // Extraer y eliminar bloque completo de un string
+  function extractAndRemove(text: string, tag: string, altTag?: string): { content: string; cleaned: string } {
+    const upper = text.toUpperCase();
+    const tags = altTag ? [tag, altTag] : [tag];
+    for (const t of tags) {
+      const openTag = `[${t}]`;
+      const closeTag = `[/${t}]`;
+      const start = upper.indexOf(openTag);
+      if (start === -1) continue;
+      const end = upper.indexOf(closeTag, start + openTag.length);
+      if (end !== -1) {
+        const content = text.slice(start + openTag.length, end).trim();
+        const cleaned = text.slice(0, start) + text.slice(end + closeTag.length);
+        return { content, cleaned };
+      }
+
+      // En streaming: si son bloques terminales (WHY_NOT, DRY_RUN, EDGE_CASES) y la etiqueta abrió al final
+      if (t === "WHY_NOT" || t === "TRADE_OFFS" || t === "DRY_RUN" || t === "TRAZADO" || t === "EDGE_CASES" || t === "CASOS_BORDE") {
+        const content = text.slice(start + openTag.length).trim();
+        const cleaned = text.slice(0, start).trim();
+        return { content, cleaned };
+      }
+    }
+    return { content: "", cleaned: text };
+  }
+
+  const enText = extractBlock("EN");
+  const esText = extractBlock("ES");
+  const phoText = extractBlock("PHO");
 
   let cleanText = raw;
 
-  // Extraer [KEY] (Palabras clave telegráficas para Punchline First)
-  const keyMatch = cleanText.match(/\[KEY\]([\s\S]*?)(?=\[\/?(?:EN|ES|PHO|ALERT|CHEATS|SNIPPET|KEY)\]|$)/i);
+  // Extraer [KEY]
+  const keyResult = extractAndRemove(cleanText, "KEY");
   let keyWords: string[] = [];
-  if (keyMatch) {
-    const rawKeys = keyMatch[1].replace(/\[\/KEY\]/gi, "").trim();
-    keyWords = rawKeys
-      .split(/[|•,]/)
-      .map((k) => k.trim())
-      .filter(Boolean);
-    cleanText = cleanText.replace(keyMatch[0], "").replace(/\[\/KEY\]/gi, "");
+  if (keyResult.content) {
+    keyWords = keyResult.content.split(/[|•,]/).map((k) => k.trim()).filter(Boolean);
+    cleanText = keyResult.cleaned;
   }
 
-  // Extraer ALERT / TRAMPA
-  const alertMatch = cleanText.match(/\[(?:ALERT|TRAMPA)\]([\s\S]*?)\[\/(?:ALERT|TRAMPA)\]/i);
-  const alert = alertMatch ? alertMatch[1].trim() : "";
-  if (alertMatch) cleanText = cleanText.replace(alertMatch[0], "");
+  // Extraer [EDGE_CASES] o [CASOS_BORDE]
+  const edgeResult = extractAndRemove(cleanText, "EDGE_CASES", "CASOS_BORDE");
+  let edgeCases: string[] = [];
+  if (edgeResult.content) {
+    edgeCases = edgeResult.content.split(/[|•\n]/).map((c) => c.replace(/^[-*0-9.]+\s*/, "").trim()).filter(Boolean);
+    cleanText = edgeResult.cleaned;
+  }
 
-  const cheatsMatch = cleanText.match(/\[CHEATS\]([\s\S]*?)\[\/CHEATS\]/i);
-  const cheats = cheatsMatch
-    ? cheatsMatch[1]
-        .trim()
-        .split("|")
-        .map((s) => s.trim())
-        .filter(Boolean)
+  // Extraer [WHY_NOT] o [TRADE_OFFS]
+  const whyNotResult = extractAndRemove(cleanText, "WHY_NOT", "TRADE_OFFS");
+  const whyNot = whyNotResult.content;
+  cleanText = whyNotResult.cleaned;
+
+  // Extraer [DRY_RUN] o [TRAZADO]
+  const dryRunResult = extractAndRemove(cleanText, "DRY_RUN", "TRAZADO");
+  const dryRun = dryRunResult.content;
+  cleanText = dryRunResult.cleaned;
+
+  // Extraer [ALERT] o [TRAMPA]
+  const alertResult = extractAndRemove(cleanText, "ALERT", "TRAMPA");
+  const alert = alertResult.content;
+  cleanText = alertResult.cleaned;
+
+  // Extraer [CHEATS]
+  const cheatsResult = extractAndRemove(cleanText, "CHEATS");
+  const cheats = cheatsResult.content
+    ? cheatsResult.content.split("|").map((s) => s.trim()).filter(Boolean)
     : [];
-  if (cheatsMatch) cleanText = cleanText.replace(cheatsMatch[0], "");
+  cleanText = cheatsResult.cleaned;
 
-  const snippetMatch = cleanText.match(/\[SNIPPET\]([\s\S]*?)\[\/SNIPPET\]/i);
-  let snippet = snippetMatch ? snippetMatch[1].trim() : "";
+  // Extraer [SNIPPET]
+  const snippetResult = extractAndRemove(cleanText, "SNIPPET");
+  let snippet = snippetResult.content;
   if (snippet.startsWith("```") && snippet.endsWith("```")) {
     snippet = snippet.replace(/^```[\w]*\n/, "").replace(/```$/, "").trim();
   }
-  if (snippetMatch) cleanText = cleanText.replace(snippetMatch[0], "");
+  cleanText = snippetResult.cleaned;
 
   // Limpiar etiquetas <think>...</think> o <think> en curso en streaming
   if (cleanText.includes("<think>")) {
@@ -296,29 +371,31 @@ export function parseBlocks(raw: string): ParsedBlocks {
     }
   }
 
-  // Remover marcas de bloques de cleanText
+  // Limpiar marcador de razonamiento '🧠 *Analizando respuesta...*'
+  const stripThinkingMarker = (s: string) => s.replace(/🧠\s*\*Analizando respuesta\.\.\.\*\s*/gi, "").trim();
+  cleanText = stripThinkingMarker(cleanText);
+  const finalEnText = enText ? stripThinkingMarker(enText) : "";
+  const finalEsText = esText ? stripThinkingMarker(esText) : "";
+
+  // Remover marcas de bloques restantes
   cleanText = cleanText
-    .replace(/\[(?:EN|ES|PHO|KEY)\]/gi, "")
-    .replace(/\[\/(?:ALERT|CHEATS|SNIPPET|KEY|TRAMPA)\]/gi, "")
+    .replace(/\[(?:EN|ES|PHO|KEY|EDGE_CASES|CASOS_BORDE|WHY_NOT|TRADE_OFFS|DRY_RUN|TRAZADO)\]/gi, "")
+    .replace(/\[\/(?:ALERT|CHEATS|SNIPPET|KEY|TRAMPA|EDGE_CASES|CASOS_BORDE|WHY_NOT|TRADE_OFFS|DRY_RUN|TRAZADO)\]/gi, "")
     .trim();
 
-  const cleanBlock = (m: RegExpMatchArray | null) =>
-    m ? m[1].replace(/\[(ALERT|CHEATS|SNIPPET|KEY|TRAMPA)\][\s\S]*?\[\/\1\]/gi, "").trim() : "";
-
-  const enText = cleanBlock(enMatch);
-  const esText = cleanBlock(esMatch);
-  const phoText = cleanBlock(phoMatch);
-
   return {
-    bilingual: !!(enMatch || esMatch),
-    esText,
-    enText,
+    bilingual: !!(finalEnText || finalEsText),
+    esText: finalEsText,
+    enText: finalEnText,
     phoText,
     cleanText: cleanText.trim(),
     alert,
     cheats,
     snippet,
     keyWords,
+    edgeCases,
+    whyNot,
+    dryRun,
   };
 }
 
@@ -624,6 +701,166 @@ export function findMatchingAnswer(
   }
 
   return null;
+}
+
+// -------------------------------------------------------------
+// Detector de Pruebas de Seguridad / Desafíos de Firmeza (Have Backbone)
+// -------------------------------------------------------------
+
+export interface FirmnessChallengeResult {
+  isChallenge: boolean;
+  tip?: string;
+}
+
+/**
+ * Detecta si el entrevistador está desafiando deliberadamente la firmeza del candidato
+ * (e.g. Amazon "Have Backbone", "Are you sure about that?", "¿No sería mejor X?").
+ */
+export function detectFirmnessChallenge(text: string): FirmnessChallengeResult {
+  const clean = (text || "").trim().toLowerCase();
+  if (!clean || clean.length < 5) return { isChallenge: false };
+
+  const challengePatterns = [
+    /\bare you (?:really |absolutely )?sure\b/i,
+    /\bare you (?:really |absolutely )?certain\b/i,
+    /\bwouldn['’]?t it be (?:better|faster|simpler|easier|cheaper|more scalable)\b/i,
+    /\bwhy not just (?:use|do|go with|choose|pick)\b/i,
+    /\bis that really (?:going to )?scale\b/i,
+    /\bwhat if (?:that|it) fails\b/i,
+    /\bdo you really need (?:kafka|redis|microservices|distributed|kubernetes)\b/i,
+    /\best[aá]s seguro (?:de eso|de que)?\b/i,
+    /\bno ser[ií]a mejor (?:usar|hacer|ir por)\b/i,
+    /\bpor qu[eé] no (?:usar|hacer) simplemente\b/i,
+    /\bseguro que no conviene\b/i,
+    /\brealmente escala eso\b/i,
+    /\by si se cae (?:eso|el servidor|la base)\b/i,
+    /\bno es sobreingenier[ií]a\b/i,
+    /\bisn['’]?t that overengineering\b/i,
+  ];
+
+  if (challengePatterns.some((pattern) => pattern.test(clean))) {
+    return {
+      isChallenge: true,
+      tip: "⚠️ TEST DE FIRMEZA DETECTADO (Have Backbone): No cedas de inmediato ni te disculpes. Reconocé el punto («Entiendo por qué mencionás esa alternativa...»), explicá el trade-off técnico clave y defendé tu decisión con métricas de producción.",
+    };
+  }
+
+  return { isChallenge: false };
+}
+
+// -------------------------------------------------------------
+// Sugeridor Automático de Historias STAR (Auto-Match Heurístico)
+// -------------------------------------------------------------
+
+export interface STARStory {
+  id: string;
+  title: string;
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+  tags?: string[];
+  createdAt?: number;
+}
+
+export interface STARMatchResult {
+  story: STARStory;
+  storyIndex: number;
+  score: number;
+  reason: string;
+}
+
+/**
+ * Empareja semánticamente la pregunta del entrevistador con la Bóveda de Historias STAR.
+ */
+export function matchSTARStory(
+  question: string,
+  stories: STARStory[],
+  threshold = 0.35
+): STARMatchResult | null {
+  if (!stories || stories.length === 0 || !question.trim()) return null;
+
+  const cleanQ = question.toLowerCase();
+
+  const stopwords = new Set([
+    "tell", "about", "time", "had", "have", "you", "your", "can", "could", "did",
+    "would", "please", "describe", "explain", "give", "example", "when", "what", "where",
+    "how", "algo", "alguna", "contame", "cuentame", "sobre", "para", "como", "cuando", "vez", "que", "este", "esta"
+  ]);
+
+  // Extraer tokens significativos (>= 3 caracteres y no stopwords)
+  const qWords = cleanQ
+    .replace(/[^\w\sáéíóúüñ]/gi, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !stopwords.has(w));
+
+  if (qWords.length === 0) return null;
+
+  // Sinónimos temáticos típicos de entrevistas conductuales / STAR
+  const behavioralSynonyms: Record<string, string[]> = {
+    conflict: ["disagree", "argument", "tension", "desacuerdo", "conflicto", "pelea", "discutir", "discusion", "diferencia"],
+    failure: ["mistake", "error", "outage", "bug", "fallo", "falla", "caida", "roto", "incident", "incidente", "postmortem"],
+    leadership: ["lead", "led", "mentored", "coached", "liderazgo", "liderar", "guiar", "referente", "onboard"],
+    deadline: ["tight", "pressure", "timeline", "tiempo", "apuro", "urgente", "fecha limite", "compromiso", "entrega"],
+    scale: ["performance", "latency", "high traffic", "escala", "latencia", "trafico", "rendimiento", "concurrencia", "bottleneck"],
+    migration: ["refactor", "legacy", "upgrade", "migracion", "refactorizar", "modernizar", "monolith", "monolito"],
+    decision: ["tradeoff", "trade-off", "architecture", "decision", "alternativa", "elegir", "seleccion"],
+  };
+
+  let bestMatch: STARMatchResult | null = null;
+  let maxScore = 0;
+
+  for (let i = 0; i < stories.length; i++) {
+    const story = stories[i];
+    const storyText = `${story.title} ${story.situation} ${story.task} ${story.action} ${story.result} ${(story.tags || []).join(" ")}`.toLowerCase();
+
+    let score = 0;
+    const matchedTerms: string[] = [];
+
+    for (const qWord of qWords) {
+      if (storyText.includes(qWord)) {
+        score += 1.5;
+        matchedTerms.push(qWord);
+      } else {
+        // Verificar mapa de sinónimos
+        for (const [key, synonyms] of Object.entries(behavioralSynonyms)) {
+          if (synonyms.includes(qWord) || key === qWord) {
+            if (storyText.includes(key) || synonyms.some((s) => storyText.includes(s))) {
+              score += 2.0;
+              matchedTerms.push(key);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Bonus si coincide con el título o tags directamente
+    const titleLower = story.title.toLowerCase();
+    for (const qWord of qWords) {
+      if (titleLower.includes(qWord)) score += 2.5;
+    }
+    for (const tag of story.tags || []) {
+      if (cleanQ.includes(tag.toLowerCase())) score += 3.0;
+    }
+
+    // Normalizar score
+    const normalizedScore = score / (qWords.length + 2);
+
+    if (normalizedScore > maxScore && normalizedScore >= threshold) {
+      maxScore = normalizedScore;
+      bestMatch = {
+        story,
+        storyIndex: i,
+        score: Math.min(1, Math.round(normalizedScore * 100) / 100),
+        reason: matchedTerms.length > 0
+          ? `Tema clave: ${Array.from(new Set(matchedTerms)).slice(0, 3).join(", ")}`
+          : "Coincidencia temática con tu experiencia",
+      };
+    }
+  }
+
+  return bestMatch;
 }
 
 

@@ -78,13 +78,19 @@ export function useScreenVision({ onVisionResult, onError }: UseScreenVisionOpti
 
       ctx.drawImage(video, 0, 0, width, height);
 
-      // 4. Detener tracks de inmediato para no dejar el icono de compartir pantalla activo
+      // 4. Detener tracks y pausar video de inmediato para liberar recursos de GPU/decodificación
+      video.pause();
+      video.srcObject = null;
       videoTrack.stop();
       displayStream.getTracks().forEach((t) => t.stop());
 
       // 5. Convertir a WebP Base64 (muy liviano, ~50-80KB)
       const dataUrl = canvas.toDataURL("image/webp", 0.85);
       const base64Data = dataUrl.split(",")[1];
+
+      // Limpiar canvas para liberar memoria
+      canvas.width = 0;
+      canvas.height = 0;
 
       track("screen_vision_captured", { width, height });
       return base64Data;

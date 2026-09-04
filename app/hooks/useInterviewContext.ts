@@ -9,21 +9,36 @@ export interface SavedProfile {
   role: string;
   profile: string;
   extraInstructions?: string;
+  interviewerBio?: string;
+}
+
+export interface STARStory {
+  id: string;
+  title: string;
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+  tags?: string[];
+  createdAt?: number;
 }
 
 const LS_KEY = "copiloto:context:v1";
 const LS_PROFILES_KEY = "loro-saved-profiles";
 const LS_ANSWERS_KEY = "loro-master-answers:v1";
+const LS_STAR_STORIES_KEY = "loro-star-stories:v1";
 
 export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash", availableModelIds: string[] = []) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState("");
   const [extraInstructions, setExtraInstructions] = useState("");
+  const [interviewerBio, setInterviewerBio] = useState("");
   const [modelId, setModelId] = useState<string>(defaultModelId);
   const [fontSize, setFontSize] = useState<number>(14);
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
   const [masterAnswers, setMasterAnswers] = useState<MasterAnswer[]>([]);
+  const [starStories, setStarStories] = useState<STARStory[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const initialLoadDone = useRef(false);
   const availableModelIdsRef = useRef(availableModelIds);
@@ -44,6 +59,7 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
               role: typeof p.role === "string" ? p.role : "",
               profile: typeof p.profile === "string" ? p.profile : "",
               extraInstructions: typeof p.extraInstructions === "string" ? p.extraInstructions : "",
+              interviewerBio: typeof p.interviewerBio === "string" ? p.interviewerBio : "",
             }));
           setSavedProfiles(validProfiles);
         }
@@ -79,6 +95,34 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
         setMasterAnswers([]);
       }
 
+      const storedStories = localStorage.getItem(LS_STAR_STORIES_KEY);
+      if (storedStories) {
+        try {
+          const parsed = JSON.parse(storedStories);
+          if (Array.isArray(parsed)) {
+            const valid: STARStory[] = parsed
+              .filter((s): s is STARStory => Boolean(s && typeof s === "object" && typeof s.title === "string"))
+              .map((s) => ({
+                id: String(s.id || `star_${Date.now()}`),
+                title: String(s.title || ""),
+                situation: String(s.situation || ""),
+                task: String(s.task || ""),
+                action: String(s.action || ""),
+                result: String(s.result || ""),
+                tags: Array.isArray(s.tags) ? s.tags.map(String) : [],
+                createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
+              }));
+            setStarStories(valid);
+          } else {
+            setStarStories([]);
+          }
+        } catch {
+          setStarStories([]);
+        }
+      } else {
+        setStarStories([]);
+      }
+
       const raw = localStorage.getItem(LS_KEY);
       if (raw) {
         const saved = JSON.parse(raw);
@@ -87,6 +131,7 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
           if (typeof saved.role === "string") setRole(saved.role);
           if (typeof saved.profile === "string") setProfile(saved.profile);
           if (typeof saved.extraInstructions === "string") setExtraInstructions(saved.extraInstructions);
+          if (typeof saved.interviewerBio === "string") setInterviewerBio(saved.interviewerBio);
           const validModels = availableModelIdsRef.current;
           if (typeof saved.modelId === "string" && (validModels.length === 0 || validModels.includes(saved.modelId))) {
             setModelId(saved.modelId);
@@ -108,23 +153,23 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     try {
       localStorage.setItem(
         LS_KEY,
-        JSON.stringify({ company, role, profile, extraInstructions, modelId, fontSize })
+        JSON.stringify({ company, role, profile, extraInstructions, interviewerBio, modelId, fontSize })
       );
     } catch (e) {
       console.warn("Error persistiendo contexto", e);
     }
-  }, [company, role, profile, extraInstructions, modelId, fontSize]);
+  }, [company, role, profile, extraInstructions, interviewerBio, modelId, fontSize]);
 
   const saveProfile = useCallback((name: string) => {
     if (!name.trim()) return;
     setSavedProfiles((prev) => {
-      const updated = [...prev.filter((p) => p.name !== name), { name, company, role, profile, extraInstructions }];
+      const updated = [...prev.filter((p) => p.name !== name), { name, company, role, profile, extraInstructions, interviewerBio }];
       try {
         localStorage.setItem(LS_PROFILES_KEY, JSON.stringify(updated));
       } catch {}
       return updated;
     });
-  }, [company, role, profile, extraInstructions]);
+  }, [company, role, profile, extraInstructions, interviewerBio]);
 
   const deleteProfile = useCallback((name: string) => {
     setSavedProfiles((prev) => {
@@ -150,6 +195,7 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
       setRole(p.role || "");
       setProfile(p.profile || "");
       setExtraInstructions(p.extraInstructions || "");
+      setInterviewerBio(p.interviewerBio || "");
     }
   }, [savedProfiles]);
 
@@ -222,6 +268,35 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     } catch {}
   }, []);
 
+  const saveSTARStory = useCallback((story: Omit<STARStory, "id"> & { id?: string }) => {
+    setStarStories((prev) => {
+      const id = story.id || `star_${Date.now()}`;
+      const newStory: STARStory = {
+        ...story,
+        id,
+        createdAt: story.createdAt || Date.now(),
+      };
+      const existingIdx = prev.findIndex((s) => s.id === id);
+      const updated = existingIdx >= 0
+        ? prev.map((s, idx) => (idx === existingIdx ? newStory : s))
+        : [newStory, ...prev];
+      try {
+        localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const deleteSTARStory = useCallback((id: string) => {
+    setStarStories((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      try {
+        localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
   return {
     company,
     setCompany,
@@ -231,6 +306,8 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     setProfile,
     extraInstructions,
     setExtraInstructions,
+    interviewerBio,
+    setInterviewerBio,
     modelId,
     setModelId,
     fontSize,
@@ -247,6 +324,9 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     deleteMasterAnswer,
     clearAllMasterAnswers,
     toggleFavoriteMasterAnswer,
+    starStories,
+    saveSTARStory,
+    deleteSTARStory,
     isLoaded,
   };
 }

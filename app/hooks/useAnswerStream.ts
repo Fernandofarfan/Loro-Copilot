@@ -34,6 +34,17 @@ export interface Answer {
   modelName?: string;
   fromMemory?: boolean;
   keyWords?: string[];
+  edgeCases?: string[];
+  whyNot?: string;
+  dryRun?: string;
+  firmnessTip?: string;
+  matchedStory?: {
+    storyIndex: number;
+    title: string;
+    action: string;
+    result: string;
+    score: number;
+  } | null;
 }
 
 interface RequestAnswerParams {
@@ -42,6 +53,7 @@ interface RequestAnswerParams {
   company: string;
   role: string;
   profile: string;
+  interviewerBio?: string;
   extraInstructions?: string;
   provider: string;
   model: string;
@@ -54,10 +66,13 @@ interface RequestAnswerParams {
   mode?: "default" | "trap_detector" | "vision_coding";
   image?: { mimeType: string; data: string } | null;
   masterAnswers?: MasterAnswer[];
+  starStories?: Array<{ title?: string; situation?: string; task?: string; action?: string; result?: string }>;
   onSaveMasterAnswer?: (ans: { question: string; enText: string; esText: string; category?: string; tags?: string[] }) => void;
-  syncTeleprompter?: (payload: TeleprompterPayload) => void;
+  syncTeleprompter?: (payload: TeleprompterPayload, persist?: boolean) => void;
   onPunchline?: (punchline: string, lang: "en" | "es") => void;
 }
+
+const MAX_ANSWERS = 20; // Límite de respuestas en memoria para evitar crecimiento infinito del DOM
 
 export function useAnswerStream() {
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -78,6 +93,7 @@ export function useAnswerStream() {
   } | null>(null);
   const idCounterRef = useRef(1);
   const punchlineTriggeredRef = useRef(false);
+  const generationStartTimeRef = useRef(0);
 
   const stopGenerating = useCallback(() => {
     if (abortControllerRef.current) {
@@ -145,6 +161,7 @@ export function useAnswerStream() {
       company,
       role,
       profile,
+      interviewerBio,
       extraInstructions,
       provider,
       model,
@@ -157,6 +174,7 @@ export function useAnswerStream() {
       mode = "default",
       image = null,
       masterAnswers = [],
+      starStories = [],
       syncTeleprompter,
       onPunchline,
     }: RequestAnswerParams) => {
@@ -165,6 +183,7 @@ export function useAnswerStream() {
       punchlineTriggeredRef.current = false;
 
       const startTime = Date.now();
+      generationStartTimeRef.current = startTime;
       const currentId = idCounterRef.current++;
 
       // 1. Verificación de Saludo / Small talk instantáneo (<10ms)
@@ -189,7 +208,7 @@ export function useAnswerStream() {
           fromMemory: true,
         };
 
-        setAnswers((prev) => [greetingAnswer, ...prev]);
+        setAnswers((prev) => [greetingAnswer, ...prev].slice(0, MAX_ANSWERS));
         syncTeleprompter?.({
           question,
           enText: greetingMatch.enText,
@@ -226,7 +245,7 @@ export function useAnswerStream() {
             fromMemory: true,
           };
 
-          setAnswers((prev) => [memAnswer, ...prev]);
+          setAnswers((prev) => [memAnswer, ...prev].slice(0, MAX_ANSWERS));
           syncTeleprompter?.({
             question,
             enText: match.enText,
@@ -260,7 +279,7 @@ export function useAnswerStream() {
         keyWords: [],
       };
 
-      setAnswers((prev) => [initialAnswer, ...prev]);
+      setAnswers((prev) => [initialAnswer, ...prev].slice(0, MAX_ANSWERS));
       setIsGenerating(true);
 
       syncTeleprompter?.({
@@ -275,8 +294,8 @@ export function useAnswerStream() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // Stream 2: Detector Asíncrono de Trampas / Red Flags en segundo plano
-      if (type === "answer" && question.length >= 10) {
+      // Stream 2: Detector Asíncrono de Trampas / Red Flags en segundo plano (solo en preguntas verbales)
+      if (type === "answer" && mode !== "vision_coding" && question.length >= 10) {
         fetch("/api/answer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -315,6 +334,7 @@ export function useAnswerStream() {
           company,
           role,
           profile,
+          interviewerBio,
           extraInstructions,
           provider,
           model,
@@ -327,6 +347,7 @@ export function useAnswerStream() {
           image,
           previousAnswers,
           facts: sessionFactsRef.current,
+          starStories,
         };
 
         let res: Response;
@@ -389,7 +410,9 @@ export function useAnswerStream() {
         const decoder = new TextDecoder();
         let accumulatedText = "";
         let lastUpdateTime = 0;
-        const THROTTLE_MS = 50;
+        let lastTeleprompterSync = 0;
+        let lastParsed: ReturnType<typeof parseBlocks> | null = null;
+        const TELEPROMPTER_THROTTLE_MS = 500; // localStorage + BroadcastChannel no necesitan alta frecuencia
 
         while (true) {
           const { done, value } = await reader.read();
@@ -398,10 +421,14 @@ export function useAnswerStream() {
           accumulatedText += decoder.decode(value, { stream: true });
           const now = Date.now();
 
+          // Throttle adaptativo: más agresivo para textos largos donde parseBlocks es O(n) costoso
+          const THROTTLE_MS = accumulatedText.length > 3000 ? 250 : accumulatedText.length > 1500 ? 150 : 120;
+
           // Throttle de updates para evitar render-thrashing excesivo
           if (now - lastUpdateTime >= THROTTLE_MS) {
             lastUpdateTime = now;
             const parsed = parseBlocks(accumulatedText);
+            lastParsed = parsed;
 
             if (onPunchline && !punchlineTriggeredRef.current) {
               if (parsed.keyWords && parsed.keyWords.length > 0) {
@@ -428,22 +455,39 @@ export function useAnswerStream() {
                       cheats: parsed.cheats,
                       snippet: parsed.snippet,
                       keyWords: parsed.keyWords || [],
+                      edgeCases: parsed.edgeCases,
+                      whyNot: parsed.whyNot,
+                      dryRun: parsed.dryRun,
                     }
                   : a
               )
             );
 
-            syncTeleprompter?.({
-              question,
-              enText: parsed.enText || parsed.cleanText,
-              phoText: parsed.phoText,
-              esText: parsed.esText,
-              cleanText: parsed.cleanText,
-              isGenerating: true,
-              modelName: modelLabel,
-              keyWords: parsed.keyWords,
-              alert: parsed.alert,
-            });
+            // Sincronizar Teleprompter por BroadcastChannel sin bloquear disco (localStorage) en streaming continuo
+            if (now - lastTeleprompterSync >= TELEPROMPTER_THROTTLE_MS) {
+              lastTeleprompterSync = now;
+              syncTeleprompter?.(
+                {
+                  question,
+                  enText: parsed.enText || parsed.cleanText,
+                  phoText: parsed.phoText,
+                  esText: parsed.esText,
+                  cleanText: parsed.cleanText,
+                  isGenerating: true,
+                  modelName: modelLabel,
+                  keyWords: parsed.keyWords,
+                  alert: parsed.alert,
+                  edgeCases: parsed.edgeCases,
+                  whyNot: parsed.whyNot,
+                  dryRun: parsed.dryRun,
+                },
+                false
+              );
+            }
+
+            // Ceder macrotask al Event Loop para permitir al navegador pintar el frame
+            // y procesar eventos de UI sin disparar el diálogo "La página no responde"
+            await new Promise((r) => setTimeout(r, 0));
           }
         }
 
@@ -491,6 +535,9 @@ export function useAnswerStream() {
                   cheats: finalParsed.cheats,
                   snippet: finalParsed.snippet,
                   keyWords: finalParsed.keyWords || [],
+                  edgeCases: finalParsed.edgeCases,
+                  whyNot: finalParsed.whyNot,
+                  dryRun: finalParsed.dryRun,
                 }
               : a
           )
@@ -506,6 +553,9 @@ export function useAnswerStream() {
           modelName: modelLabel,
           keyWords: finalParsed.keyWords,
           alert: finalParsed.alert,
+          edgeCases: finalParsed.edgeCases,
+          whyNot: finalParsed.whyNot,
+          dryRun: finalParsed.dryRun,
         });
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -656,6 +706,7 @@ export function useAnswerStream() {
   return {
     answers,
     isGenerating,
+    generationStartTimeRef,
     generationError,
     sessionFacts,
     clearSessionFacts: () => setSessionFacts([]),

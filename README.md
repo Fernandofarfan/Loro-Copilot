@@ -6,14 +6,16 @@
 
 ## 🚀 Características Principales
 
-- **🎧 Audio Dual Simultáneo (Micrófono + Pestaña)**: Captura combinada de tu voz (Canal L) y la del entrevistador (Canal R) con remuestreo estéreo a 16kHz PCM16 en `AudioWorklet` y diarización multicanal exacta en Deepgram.
-- **⏱️ VAD Local y Auto-Cancelación por Barge-in**: Detección de silencios y actividad vocal en `<80ms` en el navegador. Si el entrevistador repregunta o habla mientras se genera una respuesta, el copiloto cancela inmediatamente el turno previo.
+- **🎧 Audio Dual Simultáneo (Micrófono + Pestaña)**: Captura combinada de tu voz (Canal L) y la del entrevistador (Canal R) con remuestreo estéreo a 16kHz PCM16 en `AudioWorklet`, diarización multicanal exacta en Deepgram y liberación estricta de nodos Web Audio.
+- **⏱️ VAD Local y Barge-in Inteligente**: Detección de actividad vocal en `<80ms` con ventana de gracia anti-falsos positivos (4.5s) y umbral de discurso sustancial (>=15 caracteres) para no cortar respuestas involuntariamente.
 - **⚡ Prompt Caching (KV-Cache) y Estructura "Punchline First"**: Prefijo estático inmutable para activar caché en DeepSeek/Gemini/Claude y entrega obligatoria del bloque `[KEY]` con 3 palabras clave telegráficas para empezar a hablar en el segundo 1.
 - **🎯 Clasificador Temprano de Preguntas**: Categorización instantánea en `<5ms` (*System Design*, *Live Coding / LeetCode*, *Behavioral STAR*, *Fit Cultural*, *Técnico*) inyectando directivas de respuesta específicas.
 - **🛡️ Dual Stream Asíncrono de Trampas**: Modelo secundario en segundo plano que detecta preguntas trampa, supuestos ocultos o red flags (`⚠️ TIP TÁCTICO`).
 - **🗣️ Modo Bilingüe con Fonética en Vivo (`[EN]`, `[PHO]`, `[ES]`)**: Respuesta en inglés senior, pronunciación fonética simplificada en español con mayúsculas y resumen conceptual.
 - **🪟 Teleprompter Flotante con Lectura Biónica**: HUD emergente sincronizado en 0ms con `BroadcastChannel`, chips dorados `[KEY]`, ajuste tipográfico, lectura biónica periférica y botón de pánico (`Escape`) para ocultar la ventana de inmediato.
 - **🧠 RAG Dinámico del CV por Proyectos (`cvChunker`)**: Segmenta el perfil y recupera de forma quirúrgica los proyectos relevantes donde usaste las tecnologías de la pregunta.
+- **⚖️ Matriz de Trade-offs y Bloque `[WHY_NOT]` en Streaming**: Extracción en tiempo real de alternativas descartadas sin mezclarse con la respuesta principal.
+- **🛡️ Filtro Anti-Slop de Grado de Producción**: Eliminación de muletillas de IA formuláicas con protección estricta contra bucles infinitos (`MAX_ITERATIONS = 10`).
 - **📊 Speech Coach en Tiempo Real**: Telemetría de habla que mide palabras por minuto (WPM), proporción de escucha vs. habla (*Talk-to-Listen Ratio*) y conteo de muletillas (*fillers*).
 - **🤖 Simulador de Entrevistas Interactivo**: Práctica con entrevistador virtual por IA, voz natural (TTS/STT), turnos conversacionales y reporte de desempeño con feedback estructurado.
 - **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **DeepSeek Chat / MiMo**, **Gemini Flash**, **GPT-4o Mini**, **Claude Haiku**, con conmutación automática por error en Edge Runtime.
@@ -28,7 +30,7 @@
 - **Frontend**: React 18, TypeScript, CSS nativo de alto rendimiento
 - **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16 estéreo), [Deepgram Nova-2](https://deepgram.com/)
 - **Modelos de IA**: OpenCode / OpenRouter (DeepSeek, MiMo), Google Gemini, Anthropic Claude, OpenAI GPT
-- **Testing**: [Vitest](https://vitest.dev/) (105 tests automatizados)
+- **Testing**: [Vitest](https://vitest.dev/) (152 tests automatizados en 25 suites)
 - **Analytics**: PostHog (fail-safe) + Vercel Analytics
 
 ---
@@ -82,7 +84,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador (recomendado
 
 ## 🧪 Tests y Validación
 
-Para ejecutar la suite completa de **105 pruebas unitarias automatizadas**:
+Para ejecutar la suite completa de **152 pruebas unitarias automatizadas en 25 suites**:
 ```bash
 npm test
 ```
@@ -134,7 +136,7 @@ loro/
 ├── pdf/                         # 12 CVs de referencia en PDF (EN/ES)
 ├── extension/                   # Extensión de Chrome para captura local
 ├── public/                      # AudioWorklet estéreo PCM16 (pcm-worklet.js)
-└── __tests__/                   # Suite de 105 tests con Vitest
+└── __tests__/                   # Suite de 152 tests con Vitest (25 suites)
 ```
 
 ---

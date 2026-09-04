@@ -14,7 +14,8 @@ const SLOP_PREFIX_REGEXES = [
   /^(?:as a(?:n)?\s+(?:software engineer|tech lead|architect|developer)[,.]?\s*)/i,
   /^(?:first and foremost|to begin with|first of all)[,.]?\s*/i,
   /^(?:here is (?:how|a breakdown of how|what|the way) (?:we|you|I) (?:can|would|should)[,.]?\s*)/i,
-  /^(?:¡?por supuesto|¡?claro que sí|¡?excelente pregunta|¡?sin duda)?[!,.]?\s*(?:vamos a (?:profundizar|analizar|ver)[,.]?\s*)?/i,
+  /^(?:¡?por supuesto|¡?claro que sí|¡?excelente pregunta|¡?sin duda)[!,.]?\s*(?:vamos a (?:profundizar|analizar|ver)[,.]?\s*)?/i,
+  /^(?:vamos a (?:profundizar|analizar|ver)[,.]?\s*)/i,
   /^(?:en el mundo actual|en la actualidad|hoy en día)[,.]?\s*/i,
   /^(?:es (?:crucial|fundamental|importante|clave) (?:destacar|recordar|tener en cuenta|mencionar) que\s*)/i,
   /^(?:como (?:ingeniero|desarrollador|tech lead|arquitecto)[,.]?\s*)/i,
@@ -37,13 +38,17 @@ export function cleanAiSlop(text: string): string {
 
   let cleaned = text.trim();
 
-  // 1. Limpieza de prefijos formuláicos al inicio del texto
+  // 1. Limpieza de prefijos formuláicos al inicio del texto (con protección contra bucles infinitos)
   let matched = true;
-  while (matched) {
+  let iterations = 0;
+  const MAX_ITERATIONS = 10;
+  while (matched && iterations < MAX_ITERATIONS) {
     matched = false;
+    iterations++;
     for (const regex of SLOP_PREFIX_REGEXES) {
-      if (regex.test(cleaned)) {
-        cleaned = cleaned.replace(regex, "").trim();
+      const match = cleaned.match(regex);
+      if (match && match[0].length > 0) {
+        cleaned = cleaned.slice(match[0].length).trim();
         matched = true;
       }
     }
