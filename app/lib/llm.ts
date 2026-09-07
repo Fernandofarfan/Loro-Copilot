@@ -509,6 +509,7 @@ export async function streamOpenCode(
             Authorization: `Bearer ${apiKey}`,
             "HTTP-Referer": SITE_URL,
             "X-Title": APP_NAME,
+            "x-opencode-session": "loro-copilot-session",
           },
           body: JSON.stringify(reqBody),
         },

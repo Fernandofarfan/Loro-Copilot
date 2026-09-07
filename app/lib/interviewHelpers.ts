@@ -146,7 +146,7 @@ export function isIncompleteQuestion(text: string): boolean {
 
   // Termina en conectores típicos de continuidad en español o inglés
   const trailingConnectorRegex =
-    /\b(y|o|pero|que|con|para|de|a|en|como|entonces|porque|por qu[eé]|o sea|es decir|sobre|adem[aá]s|donde|cuando|tambi[eé]n|del|al|las siguientes:?|los siguientes:?|and|or|but|with|for|to|in|at|by|that|which|then|because|like|about|also|such as|following:?|between|among|from|into|onto|regarding|including)\s*[:,\-\.]*$/i;
+    /\b(y|o|pero|que|con|para|de|a|en|como|entonces|porque|por qu[eé]|o sea|es decir|sobre|adem[aá]s|donde|cuando|tambi[eé]n|del|al|mientras|aunque|si|ya que|puesto que|dado que|durante|hacia|hasta|desde|tipo|o algo|digamos|ponele|un poco|las siguientes:?|los siguientes:?|and|or|but|with|for|to|in|at|by|that|which|then|because|like|about|also|such as|following:?|between|among|from|into|onto|regarding|including|during|while|since|so|though|although|even|if|when|where|as|before|after|until|unless|whether|whereas|a bit|a little|kind of|sort of|you know|i mean|you maybe|you might|we might|or something|right\? so|well|can|could|would|will|should|shall|may|might|must|be|been|being)\s*[:,\-\.]*$/i;
 
   if (trailingConnectorRegex.test(clean)) {
     return true;

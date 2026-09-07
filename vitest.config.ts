@@ -5,6 +5,7 @@ export default defineConfig({
     // Los tests de hooks usan // @vitest-environment happy-dom al tope del archivo.
     // El resto (helpers, lib, api) corre en node por defecto.
     environment: "node",
+    pool: "threads",
     exclude: ["**/node_modules/**", "**/e2e/**", "**/.next/**"],
     coverage: {
       provider: "v8",

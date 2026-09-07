@@ -119,9 +119,78 @@ describe("useAnswerStream", () => {
     expect(result.current.answers[0].done).toBe(true);
   });
 
-  it("debe abortar con stopGenerating", () => {
+  it("debe abortar con stopGenerating sin lanzar unhandled rejection", () => {
     const { result } = renderHook(() => useAnswerStream());
     expect(() => act(() => result.current.stopGenerating())).not.toThrow();
     expect(result.current.isGenerating).toBe(false);
+  });
+
+  it("debe manejar startSpeculativePreFetch y cancelarlo limpiamente sin error", async () => {
+    globalThis.fetch = vi.fn().mockImplementation((_url, options) => {
+      return new Promise((resolve, reject) => {
+        if (options?.signal) {
+          options.signal.addEventListener("abort", () => {
+            const err = new Error("aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }
+      });
+    });
+
+    const { result } = renderHook(() => useAnswerStream());
+
+    // Disparar prefetch especulativo
+    act(() => {
+      result.current.startSpeculativePreFetch({
+        question: "¿Cómo funciona el GIL y el garbage collector en Python?",
+      });
+    });
+
+    // Detener de inmediato (debe abortar sin lanzar unhandled rejection)
+    expect(() => {
+      act(() => {
+        result.current.stopGenerating();
+      });
+    }).not.toThrow();
+  });
+
+  it("debe abortar prefetch especulativo sin error cuando la pregunta final es un saludo", async () => {
+    globalThis.fetch = vi.fn().mockImplementation((_url, options) => {
+      return new Promise((resolve, reject) => {
+        if (options?.signal) {
+          options.signal.addEventListener("abort", () => {
+            const err = new Error("aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }
+      });
+    });
+
+    const { result } = renderHook(() => useAnswerStream());
+
+    // Iniciar prefetch de pregunta larga
+    act(() => {
+      result.current.startSpeculativePreFetch({
+        question: "Hi David, thank you for joining us today, how are you?",
+      });
+    });
+
+    // Llega saludo instantáneo
+    await act(async () => {
+      await result.current.requestAnswer({
+        question: "Hi David, thank you for joining us today, how are you doing?",
+        transcript: "",
+        company: "EPAM",
+        role: "Dev",
+        profile: "",
+        provider: "opencode",
+        model: "deepseek-v4-flash",
+      });
+    });
+
+    expect(result.current.answers[0].modelName).toContain("Instantáneo");
+    expect(result.current.answers[0].fromMemory).toBe(true);
   });
 });

@@ -17,6 +17,14 @@ import {
   detectFirmnessChallenge,
   type MasterAnswer,
 } from "../lib/interviewHelpers";
+import {
+  EPAM_PRESET_COMPANY,
+  EPAM_PRESET_ROLE,
+  EPAM_PRESET_CV,
+  EPAM_PRESET_INTERVIEWER_BIO,
+  EPAM_PRESET_EXTRA_INSTRUCTIONS,
+  getEpamMasterAnswers,
+} from "../lib/epamPreset";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
 import { MarkdownText } from "../components/MarkdownText";
@@ -233,6 +241,13 @@ export default function CopilotPage() {
 
   // Callback para recibir transcripciones del STT
   const handleTranscript = useCallback((line: TranscriptLine) => {
+    // Si entran nuevas palabras del entrevistador mientras un temporizador de fin de turno estaba corriendo,
+    // cancelarlo de inmediato porque el entrevistador sigue hablando (evita partir la pregunta)
+    if (line.speaker === 0 && utteranceTimerRef.current) {
+      clearTimeout(utteranceTimerRef.current);
+      utteranceTimerRef.current = null;
+    }
+
     setTranscriptLines((prev) => {
       const idx = prev.findIndex((l) => l.id === line.id);
       if (idx >= 0) {
@@ -269,9 +284,9 @@ export default function CopilotPage() {
       if (isGeneratingRef.current) return;
       const currentLines = transcriptLinesRef.current;
 
-      // No responder si el último que habló fue el candidato (speaker === 1)
+      // Solo en modo Dual ignorar si el último que habló fue el candidato por su propio micrófono (speaker === 1)
       const lastLine = currentLines[currentLines.length - 1];
-      if (lastLine && lastLine.speaker === 1) {
+      if (audioMode === "dual" && lastLine && lastLine.speaker === 1) {
         return;
       }
 
@@ -338,7 +353,7 @@ export default function CopilotPage() {
           onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
         });
       }
-    }, 1000); // 1000ms de debounce para permitir pausas y respiración natural
+    }, 1300); // 1300ms de debounce para permitir pausas y respiración natural sin falsos cortes
   }, [
     autoRespond,
     requestAnswer,
@@ -353,6 +368,7 @@ export default function CopilotPage() {
     bilingualMode,
     syncTeleprompter,
     earbudWhisper,
+    audioMode,
   ]);
 
   // Hook de Audio y Conexión Deepgram (con soporte de Audio Dual y Barge-in)
@@ -796,6 +812,18 @@ export default function CopilotPage() {
     reader.readAsText(file);
   };
 
+  const handleLoadEpamPreset = () => {
+    setCompany(EPAM_PRESET_COMPANY);
+    setRole(EPAM_PRESET_ROLE);
+    setProfile(EPAM_PRESET_CV);
+    setInterviewerBio(EPAM_PRESET_INTERVIEWER_BIO);
+    setExtraInstructions(EPAM_PRESET_EXTRA_INSTRUCTIONS);
+    setSttLang("en");
+    const answers = getEpamMasterAnswers();
+    importMasterAnswers(answers);
+    setWarmupMessage(`⚡ ¡Preset EPAM cargado! Se configuró el CV de Guillermo Farfán, el Dossier de Darío y ${answers.length} respuestas maestras (<50ms).`);
+  };
+
   const handleImportGlassdoor = useCallback(() => {
     if (!glassdoorText.trim()) return;
     const rawLines = glassdoorText
@@ -1031,16 +1059,30 @@ export default function CopilotPage() {
                       {isSttPaused ? "Reanudar" : "Pausar"}
                     </button>
 
-                    {/* Vúmetro de Audio Dual */}
-                    {audioMode === "dual" && (
+                    {/* Vúmetro de Audio para todos los modos */}
+                    {audioMode === "dual" ? (
                       <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
                         <span className="flex items-center gap-1">
-                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.micRms > 0.012 ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`} />
+                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.micRms > 0.008 ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`} />
                           <span>Vos</span>
                         </span>
                         <span className="flex items-center gap-1 ml-1">
-                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.tabRms > 0.012 ? "bg-sky-400 animate-pulse" : "bg-zinc-700"}`} />
+                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.tabRms > 0.008 ? "bg-sky-400 animate-pulse" : "bg-zinc-700"}`} />
                           <span>Ellos</span>
+                        </span>
+                      </div>
+                    ) : audioMode === "tab" ? (
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`w-2.5 h-2.5 rounded-full transition-colors ${audioEnergy.tabRms > 0.008 ? "bg-sky-400 animate-pulse" : "bg-zinc-700"}`} />
+                          <span className="text-sky-300 font-semibold">🔊 Audio Pestaña</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`w-2.5 h-2.5 rounded-full transition-colors ${audioEnergy.micRms > 0.008 ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`} />
+                          <span className="text-emerald-300 font-semibold">🎤 Micrófono</span>
                         </span>
                       </div>
                     )}
@@ -1191,6 +1233,33 @@ export default function CopilotPage() {
               </div>
             )}
 
+            {/* Ticker / Monitor de Transcripción en Vivo */}
+            {sttStatus === "live" && (
+              <div className="px-3.5 py-2.5 rounded-xl bg-zinc-950/90 border border-zinc-800 flex items-center justify-between gap-3 text-xs shadow-sm animate-in fade-in">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="font-semibold text-zinc-400 shrink-0">
+                    {audioMode === "tab" ? "Escuchando Pestaña:" : audioMode === "dual" ? "Escuchando Entrevistador:" : "Escuchando Mic:"}
+                  </span>
+                  <span className="font-mono text-zinc-200 truncate">
+                    {transcriptLines.length > 0 ? (
+                      `"${transcriptLines[transcriptLines.length - 1].text}"`
+                    ) : (
+                      <span className="text-zinc-500 italic">Esperando que hable el entrevistador...</span>
+                    )}
+                  </span>
+                </div>
+                {transcriptLines.length > 0 && (
+                  <span className="text-[10px] font-mono text-zinc-500 shrink-0">
+                    {transcriptLines.length} turnos detectados
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Frases de Rescate Inmediatas */}
             <RescuePhrases onSelect={handleSelectRescuePhrase} />
 
@@ -1279,6 +1348,14 @@ export default function CopilotPage() {
                   <DocIcon />
                   <span>{isPdfLoading ? "Extrayendo PDF..." : "Subir CV (PDF)"}</span>
                 </label>
+                <button
+                  type="button"
+                  onClick={handleLoadEpamPreset}
+                  className="px-3 py-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/60 hover:bg-emerald-900/80 text-xs font-bold text-emerald-300 transition-all flex items-center gap-1.5 shadow-sm"
+                  title="Cargar automáticamente el contexto, CV de Guillermo Farfán, Dossier de Darío y respuestas maestras para la entrevista técnica de EPAM"
+                >
+                  <span>⚡ Preset EPAM (Darío)</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {

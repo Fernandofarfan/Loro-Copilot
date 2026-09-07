@@ -374,6 +374,9 @@ export function useDeepgram({
                   // Canal 0 (L) = Mic Candidato (speaker 1)
                   // Canal 1 (R) = Pestaña Entrevistador (speaker 0)
                   speaker = data.channel_index[0] === 0 ? 1 : 0;
+                } else if (activeModeRef.current === "tab") {
+                  // Modo Solo Pestaña: siempre es el entrevistador
+                  speaker = 0;
                 } else {
                   speaker = alt.words?.[0]?.speaker ?? 0;
                 }
@@ -568,6 +571,7 @@ export function useDeepgram({
             numberOfOutputs: 1,
             channelCount: 2,
           });
+          workletNode.port.postMessage({ type: "config", isDual: true, mode: "dual" });
           workletNodeRef.current = workletNode;
 
           const silentGain = audioCtx.createGain();
@@ -631,6 +635,7 @@ export function useDeepgram({
           const sourceNode = audioCtx.createMediaStreamSource(stream);
           sourceNodeRef.current = sourceNode;
           const workletNode = new AudioWorkletNode(audioCtx, "pcm-worklet");
+          workletNode.port.postMessage({ type: "config", isDual: false, mode: "tab" });
           workletNodeRef.current = workletNode;
 
           const silentGain = audioCtx.createGain();
@@ -675,6 +680,7 @@ export function useDeepgram({
           const sourceNode = audioCtx.createMediaStreamSource(stream);
           sourceNodeRef.current = sourceNode;
           const workletNode = new AudioWorkletNode(audioCtx, "pcm-worklet");
+          workletNode.port.postMessage({ type: "config", isDual: false, mode: "mic" });
           workletNodeRef.current = workletNode;
 
           const silentGain = audioCtx.createGain();

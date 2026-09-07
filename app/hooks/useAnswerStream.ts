@@ -89,7 +89,7 @@ export function useAnswerStream() {
   const speculativeJobRef = useRef<{
     questionPrefix: string;
     controller: AbortController;
-    responsePromise: Promise<Response>;
+    responsePromise: Promise<Response | null>;
   } | null>(null);
   const idCounterRef = useRef(1);
   const punchlineTriggeredRef = useRef(false);
@@ -97,11 +97,15 @@ export function useAnswerStream() {
 
   const stopGenerating = useCallback(() => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      try {
+        abortControllerRef.current.abort();
+      } catch {}
       abortControllerRef.current = null;
     }
     if (speculativeJobRef.current) {
-      speculativeJobRef.current.controller.abort();
+      try {
+        speculativeJobRef.current.controller.abort();
+      } catch {}
       speculativeJobRef.current = null;
     }
     setIsGenerating(false);
@@ -178,7 +182,14 @@ export function useAnswerStream() {
       syncTeleprompter,
       onPunchline,
     }: RequestAnswerParams) => {
-      stopGenerating();
+      // Abortar generación activa previa si existiera
+      if (abortControllerRef.current) {
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
+        abortControllerRef.current = null;
+      }
+      setIsGenerating(false);
       setGenerationError(null);
       punchlineTriggeredRef.current = false;
 
@@ -189,6 +200,12 @@ export function useAnswerStream() {
       // 1. Verificación de Saludo / Small talk instantáneo (<10ms)
       const greetingMatch = checkInstantGreeting(question, company);
       if (greetingMatch && type === "answer") {
+        if (speculativeJobRef.current) {
+          try {
+            speculativeJobRef.current.controller.abort();
+          } catch {}
+          speculativeJobRef.current = null;
+        }
         const greetingAnswer: Answer = {
           id: currentId,
           question,
@@ -225,6 +242,12 @@ export function useAnswerStream() {
       if (type === "answer" && masterAnswers.length > 0) {
         const memoryMatch = findMatchingAnswer(question, masterAnswers, 0.65, company, role);
         if (memoryMatch) {
+          if (speculativeJobRef.current) {
+            try {
+              speculativeJobRef.current.controller.abort();
+            } catch {}
+            speculativeJobRef.current = null;
+          }
           const match = memoryMatch.match;
           const memAnswer: Answer = {
             id: currentId,
@@ -355,15 +378,24 @@ export function useAnswerStream() {
           speculativeJobRef.current &&
           question.toLowerCase().startsWith(speculativeJobRef.current.questionPrefix.toLowerCase().slice(0, 30))
         ) {
+          const specJob = speculativeJobRef.current;
+          speculativeJobRef.current = null;
           try {
-            res = await speculativeJobRef.current.responsePromise;
-            abortControllerRef.current = speculativeJobRef.current.controller;
-            speculativeJobRef.current = null;
-          } catch {
-            if (speculativeJobRef.current) {
-              speculativeJobRef.current.controller.abort();
-              speculativeJobRef.current = null;
+            const maybeRes = await specJob.responsePromise;
+            if (maybeRes && maybeRes.ok) {
+              res = maybeRes;
+              abortControllerRef.current = specJob.controller;
+            } else {
+              try { specJob.controller.abort(); } catch {}
+              res = await fetch("/api/answer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: controller.signal,
+                body: JSON.stringify(reqPayload),
+              });
             }
+          } catch {
+            try { specJob.controller.abort(); } catch {}
             res = await fetch("/api/answer", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -373,7 +405,9 @@ export function useAnswerStream() {
           }
         } else {
           if (speculativeJobRef.current) {
-            speculativeJobRef.current.controller.abort();
+            try {
+              speculativeJobRef.current.controller.abort();
+            } catch {}
             speculativeJobRef.current = null;
           }
           res = await fetch("/api/answer", {
@@ -558,10 +592,15 @@ export function useAnswerStream() {
           dryRun: finalParsed.dryRun,
         });
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          // Cancelación intencional: marcar el answer como completo (sin mensaje de error)
+        if (
+          err instanceof Error &&
+          (err.name === "AbortError" || err.message?.toLowerCase().includes("abort"))
+        ) {
+          // Cancelación intencional: si no llegó a recibir texto real, limpiar el answer para no dejar cards zombie "generando…"
           setAnswers((prev) =>
-            prev.map((a) => (a.id === currentId && !a.done ? { ...a, done: true } : a))
+            prev
+              .filter((a) => a.id !== currentId || (a.cleanText || a.text || "").trim().length > 0)
+              .map((a) => (a.id === currentId && !a.done ? { ...a, done: true } : a))
           );
         } else {
           console.error("Error en streaming de respuesta:", err);
@@ -671,11 +710,14 @@ export function useAnswerStream() {
       }
 
       if (speculativeJobRef.current) {
-        speculativeJobRef.current.controller.abort();
+        try {
+          speculativeJobRef.current.controller.abort();
+        } catch {}
         speculativeJobRef.current = null;
       }
 
       const controller = new AbortController();
+      // Prevenir "Unhandled Runtime Error: AbortError" si el pre-fetch es cancelado antes o no es consumido
       const responsePromise = fetch("/api/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -692,7 +734,7 @@ export function useAnswerStream() {
           type: "answer",
           mode: "default",
         }),
-      });
+      }).catch(() => null);
 
       speculativeJobRef.current = {
         questionPrefix: params.question,

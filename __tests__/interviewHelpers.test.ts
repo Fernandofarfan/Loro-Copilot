@@ -23,6 +23,10 @@ describe("interviewHelpers", () => {
       expect(isIncompleteQuestion("para responder las siguientes:")).toBe(true);
       expect(isIncompleteQuestion("Tell me about your experience with")).toBe(true);
       expect(isIncompleteQuestion("What are the differences between")).toBe(true);
+      expect(isIncompleteQuestion("We also prefer someone who's available during")).toBe(true);
+      expect(isIncompleteQuestion("Though we can be a bit")).toBe(true);
+      expect(isIncompleteQuestion("The availability we will need. Right? So")).toBe(true);
+      expect(isIncompleteQuestion("You you maybe")).toBe(true);
       expect(isIncompleteQuestion("Hola...")).toBe(true);
     });
 

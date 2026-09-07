@@ -86,6 +86,7 @@ async function getFeedbackJson(provider: Provider, models: string[], systemPromp
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${apiKey}`,
+            ...(isOpencode ? { "x-opencode-session": "loro-simulador-session" } : {}),
           },
           body: JSON.stringify({
             model,
