@@ -214,21 +214,25 @@ export async function POST(req: Request) {
       }
     }
 
+    // En OpenCode, deepseek-v4-flash es solo texto; para visión priorizar modelos multimodales verificados (GLM, MiMo, Vision-Exp)
+    const OPENCODE_VISION_MODELS = ["glm-5.3-flash", "mimo-v2.5", "deepseek-v4-flash-vision-exp"];
     const visionCandidates = Array.from(
       new Set([
+        ...(visionProvider === "opencode" ? OPENCODE_VISION_MODELS : []),
         ...(visionProvider === provider ? [model] : []),
         ...FALLBACK_MODELS[visionProvider],
       ])
     ).slice(0, 3);
 
     try {
+      const visionOptions = { image: body.image, maxTokens: 3500 };
       return await (visionProvider === "gemini"
-        ? streamGemini(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image })
+        ? streamGemini(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions)
         : visionProvider === "anthropic"
-        ? streamAnthropic(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image })
+        ? streamAnthropic(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions)
         : visionProvider === "openai"
-        ? streamOpenAI(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image })
-        : streamOpenCode(visionCandidates, visionContent, VISION_CODING_PROMPT, { image: body.image }));
+        ? streamOpenAI(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions)
+        : streamOpenCode(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions));
     } catch (err: unknown) {
       console.error("Error en vision coding:", err);
       return new Response("Error al analizar la imagen de pantalla.", { status: 500 });

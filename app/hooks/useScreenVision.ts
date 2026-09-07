@@ -84,8 +84,8 @@ export function useScreenVision({ onVisionResult, onError }: UseScreenVisionOpti
       videoTrack.stop();
       displayStream.getTracks().forEach((t) => t.stop());
 
-      // 5. Convertir a WebP Base64 (muy liviano, ~50-80KB)
-      const dataUrl = canvas.toDataURL("image/webp", 0.85);
+      // 5. Convertir a JPEG Base64 (estándar universal compatible con todos los LLMs multimodales, ~80-120KB)
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
       const base64Data = dataUrl.split(",")[1];
 
       // Limpiar canvas para liberar memoria

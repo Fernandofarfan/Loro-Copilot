@@ -452,6 +452,7 @@ export async function streamOpenCode(
   const candidateModels = Array.from(
     new Set(
       [
+        ...(options.image && isOpenCodeHost ? ["glm-5.3-flash", "mimo-v2.5", "deepseek-v4-flash-vision-exp"] : []),
         ...models,
         ...(envModel ? [envModel] : []),
         ...(isOpenCodeHost
@@ -468,7 +469,12 @@ export async function streamOpenCode(
       continue;
     }
     const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
-    const maxTokens = options.maxTokens ?? 1200;
+    const maxTokens = options.maxTokens ?? (options.image ? 3500 : 1200);
+
+    const imageMime =
+      options.image?.mimeType === "image/webp" && isOpenCodeHost
+        ? "image/jpeg"
+        : options.image?.mimeType || "image/jpeg";
 
     const userMessageContent = options.image
       ? [
@@ -476,7 +482,7 @@ export async function streamOpenCode(
           {
             type: "image_url",
             image_url: {
-              url: `data:${options.image.mimeType};base64,${options.image.data}`,
+              url: `data:${imageMime};base64,${options.image.data}`,
             },
           },
         ]

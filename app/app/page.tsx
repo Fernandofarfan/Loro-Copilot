@@ -437,7 +437,7 @@ export default function CopilotPage() {
       modelLabel: "Screen Vision 👁️",
       detectedLang: "en",
       mode: "vision_coding",
-      image: { mimeType: "image/webp", data: base64 },
+      image: { mimeType: "image/jpeg", data: base64 },
       type: "answer",
       starStories: starStoriesRef.current,
       syncTeleprompter,
