@@ -272,6 +272,8 @@ export default function CopilotPage() {
     };
   }, []);
 
+  const audioModeRef = useRef<AudioMode>("mic");
+
   // Trigger automático de respuesta al detectar fin de habla (UtteranceEnd)
   const handleUtteranceEnd = useCallback(() => {
     if (!autoRespond || isGeneratingRef.current) return;
@@ -286,7 +288,7 @@ export default function CopilotPage() {
 
       // Solo en modo Dual ignorar si el último que habló fue el candidato por su propio micrófono (speaker === 1)
       const lastLine = currentLines[currentLines.length - 1];
-      if (audioMode === "dual" && lastLine && lastLine.speaker === 1) {
+      if (audioModeRef.current === "dual" && lastLine && lastLine.speaker === 1) {
         return;
       }
 
@@ -368,7 +370,6 @@ export default function CopilotPage() {
     bilingualMode,
     syncTeleprompter,
     earbudWhisper,
-    audioMode,
   ]);
 
   // Hook de Audio y Conexión Deepgram (con soporte de Audio Dual y Barge-in)
@@ -412,6 +413,8 @@ export default function CopilotPage() {
     },
     lang: sttLang,
   });
+
+  audioModeRef.current = audioMode;
 
   // Handler para Screen Vision (Live Coding & Diagramas en Pantalla)
   const handleCaptureScreen = useCallback(async () => {
