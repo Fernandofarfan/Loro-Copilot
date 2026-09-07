@@ -19,7 +19,7 @@ npm run dev
 ```
 
 ### Comandos de Validación
-- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 152 tests en 25 suites de `__tests__/`).
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 156 tests en 26 suites de `__tests__/`).
 - **Chequeo de tipos:** `npx tsc --noEmit`.
 - **Build de producción:** `npm run build`.
 
@@ -63,7 +63,7 @@ npm run dev
   - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
   - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
   - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.
-- `__tests__/` — Suite de 152 tests unitarios automatizados en 25 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `vulnerabilityRadar`).
+- `__tests__/` — Suite de 156 tests unitarios automatizados en 26 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `epamInterview`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `vulnerabilityRadar`).
 
 ## Convenciones de Código
 
