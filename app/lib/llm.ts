@@ -452,7 +452,7 @@ export async function streamOpenCode(
   const candidateModels = Array.from(
     new Set(
       [
-        ...(options.image && isOpenCodeHost ? ["glm-5.3-flash", "mimo-v2.5", "deepseek-v4-flash-vision-exp"] : []),
+        ...(options.image && isOpenCodeHost ? ["mimo-v2.5", "kimi-k3", "glm-5.3-flash"] : []),
         ...models,
         ...(envModel ? [envModel] : []),
         ...(isOpenCodeHost
@@ -531,7 +531,7 @@ export async function streamOpenCode(
             const evt = JSON.parse(json);
             const delta = evt.choices?.[0]?.delta;
             if (delta?.content) return delta.content;
-            if (delta?.reasoning_content && !sentThinkingMarker) {
+            if ((delta?.reasoning_content || delta?.reasoning) && !sentThinkingMarker) {
               sentThinkingMarker = true;
               return "🧠 *Analizando respuesta...*\n\n";
             }

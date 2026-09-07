@@ -214,8 +214,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // En OpenCode, deepseek-v4-flash es solo texto; para visión priorizar modelos multimodales verificados (GLM, MiMo, Vision-Exp)
-    const OPENCODE_VISION_MODELS = ["glm-5.3-flash", "mimo-v2.5", "deepseek-v4-flash-vision-exp"];
+    // En OpenCode, mimo-v2.5 y kimi-k3 son ultrarrápidos en visión (~4s) y procesan imágenes sin cuelgues
+    const OPENCODE_VISION_MODELS = ["mimo-v2.5", "kimi-k3", "glm-5.3-flash"];
     const visionCandidates = Array.from(
       new Set([
         ...(visionProvider === "opencode" ? OPENCODE_VISION_MODELS : []),
