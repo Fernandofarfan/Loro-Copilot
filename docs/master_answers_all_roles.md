@@ -189,13 +189,13 @@ Diría: confiable, analítico y adaptable. Confiable porque me hago dueño de lo
 ### 15. Pregunta: Can you introduce yourself or tell me about your background? [Rol: Cloud & DevOps Architect]
 
 [EN]
-I'm a Senior Cloud Architect & DevOps Engineer with 8+ years of experience, specializing in Google Cloud Platform, Kubernetes (GKE), and Infrastructure as Code with Terraform. At Reforest Latam, I led the platform team and reduced monthly GCP spend by 28% through FinOps. I also design reusable Terraform modules and GitOps pipelines with ArgoCD.
+I'm a Senior Cloud Architect & DevOps Engineer with 8+ years in IT and 4+ years dedicated to Google Cloud Platform, Kubernetes (GKE), and Infrastructure as Code with Terraform. At Reforest Latam, I led the platform team and reduced monthly GCP spend by 28% through FinOps. I also design reusable Terraform modules and GitOps pipelines with ArgoCD.
 
 [PHO]
-(aɪm ə ˈsinjər klaʊd ˈɑrkətɛkt wɪð eɪt jɪrz əv ɪkˈspɪriəns, ˈspɛʃəˌlaɪzɪŋ ɪn dʒi-si-pi, ˈkjubərˈnɛtiz, ænd ˈtɛrəˌfɔrm)
+(aɪm ə ˈsinjər klaʊd ˈɑrkətɛkt wɪð eɪt jɪrz ɪn aɪ-ti ænd fɔr jɪrz ɪn klaʊd, ˈspɛʃəˌlaɪzɪŋ ɪn dʒi-si-pi, ˈkjubərˈnɛtiz, ænd ˈtɛrəˌfɔrm)
 
 [ES]
-Soy Cloud Architect & DevOps con 8+ años de experiencia, especialista en GCP, Kubernetes (GKE) y Terraform modular. En Reforest Latam lideré plataforma logrando un 28% de ahorro en GCP con FinOps y pipelines GitOps con ArgoCD.
+Soy Cloud Architect & DevOps con más de 8 años en tecnología y más de 4 años especializado de lleno en GCP, Kubernetes (GKE) e Infraestructura como Código con Terraform. En Reforest Latam lideré plataforma logrando un 28% de ahorro en GCP con FinOps y pipelines GitOps con ArgoCD.
 
 ---
 

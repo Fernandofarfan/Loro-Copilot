@@ -89,3 +89,16 @@ npm run dev
 
 - La rama `main` despliega automáticamente a producción en Vercel al hacer `git push`.
 - Asegurarse de correr `npm test` y `npx tsc --noEmit` antes de pushear cambios a `main`.
+
+## Perfil del Candidato y Reglas de Experiencia
+
+- **Nombre completo:** Guillermo Fernando Farfán Romero
+- **Ubicación:** Salta, Argentina (UTC-3), disponible remoto.
+- **Contacto:** +54 9 11 2187-1473 | `fernando.farfan16@gmail.com` | [gfarfan.dev](https://gfarfan.dev/) | [LinkedIn](https://www.linkedin.com/in/guillermo-farfan/) | [Credly](https://www.credly.com/users/fernando-farfan.855a5067/badges)
+- **Nivel de inglés:** B2 Profesional / Fluido para comunicación técnica y de negocios.
+- **Pretensión salarial de referencia:** $4,000 USD bruto / mes (o ~$25-$30+ USD/hora modalidad contractor).
+- **Regla ESTRICTA de Años de Experiencia:**
+  - **Experiencia TOTAL en IT / Software / Sistemas:** +8 años (desarrollo, backend, arquitectura, bases de datos, troubleshooting).
+  - **Experiencia ESPECÍFICA en Infraestructura Cloud / Linux / DevOps:** **~4 años** (Google Cloud Platform, GKE, Terraform, Ansible, Docker, Bash, Linux sysadmin/hardening).
+  - **NUNCA afirmar "8 años en infraestructura / DevOps / GCP"**: siempre discriminar los +8 años de base tecnológica y desarrollo de los ~4 años dedicados exclusivamente a cloud e infraestructura.
+
