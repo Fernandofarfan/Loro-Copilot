@@ -19,7 +19,7 @@ npm run dev
 ```
 
 ### Comandos de Validación
-- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 156 tests en 26 suites de `__tests__/`).
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 158 tests en 27 suites de `__tests__/`).
 - **Chequeo de tipos:** `npx tsc --noEmit`.
 - **Build de producción:** `npm run build`.
 
@@ -60,10 +60,11 @@ npm run dev
 - `docs/` — Centro de documentación técnica:
   - `docs/ARCHITECTURE.md` — Mapeo completo del flujo de datos, diagramas de secuencia Mermaid y especificación de las capacidades avanzadas y de nivel élite.
   - `docs/master_answers_all_roles.md` — Enciclopedia universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
+  - `docs/valentina_backend_interview_memory.md` — Memoria bilingüe completa para la entrevista con Valentina Lopez Salinas (Python, GCP, GenAI, Puerto Madero).
   - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
   - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
   - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.
-- `__tests__/` — Suite de 156 tests unitarios automatizados en 26 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `epamInterview`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `vulnerabilityRadar`).
+- `__tests__/` — Suite de 158 tests unitarios automatizados en 27 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `epamInterview`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `valentinaInterview`, `vulnerabilityRadar`).
 
 ## Convenciones de Código
 

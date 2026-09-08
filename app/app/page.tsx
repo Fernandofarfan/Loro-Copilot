@@ -25,6 +25,14 @@ import {
   EPAM_PRESET_EXTRA_INSTRUCTIONS,
   getEpamMasterAnswers,
 } from "../lib/epamPreset";
+import {
+  VALENTINA_PRESET_COMPANY,
+  VALENTINA_PRESET_ROLE,
+  VALENTINA_PRESET_CV,
+  VALENTINA_PRESET_INTERVIEWER_BIO,
+  VALENTINA_PRESET_EXTRA_INSTRUCTIONS,
+  getValentinaMasterAnswers,
+} from "../lib/valentinaPreset";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
 import { MarkdownText } from "../components/MarkdownText";
@@ -827,6 +835,18 @@ export default function CopilotPage() {
     setWarmupMessage(`⚡ ¡Preset EPAM cargado! Se configuró el CV de Guillermo Farfán, el Dossier de Darío y ${answers.length} respuestas maestras (<50ms).`);
   };
 
+  const handleLoadValentinaPreset = () => {
+    setCompany(VALENTINA_PRESET_COMPANY);
+    setRole(VALENTINA_PRESET_ROLE);
+    setProfile(VALENTINA_PRESET_CV);
+    setInterviewerBio(VALENTINA_PRESET_INTERVIEWER_BIO);
+    setExtraInstructions(VALENTINA_PRESET_EXTRA_INSTRUCTIONS);
+    setSttLang("es");
+    const answers = getValentinaMasterAnswers();
+    importMasterAnswers(answers);
+    setWarmupMessage(`⚡ ¡Preset Valentina (Puerto Madero) cargado! Se configuró el CV de Guillermo Farfán (Python & GenAI), el Dossier de Valentina y ${answers.length} respuestas maestras bilingües (<50ms).`);
+  };
+
   const handleImportGlassdoor = useCallback(() => {
     if (!glassdoorText.trim()) return;
     const rawLines = glassdoorText
@@ -1358,6 +1378,14 @@ export default function CopilotPage() {
                   title="Cargar automáticamente el contexto, CV de Guillermo Farfán, Dossier de Darío y respuestas maestras para la entrevista técnica de EPAM"
                 >
                   <span>⚡ Preset EPAM (Darío)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadValentinaPreset}
+                  className="px-3 py-1.5 rounded-lg border border-cyan-500/50 bg-cyan-950/60 hover:bg-cyan-900/80 text-xs font-bold text-cyan-300 transition-all flex items-center gap-1.5 shadow-sm"
+                  title="Cargar automáticamente el contexto, CV de Python & GenAI, Dossier de Valentina y 11 respuestas maestras bilingües"
+                >
+                  <span>⚡ Preset Valentina (Puerto Madero)</span>
                 </button>
                 <button
                   type="button"
