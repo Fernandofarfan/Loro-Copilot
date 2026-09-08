@@ -5,7 +5,7 @@ import { parseInterviewMarkdownToMasterAnswers, findMatchingAnswer } from "../ap
 import { getValentinaMasterAnswers } from "../app/lib/valentinaPreset";
 
 describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", () => {
-  it("parses all 11 questions correctly from docs/valentina_backend_interview_memory.md", () => {
+  it("parses all 23 questions correctly from docs/valentina_backend_interview_memory.md", () => {
     const filePath = path.join(process.cwd(), "docs", "valentina_backend_interview_memory.md");
     const content = fs.readFileSync(filePath, "utf-8");
     const answers = parseInterviewMarkdownToMasterAnswers(
@@ -14,9 +14,42 @@ describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", (
       "Senior Python Backend Engineer & Technical Lead"
     );
 
-    expect(answers.length).toBe(11);
+    expect(answers.length).toBe(23);
     expect(answers[0].company).toBe("COMPANY86 / US Enterprise Client");
     expect(answers[0].role).toBe("Senior Python Backend Engineer & Technical Lead");
+
+    // Match pets / animales
+    const matchPets = findMatchingAnswer(
+      "Do you have any pets or dogs at home?",
+      answers,
+      0.45,
+      "COMPANY86 / US Enterprise Client",
+      "Senior Python Backend Engineer & Technical Lead"
+    );
+    expect(matchPets).not.toBeNull();
+    expect(matchPets?.match.enText).toContain("pets at home");
+
+    // Match hobbies / pasatiempos
+    const matchHobbies = findMatchingAnswer(
+      "What are your hobbies and free time activities?",
+      answers,
+      0.45,
+      "COMPANY86 / US Enterprise Client",
+      "Senior Python Backend Engineer & Technical Lead"
+    );
+    expect(matchHobbies).not.toBeNull();
+    expect(matchHobbies?.match.enText).toContain("cycling");
+
+    // Match location / favorite place
+    const matchLocation = findMatchingAnswer(
+      "Where do you live and what is your favorite place?",
+      answers,
+      0.45,
+      "COMPANY86 / US Enterprise Client",
+      "Senior Python Backend Engineer & Technical Lead"
+    );
+    expect(matchLocation).not.toBeNull();
+    expect(matchLocation?.match.enText).toContain("Salta");
 
     // Match intro question
     const matchIntro = findMatchingAnswer(
@@ -63,8 +96,8 @@ describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", (
     expect(matchHybrid?.match.enText).toContain("Puerto Madero");
   });
 
-  it("loads all preset answers via getValentinaMasterAnswers()", () => {
+  it("loads all 23 preset answers via getValentinaMasterAnswers()", () => {
     const presetAnswers = getValentinaMasterAnswers();
-    expect(presetAnswers.length).toBe(11);
+    expect(presetAnswers.length).toBe(23);
   });
 });
