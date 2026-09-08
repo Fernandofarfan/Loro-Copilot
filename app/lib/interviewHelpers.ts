@@ -511,8 +511,12 @@ const STOP_WORDS = new Set([
   "until", "up", "very", "was", "we", "were", "what", "when", "where", "which", "while", "who", "whom",
   "why", "with", "would", "you", "your", "yours", "yourself", "yourselves", "tell", "contame", "cuentame",
   "explicame", "explain", "describe", "hablame", "buenisimo", "bueno", "gracias", "favor", "posicion",
-  "trabajando", "tenes", "principal", "foco", "hola", "buenas", "decime"
+  "trabajando", "tenes", "principal", "foco", "hola", "buenas", "decime", "cual", "cuales", "son", "ser",
+  "seria", "sea", "fue", "sido", "algun", "alguna", "algunos", "algunas", "algo", "este", "esta", "estos",
+  "estas", "esto", "haces", "haces", "tipo", "sobre"
 ]);
+
+const ALLOWED_SHORT_WORDS = new Set(["ai", "ia", "ml", "db", "ui", "go", "ci", "cd", "os"]);
 
 export function tokenize(text: string): string[] {
   return (text || "")
@@ -521,7 +525,7 @@ export function tokenize(text: string): string[] {
     .replace(/[\u0300-\u036f]/g, "") // remover acentos
     .replace(/[^\w\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+    .filter((w) => (w.length > 2 || ALLOWED_SHORT_WORDS.has(w)) && !STOP_WORDS.has(w));
 }
 
 export function matchesCompany(itemCompany?: string, targetCompany?: string): boolean {
@@ -570,42 +574,111 @@ export function matchesRole(itemRole?: string, targetRole?: string): boolean {
 
 const CANONICAL_SYNONYMS: Record<string, string> = {
   // Mascotas / Pets / Animals
-  pets: "pet_concept", pet: "pet_concept", animals: "pet_concept", animal: "pet_concept",
-  mascota: "pet_concept", mascotas: "pet_concept", perro: "pet_concept", perros: "pet_concept",
-  gato: "pet_concept", gatos: "pet_concept", dog: "pet_concept", dogs: "pet_concept",
+  pets: "pet_concept", pet: "pet_concept", animals: "pet_concept", animal: "pet_concept", animales: "pet_concept",
+  mascota: "pet_concept", mascotas: "pet_concept", perro: "pet_concept", perros: "pet_concept", perrito: "pet_concept", perritos: "pet_concept",
+  gato: "pet_concept", gatos: "pet_concept", gatito: "pet_concept", gatitos: "pet_concept", dog: "pet_concept", dogs: "pet_concept",
   cat: "pet_concept", cats: "pet_concept",
+
+  // Casa / Home
+  home: "home_concept", house: "home_concept", casa: "home_concept", hogar: "home_concept",
 
   // Fin de semana / Weekend
   weekend: "weekend_concept", weekends: "weekend_concept", saturday: "weekend_concept",
-  sunday: "weekend_concept", finde: "weekend_concept", sabado: "weekend_concept", domingo: "weekend_concept",
+  sunday: "weekend_concept", finde: "weekend_concept", sabado: "weekend_concept", domingo: "weekend_concept", semana: "weekend_concept",
 
   // Salario / Remuneración / Rate
-  salary: "salary_concept", salario: "salary_concept", sueldo: "salary_concept",
-  tarifa: "salary_concept", rate: "salary_concept", hourly: "salary_concept",
-  compensation: "salary_concept", remuneracion: "salary_concept", pretension: "salary_concept",
-  pretensiones: "salary_concept", cobrar: "salary_concept",
+  salary: "salary_concept", salario: "salary_concept", salarios: "salary_concept", sueldo: "salary_concept", sueldos: "salary_concept",
+  salarial: "salary_concept", salariales: "salary_concept", pretendido: "salary_concept", pretendida: "salary_concept",
+  tarifa: "salary_concept", rate: "salary_concept", rates: "salary_concept", hourly: "salary_concept",
+  compensation: "salary_concept", compensacion: "salary_concept", remuneracion: "salary_concept", remuneraciones: "salary_concept",
+  pretension: "salary_concept", pretensiones: "salary_concept", cobrar: "salary_concept", ganar: "salary_concept",
+  expectations: "salary_concept", expectativa: "salary_concept", expectativas: "salary_concept",
 
-  // Jefe / Manager / Leader
+  // Modalidad Híbrida / Presencial / Puerto Madero
+  hybrid: "hybrid_concept", hibrido: "hybrid_concept", hibrida: "hybrid_concept", presencial: "hybrid_concept",
+  presenciales: "hybrid_concept", presencialidad: "hybrid_concept", onsite: "hybrid_concept", oficina: "hybrid_concept", office: "hybrid_concept",
+  madero: "madero_concept", puerto: "madero_concept",
+
+  // Cambio / Búsqueda de empleo / Interés
+  change: "change_concept", changing: "change_concept", cambio: "change_concept", cambiar: "change_concept",
+  buscando: "change_concept", looking: "change_concept", motivacion: "change_concept", interese: "change_concept",
+  interesa: "change_concept", interest: "change_concept", puesto: "change_concept", posicion: "change_concept",
+
+  // Jefe / Manager / Leader / Tech Lead
   boss: "boss_concept", jefe: "boss_concept", manager: "boss_concept",
   leader: "boss_concept", lider: "boss_concept", superior: "boss_concept",
+  lead: "boss_concept", techlead: "boss_concept", liderazgo: "boss_concept",
 
   // Ubicación / Clima / Salta
   weather: "location_concept", clima: "location_concept", city: "location_concept",
   ciudad: "location_concept", salta: "location_concept", live: "location_concept",
-  living: "location_concept", vives: "location_concept", viviendo: "location_concept",
+  living: "location_concept", vives: "location_concept", viviendo: "location_concept", vivo: "location_concept",
 
   // Hobbies / Tiempo libre
   hobby: "hobby_concept", hobbies: "hobby_concept", freetime: "hobby_concept",
-  pasatiempo: "hobby_concept", pasatiempos: "hobby_concept",
+  pasatiempo: "hobby_concept", pasatiempos: "hobby_concept", libre: "hobby_concept", ocio: "hobby_concept",
+
+  // Rutina / Organización
+  routine: "routine_concept", rutina: "routine_concept", morning: "routine_concept", manana: "routine_concept",
+  workday: "routine_concept", organizar: "routine_concept", organizas: "routine_concept",
+
+  // Música / Podcasts
+  music: "music_concept", musica: "music_concept", lofi: "music_concept", electronic: "music_concept",
+  electronica: "music_concept", podcast: "music_concept", podcasts: "music_concept",
+
+  // Desacuerdos / Conflictos
+  disagreement: "conflict_concept", disagreements: "conflict_concept", desacuerdo: "conflict_concept",
+  desacuerdos: "conflict_concept", conflicto: "conflict_concept", conflictos: "conflict_concept",
+
+  // Incidentes / Errores en producción
+  incident: "incident_concept", incidents: "incident_concept", incidente: "incident_concept",
+  incidentes: "incident_concept", mistake: "incident_concept", error: "incident_concept",
+  errores: "incident_concept", produccion: "incident_concept", production: "incident_concept",
+  fallo: "incident_concept", fallas: "incident_concept", postmortem: "incident_concept",
 
   // Debilidades / Defectos / Mejora
   weakness: "weakness_concept", weaknesses: "weakness_concept", debilidad: "weakness_concept",
   debilidades: "weakness_concept", defect: "weakness_concept", defecto: "weakness_concept",
-  defectos: "weakness_concept", improvement: "weakness_concept", mejora: "weakness_concept",
+  defectos: "weakness_concept", improvement: "weakness_concept", mejora: "weakness_concept", mejorar: "weakness_concept",
 
   // Fortalezas / Virtudes / Strengths
   strength: "strength_concept", strengths: "strength_concept", fortaleza: "strength_concept",
   fortalezas: "strength_concept", virtud: "strength_concept", virtudes: "strength_concept",
+
+  // Python & Frameworks
+  python: "python_concept", fastapi: "fastapi_concept", asyncio: "async_concept", asincrono: "async_concept",
+  asincronico: "async_concept", pydantic: "pydantic_concept", sqlalchemy: "sqlalchemy_concept",
+
+  // Cloud & GCP
+  gcp: "gcp_concept", google: "gcp_concept", microservices: "microservices_concept", microservicio: "microservices_concept",
+  microservicios: "microservices_concept", desplegas: "deploy_concept", deploy: "deploy_concept", desplegar: "deploy_concept",
+  despliegue: "deploy_concept", disenias: "design_concept", design: "design_concept", disenar: "design_concept",
+
+  // IA Generativa, Vertex AI, RAG
+  ia: "ai_concept", ai: "ai_concept", artificial: "ai_concept", inteligencia: "ai_concept",
+  genai: "ai_concept", generative: "ai_concept", generativa: "ai_concept", llm: "ai_concept", llms: "ai_concept",
+  vertex: "vertex_concept",
+  rag: "rag_concept",
+  embeddings: "embedding_concept", embedding: "embedding_concept",
+  pgvector: "pgvector_concept",
+
+  // Integración, Soluciones, Arquitectura
+  integrar: "integrate_concept", integras: "integrate_concept", integraste: "integrate_concept",
+  integrado: "integrate_concept", integrate: "integrate_concept", integrated: "integrate_concept",
+  solucion: "solution_concept", soluciones: "solution_concept", solution: "solution_concept", solutions: "solution_concept",
+  arquitectura: "arch_concept", arquitecturas: "arch_concept", architecture: "arch_concept", architectures: "arch_concept",
+
+  // Base de Datos & PostgreSQL
+  postgres: "db_concept", postgresql: "db_concept", database: "db_concept", persistencia: "db_concept",
+  optimizacion: "db_concept", optimizar: "db_concept", optimizas: "db_concept", queries: "db_concept",
+  query: "db_concept", consultas: "db_concept",
+
+  // Testing
+  pytest: "test_concept", testing: "test_concept", tests: "test_concept", tdd: "test_concept",
+
+  // Preguntas finales
+  questions: "question_concept", question: "question_concept", pregunta: "question_concept", preguntas: "question_concept",
+  duda: "question_concept", dudas: "question_concept",
 };
 
 function canonicalizeToken(token: string): string {
@@ -643,42 +716,64 @@ export function findMatchingAnswer(
       continue;
     }
 
-    const rawItemTokens = tokenize(item.question);
-    const itemTokens = Array.from(new Set(rawItemTokens.map(canonicalizeToken)));
-    if (itemTokens.length === 0) continue;
+    // Evaluar subpartes si la pregunta es bilingüe o compuesta (separada por "/")
+    const questionParts = item.question.includes("/")
+      ? [item.question, ...item.question.split("/").map((p) => p.trim()).filter(Boolean)]
+      : [item.question];
 
-    // 1. Intersección de tokens significativos exactos y canónicos
-    let intersection = 0;
-    queryTokens.forEach((qToken) => {
-      if (itemTokens.includes(qToken)) {
-        intersection += 1;
+    let itemBestScore = 0;
+
+    for (const partText of questionParts) {
+      const rawItemTokens = tokenize(partText);
+      const itemTokens = Array.from(new Set(rawItemTokens.map(canonicalizeToken)));
+      if (itemTokens.length === 0) continue;
+
+      // 1. Intersección de tokens significativos exactos y canónicos
+      let intersection = 0;
+      queryTokens.forEach((qToken) => {
+        if (itemTokens.includes(qToken)) {
+          intersection += 1;
+        }
+      });
+
+      if (intersection === 0) continue;
+
+      const unionCount = new Set(queryTokens.concat(itemTokens)).size;
+      const jaccardScore = unionCount > 0 ? intersection / unionCount : 0;
+      const diceScore = (2 * intersection) / (queryTokens.length + itemTokens.length);
+      const queryCoverage = intersection / queryTokens.length;
+      const itemCoverage = intersection / itemTokens.length;
+
+      // Ponderación balanceada: consultas cortas (1-3 tokens) no se penalizan si su cobertura es alta
+      const effectiveCoverage = queryTokens.length <= 3
+        ? (queryCoverage * 0.75 + itemCoverage * 0.25)
+        : Math.min(queryCoverage, itemCoverage);
+
+      let score = (jaccardScore * 0.25) + (diceScore * 0.35) + (effectiveCoverage * 0.4);
+
+      // Bonus por cobertura conceptual total de la consulta
+      if (queryCoverage >= 0.99) {
+        score += 0.08;
       }
-    });
 
-    if (intersection === 0) continue;
+      // 2. Bonus por coincidencia de frase o inclusión completa
+      const cleanQ = query.toLowerCase().trim();
+      const cleanPartQ = partText.toLowerCase().trim();
+      if (cleanQ.includes(cleanPartQ) || cleanPartQ.includes(cleanQ)) {
+        score += 0.15;
+      }
 
-    const unionCount = new Set(queryTokens.concat(itemTokens)).size;
-    const jaccardScore = unionCount > 0 ? intersection / unionCount : 0;
-    const diceScore = (2 * intersection) / (queryTokens.length + itemTokens.length);
-    const queryCoverage = intersection / queryTokens.length;
-    const itemCoverage = intersection / itemTokens.length;
-
-    // Ponderación balanceada: consultas cortas (1-3 tokens) no se penalizan si su cobertura es alta
-    const effectiveCoverage = queryTokens.length <= 3
-      ? (queryCoverage * 0.7 + itemCoverage * 0.3)
-      : Math.min(queryCoverage, itemCoverage);
-
-    let score = (jaccardScore * 0.25) + (diceScore * 0.35) + (effectiveCoverage * 0.4);
-
-    // 2. Bonus por coincidencia de frase o inclusión completa
-    const cleanQ = query.toLowerCase().trim();
-    const cleanItemQ = item.question.toLowerCase().trim();
-    if (cleanQ.includes(cleanItemQ) || cleanItemQ.includes(cleanQ)) {
-      score += 0.15;
+      if (score > itemBestScore) {
+        itemBestScore = score;
+      }
     }
 
-    // 3. Bonus por tags SOLO si el score base ya es alto (>= 0.50) para evitar falsos positivos
-    if (score >= 0.50 && item.tags && item.tags.length > 0) {
+    if (itemBestScore === 0) continue;
+
+    let score = itemBestScore;
+
+    // 3. Bonus por tags SOLO si el score base ya es prometedor (>= 0.40) para evitar falsos positivos
+    if (score >= 0.40 && item.tags && item.tags.length > 0) {
       let tagMatches = 0;
       item.tags.forEach((tag) => {
         const cleanTag = tag.toLowerCase().trim();

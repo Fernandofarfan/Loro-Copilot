@@ -240,7 +240,7 @@ export function useAnswerStream() {
 
       // 2. Verificación de Memoria Inteligente Local (<50ms)
       if (type === "answer" && masterAnswers.length > 0) {
-        const memoryMatch = findMatchingAnswer(question, masterAnswers, 0.65, company, role);
+        const memoryMatch = findMatchingAnswer(question, masterAnswers, 0.48, company, role);
         if (memoryMatch) {
           if (speculativeJobRef.current) {
             try {

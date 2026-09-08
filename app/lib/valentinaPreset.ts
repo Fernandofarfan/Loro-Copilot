@@ -75,7 +75,7 @@ Sueldo pretendido: $4.000 USD brutos / mes en relación de dependencia en dólar
 
 ## BLOQUE 1: SMALL TALK, VIDA PERSONAL Y HOBBIES (EL FILTRO DE INGLÉS CASUAL)
 
-### 1. Pregunta: Do you have animals or pets in your home?
+### 1. Pregunta: Do you have animals or pets in your home? / ¿Tenés mascotas o animales en tu casa?
 
 [KEY] Yes, I have pets at home; they are great company during remote work and keep me active throughout the day.
 
@@ -90,7 +90,7 @@ Yes, I do! I have pets at home, and they are wonderful company, especially since
 
 ---
 
-### 2. Pregunta: What are your hobbies or what do you like to do in your free time?
+### 2. Pregunta: What are your hobbies or what do you like to do in your free time? / ¿Cuáles son tus hobbies o qué hacés en tu tiempo libre?
 
 [KEY] Cycling, outdoor sports in nature, listening to lo-fi/electronic music, and experimenting with cloud/AI architectures in my home-lab.
 
@@ -105,7 +105,7 @@ En mi tiempo libre disfruto mucho de las actividades al aire libre, sobre todo s
 
 ---
 
-### 3. Pregunta: Where do you live and what is your favorite place?
+### 3. Pregunta: Where do you live and what is your favorite place? / ¿Dónde vivís y cuál es tu lugar favorito?
 
 [KEY] Based in Salta, Argentina; surrounded by mountains and peaceful landscapes, while fully prepared and excited to commute/stay in Buenos Aires.
 
@@ -120,7 +120,7 @@ Actualmente vivo en Salta, al noroeste de Argentina. Es una ciudad hermosa rodea
 
 ---
 
-### 4. Pregunta: What did you do last weekend or what are your weekend plans?
+### 4. Pregunta: What did you do last weekend or what are your weekend plans? / ¿Qué hiciste el fin de semana pasado?
 
 [KEY] Relaxing weekend: bike ride in the countryside, quality time with family, and configuring a small server benchmark in my home-lab.
 
@@ -135,7 +135,7 @@ El fin de semana estuvo muy equilibrado: el sábado salí temprano a pedalear un
 
 ---
 
-### 5. Pregunta: What is your morning routine or how do you organize your workday?
+### 5. Pregunta: What is your morning routine or how do you organize your workday? / ¿Cómo es tu rutina o cómo organizás tu día de trabajo?
 
 [KEY] Early start with coffee, reviewing top 3 daily priorities before opening chats, followed by focused deep-work blocks and agile syncs.
 
@@ -150,7 +150,7 @@ Me gusta arrancar temprano con un buen café. Antes de abrir Slack o el correo, 
 
 ---
 
-### 6. Pregunta: What kind of music, books, or podcasts do you enjoy?
+### 6. Pregunta: What kind of music, books, or podcasts do you enjoy? / ¿Qué música o podcasts escuchás para programar?
 
 [KEY] Instrumental lo-fi and electronic for deep focus; tech architecture blogs, High Scalability, and software engineering podcasts.
 
@@ -167,7 +167,7 @@ Para programar o hacer debugging escucho lo-fi instrumental o electrónica tranq
 
 ## BLOQUE 2: CULTURA, BEHAVIORAL Y SOFT SKILLS
 
-### 7. Pregunta: How would you describe your personality or working style?
+### 7. Pregunta: How would you describe your personality or working style? / ¿Cómo describirías tu personalidad o estilo de trabajo?
 
 [KEY] Dependable, analytical, and highly collaborative; combining technical rigor with pragmatism and strong ownership.
 
@@ -182,7 +182,7 @@ Me describiría como confiable, analítico y pragmático. Confiable porque cuand
 
 ---
 
-### 8. Pregunta: What are your greatest strengths as an engineer?
+### 8. Pregunta: What are your greatest strengths as an engineer? / ¿Cuáles son tus mayores fortalezas como ingeniero?
 
 [KEY] End-to-end ownership, deep backend & cloud expertise, and staying calm under high-pressure production incidents.
 
@@ -197,7 +197,7 @@ Mi mayor fortaleza es la visión integral de punta a punta. Tener bases firmes e
 
 ---
 
-### 9. Pregunta: What is an area you are actively working to improve or a weakness?
+### 9. Pregunta: What is an area you are actively working to improve or a weakness? / ¿Cuál es tu mayor debilidad o área de mejora?
 
 [KEY] Tendency toward perfectionism in initial drafts; mitigated by setting strict timeboxes and delivering incremental MVPs.
 
@@ -212,7 +212,7 @@ Un aspecto en el que trabajo activamente es en moderar mi inclinación hacia el 
 
 ---
 
-### 10. Pregunta: How do you handle technical disagreements with teammates or leads?
+### 10. Pregunta: How do you handle technical disagreements with teammates or leads? / ¿Cómo manejás desacuerdos técnicos con el equipo?
 
 [KEY] Decouple opinions from facts; use benchmarks, proofs of concept (PoC), and formalize trade-offs in Architecture Decision Records (ADRs).
 
@@ -227,7 +227,7 @@ Separo por completo la discusión técnica de los egos personales. Primero escuc
 
 ---
 
-### 11. Pregunta: Can you tell me about a mistake or production incident and what you learned?
+### 11. Pregunta: Can you tell me about a mistake or production incident and what you learned? / ¿Tuviste algún error o incidente en producción y qué aprendiste?
 
 [KEY] Blameless postmortem after a database lock escalation incident; restored SLA in 12 minutes and added automated CI stress-testing.
 
@@ -242,7 +242,7 @@ Durante una migración de esquema en un servicio de alto tráfico, un bloqueo en
 
 ---
 
-### 12. Pregunta: Why are you looking for a change and why does this role interest you?
+### 12. Pregunta: Why are you looking for a change and why does this role interest you? / ¿Por qué buscás un cambio y por qué te interesa este puesto?
 
 [KEY] Excited by building enterprise-scale GenAI/Vertex AI applications on GCP and joining an expanding US engineering hub in Puerto Madero.
 
@@ -259,7 +259,7 @@ Estoy en un momento profesional donde busco volcar mi experiencia en backend y c
 
 ## BLOQUE 3: PROFUNDIDAD TÉCNICA (PYTHON, GCP, GENAI Y ARQUITECTURA)
 
-### 13. Pregunta: Can you tell me about yourself and walk me through your background?
+### 13. Pregunta: Can you tell me about yourself and walk me through your background? / ¿Contame sobre vos y tu recorrido profesional?
 
 [KEY] Senior Python Backend Engineer & Technical Lead with 8+ years in software engineering and 4+ years dedicated to GCP, FastAPI microservices, and AI integrations.
 
@@ -274,7 +274,7 @@ Soy Senior Python Backend Engineer y Tech Lead con más de 8 años de experienci
 
 ---
 
-### 14. Pregunta: What is your experience with Python, FastAPI, and asynchronous backend development?
+### 14. Pregunta: What is your experience with Python, FastAPI, and asynchronous backend development? / ¿Cuál es tu experiencia con Python, FastAPI y desarrollo asíncrono?
 
 [KEY] Deep expertise in Python 3.10+ with FastAPI, native Asyncio, non-blocking I/O, Pydantic v2 validation, and SQLAlchemy 2.0 async engine.
 
@@ -289,7 +289,7 @@ Mi framework principal es FastAPI por su soporte nativo de Asyncio, uvloop y val
 
 ---
 
-### 15. Pregunta: How do you design and deploy microservices on Google Cloud Platform?
+### 15. Pregunta: How do you design and deploy microservices on Google Cloud Platform? / ¿Cómo diseñás y desplegás microservicios en Google Cloud Platform?
 
 [KEY] Containerized workloads deployed on Cloud Run and GKE, with Pub/Sub event-driven messaging, Secret Manager, and Terraform IaC.
 
@@ -304,7 +304,7 @@ En Google Cloud despliego microservicios contenerizados con Docker multi-stage. 
 
 ---
 
-### 16. Pregunta: How have you built and integrated Generative AI solutions like Vertex AI and RAG?
+### 16. Pregunta: How have you built and integrated Generative AI solutions like Vertex AI and RAG? / ¿Cómo integrás IA Generativa, Vertex AI y arquitecturas RAG?
 
 [KEY] Production RAG pipelines: chunking documents, generating embeddings with Vertex AI, similarity search with pgvector, and SSE streaming.
 
@@ -319,7 +319,7 @@ En IA Generativa desarrollo arquitecturas RAG para producción: extraemos y segm
 
 ---
 
-### 17. Pregunta: How do you handle database persistence, query optimization, and pgvector in PostgreSQL?
+### 17. Pregunta: How do you handle database persistence, query optimization, and pgvector in PostgreSQL? / ¿Cómo optimizás persistencia y consultas en PostgreSQL con pgvector?
 
 [KEY] PostgreSQL optimization via composite indexing, asyncpg connection pooling with PgBouncer, Alembic migrations, and HNSW vector indexing.
 
@@ -334,7 +334,7 @@ PostgreSQL es mi motor principal relacional y vectorial. Diseño esquemas con í
 
 ---
 
-### 18. Pregunta: Tell me about your experience leading teams and establishing engineering standards as a Tech Lead.
+### 18. Pregunta: Tell me about your experience leading teams and establishing engineering standards as a Tech Lead. / ¿Contame sobre tu experiencia liderando equipos como Tech Lead?
 
 [KEY] Led an engineering team of 6 at Reforest Latam, introducing Clean Architecture, Architecture Decision Records (ADRs), and Pytest TDD.
 
@@ -349,7 +349,7 @@ En Reforest Latam me desempeñé como Technical Lead de un equipo de 6 ingeniero
 
 ---
 
-### 19. Pregunta: How do you approach testing, code quality, and CI/CD pipelines?
+### 19. Pregunta: How do you approach testing, code quality, and CI/CD pipelines? / ¿Cómo enfocás testing, calidad de código y CI/CD con Pytest?
 
 [KEY] Pytest with fixtures and mock factories, strict linting (Ruff/Black/MyPy), and automated GitHub Actions CI/CD pipelines.
 
@@ -364,7 +364,7 @@ La calidad de software se integra en el flujo diario, no al final. Utilizo Pytes
 
 ---
 
-### 20. Pregunta: Can you describe a challenging technical bottleneck you solved (STAR story)?
+### 20. Pregunta: Can you describe a challenging technical bottleneck you solved (STAR story)? / ¿Contame sobre algún cuello de botella complejo que hayas resuelto?
 
 [KEY] Solved severe N+1 queries and connection exhaustion in an ERP sync API, reducing p95 response time from 3.2s to 180ms (>60% reduction).
 
@@ -381,7 +381,7 @@ En mi trabajo de consultoría enterprise, un cliente internacional tenía un end
 
 ## BLOQUE 4: CONDICIONES, LOGÍSTICA Y CIERRE DE ORO
 
-### 21. Pregunta: How do you feel about working hybrid two days a week in Puerto Madero?
+### 21. Pregunta: How do you feel about working hybrid two days a week in Puerto Madero? / ¿Cómo te sentís trabajando híbrido dos días por semana en Puerto Madero?
 
 [KEY] 100% committed and comfortable with the 2-day-a-week hybrid model in Puerto Madero; logistics and relocation/stay fully arranged.
 
@@ -396,7 +396,7 @@ Estoy totalmente comprometido y disponible para el esquema híbrido de dos días
 
 ---
 
-### 22. Pregunta: What are your salary expectations and availability to start?
+### 22. Pregunta: What are your salary expectations and availability to start? / ¿Cuáles son tus expectativas salariales y disponibilidad para comenzar?
 
 [KEY] $4,000 USD gross per month in a direct employment relationship with USD compensation; availability immediate or 2-week notice.
 
@@ -411,7 +411,7 @@ Mi expectativa salarial de referencia es de 4.000 USD brutos mensuales en relaci
 
 ---
 
-### 23. Pregunta: Do you have any questions for us about the role, team, or company?
+### 23. Pregunta: Do you have any questions for us about the role, team, or company? / ¿Tenés alguna pregunta para nosotros sobre el rol o la empresa?
 
 [KEY] Strategic questions about the enterprise product, engineering hub roadmap, tech stack decisions, and next interview stages.
 
