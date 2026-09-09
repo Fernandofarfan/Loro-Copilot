@@ -233,7 +233,7 @@ export async function streamGemini(
     return new Response("Falta GEMINI_API_KEY en las variables de entorno.", { status: 500 });
   }
 
-  const maxTokens = options.maxTokens ?? (systemPrompt.includes("[ES]") ? 1200 : 600);
+  const maxTokens = options.maxTokens ?? 8192;
   const parts: Array<Record<string, unknown>> = [{ text: userContent }];
   if (options.image) {
     parts.push({ inlineData: { mimeType: options.image.mimeType, data: options.image.data } });
@@ -293,7 +293,7 @@ export async function streamAnthropic(
     return new Response("Falta ANTHROPIC_API_KEY en Vercel para usar Claude.", { status: 500 });
   }
 
-  const maxTokens = options.maxTokens ?? (systemPrompt.includes("[ES]") ? 1200 : 600);
+  const maxTokens = options.maxTokens ?? 8192;
   let detail = "";
 
   for (const model of models) {
@@ -372,7 +372,7 @@ export async function streamOpenAI(
   for (const model of models) {
     if (!model) continue;
     const isReasoning = /^(gpt-5|o[0-9])/.test(model);
-    const maxTokens = options.maxTokens ?? (systemPrompt.includes("[ES]") ? 1200 : 600);
+    const maxTokens = options.maxTokens ?? 8192;
 
     const userMessageContent = options.image
       ? [
@@ -396,7 +396,7 @@ export async function streamOpenAI(
     };
 
     if (isReasoning) {
-      reqBody.max_completion_tokens = options.maxTokens ?? (systemPrompt.includes("[ES]") ? 1500 : 900);
+      reqBody.max_completion_tokens = maxTokens;
       reqBody.reasoning_effort = "low";
     } else {
       reqBody.max_tokens = maxTokens;
@@ -476,7 +476,7 @@ export async function streamOpenCode(
       continue;
     }
     const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
-    const maxTokens = options.maxTokens ?? (options.image ? 3500 : 2000);
+    const maxTokens = options.maxTokens ?? 8192;
 
     const imageMime =
       options.image?.mimeType === "image/webp" && isOpenCodeHost
