@@ -12,16 +12,16 @@ Sueldo pretendido: $4.000 USD brutos / mes en relación de dependencia en dólar
 
 ### 1. Pregunta: Do you have animals or pets in your home? / ¿Tenés mascotas o animales en tu casa?
 
-[KEY] Yes, I have pets at home; they are great company during remote work and keep me active throughout the day.
+[KEY] Yes, I have an adopted rescue dog named Luna; she was rescued from the street, brings great positive energy, and is my daily remote work companion.
 
 [EN]
-Yes, I do! I have pets at home, and they are wonderful company, especially since I work remotely. They keep me active, bring great positive energy, and remind me to take quick breaks to step away from the screen, stretch, and reset my focus throughout the day.
+Yes, I do! I have a wonderful rescue dog named Luna. She was rescued from the street and adopted, and she's been the best companion, especially working remotely. She keeps me active, goes on walks with me, brings amazing positive energy to the home, and reminds me to step away from the screen to stretch and reset throughout the day.
 
 [PHO]
-(jɛs, aɪ du! aɪ hæv pɛts æt hoʊm, ænd ðeɪ ɑr ˈwʌndərfəl ˈkʌmpəni fɔr rɪˈmoʊt wɜrk. ðeɪ kip mi ˈæktɪv ænd rɪˈmaɪnd mi tu teɪk kwɪk breɪks.)
+(jɛs, aɪ du! aɪ hæv ə ˈwʌndərfəl ˈrɛskju dɔg neɪmd ˈlunə. ʃi wʌz ˈrɛskjud frəm ðə strit ænd əˈdɑptəd. ʃi ɪz maɪ bɛst kəmˈpænjən fɔr rɪˈmoʊt wɜrk ænd kips mi ˈæktɪv.)
 
 [ES]
-¡Sí, tengo mascotas en casa! Son una compañía bárbara trabajando remoto; me mantienen activo, aportan muy buena energía y me recuerdan despegar un poco la vista del monitor, estirar y renovar el foco a lo largo del día.
+¡Sí, totalmente! Tengo una perrita hermosa que se llama Luna; la rescatamos de la calle y la adoptamos. Es la mejor compañera que hay trabajando remoto: me mantiene activo, salimos a pasear, aporta una energía bárbara a la casa y me recuerda despegar un poco la vista del monitor para estirar y renovar el foco durante el día.
 
 ---
 

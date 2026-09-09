@@ -576,6 +576,8 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   // Mascotas / Pets / Animals
   pets: "pet_concept", pet: "pet_concept", animals: "pet_concept", animal: "pet_concept", animales: "pet_concept",
   mascota: "pet_concept", mascotas: "pet_concept", perro: "pet_concept", perros: "pet_concept", perrito: "pet_concept", perritos: "pet_concept",
+  perrita: "pet_concept", perritas: "pet_concept", luna: "pet_concept", rescatada: "pet_concept", rescatado: "pet_concept",
+  adoptada: "pet_concept", adoptado: "pet_concept", rescue: "pet_concept", adopted: "pet_concept",
   gato: "pet_concept", gatos: "pet_concept", gatito: "pet_concept", gatitos: "pet_concept", dog: "pet_concept", dogs: "pet_concept",
   cat: "pet_concept", cats: "pet_concept",
 

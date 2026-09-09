@@ -102,4 +102,5 @@ npm run dev
   - **Experiencia TOTAL en IT / Software / Sistemas:** +8 años (desarrollo, backend, arquitectura, bases de datos, troubleshooting).
   - **Experiencia ESPECÍFICA en Infraestructura Cloud / Linux / DevOps:** **~4 años** (Google Cloud Platform, GKE, Terraform, Ansible, Docker, Bash, Linux sysadmin/hardening).
   - **NUNCA afirmar "8 años en infraestructura / DevOps / GCP"**: siempre discriminar los +8 años de base tecnológica y desarrollo de los ~4 años dedicados exclusivamente a cloud e infraestructura.
+- **Mascota y Vida Personal:** Tiene una perrita rescatada de la calle y adoptada llamada **Luna**. Es su fiel compañera de trabajo remoto en Salta, salen a caminar y le aporta excelente energía positiva para despejarse del monitor y resetear el foco mental. **NUNCA mencionar gatos** (no tiene gatos, tiene a su perrita rescatada y adoptada Luna).
 

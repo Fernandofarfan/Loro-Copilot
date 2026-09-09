@@ -27,7 +27,7 @@ describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", (
       "Senior Python Backend Engineer & Technical Lead"
     );
     expect(matchPets).not.toBeNull();
-    expect(matchPets?.match.enText).toContain("pets at home");
+    expect(matchPets?.match.enText).toContain("Luna");
 
     // Match hobbies / pasatiempos
     const matchHobbies = findMatchingAnswer(
@@ -102,6 +102,7 @@ describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", (
     // Spanish: Mascotas
     const petsEs = findMatchingAnswer("Tenes mascotas o animales en tu casa?", answers, 0.45, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
     expect(petsEs).not.toBeNull();
+    expect(petsEs?.match.esText).toContain("Luna");
 
     // Spanish: Hobbies
     const hobbiesEs = findMatchingAnswer("Que haces en tu tiempo libre o que pasatiempos tenes?", answers, 0.45, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
