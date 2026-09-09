@@ -230,11 +230,6 @@ export function isActionableQuestion(text: string): boolean {
     return true;
   }
 
-  // 6. Frases compuestas largas de más de 7 palabras que no sean despedidas
-  if (words.length >= 8 && !/^(bueno|muchas gracias|gracias|hasta luego|nos vemos)/i.test(clean)) {
-    return true;
-  }
-
   return false;
 }
 

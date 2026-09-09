@@ -26,9 +26,12 @@ describe("interviewHelpers", () => {
       expect(isActionableQuestion("Ahí se detuvo.")).toBe(false);
       expect(isActionableQuestion("Perfect. Thank you. And the next question")).toBe(false);
       expect(isActionableQuestion("Perfect. Thank you. And the next question?")).toBe(false);
+      expect(isActionableQuestion("Plattika. Perfect. Thank you. And the next question.")).toBe(false);
       expect(isActionableQuestion("Okay, thank you for your answers.")).toBe(false);
+      expect(isActionableQuestion("Okay. Thank you for your answers. I will stop the recording now.")).toBe(false);
       expect(isActionableQuestion("Hi. Okay. Thank you for your answers. I will stop the recording now.")).toBe(false);
       expect(checkInstantGreeting("Hi. Okay. Thank you for your answers. I will stop the recording now.")).toBeNull();
+      expect(checkInstantGreeting("Okay. Thank you for your answers. I will stop the recording now.")).toBeNull();
       expect(isActionableQuestion("Okay, it's recording.")).toBe(false);
       expect(isActionableQuestion("Bueno, oye que estés bien, hasta luego.")).toBe(false);
       expect(isActionableQuestion("¿Viste?")).toBe(false);
