@@ -1296,6 +1296,20 @@ export default function CopilotPage() {
             {/* Frases de Rescate Inmediatas */}
             <RescuePhrases onSelect={handleSelectRescuePhrase} />
 
+            {/* Header de Respuestas con botón de Limpiar */}
+            {answers.length > 0 && (
+              <div className="flex items-center justify-between px-1 text-xs text-zinc-500">
+                <span>{answers.length} {answers.length === 1 ? "respuesta" : "respuestas"}</span>
+                <button
+                  onClick={clearAnswers}
+                  className="hover:text-zinc-300 transition-colors flex items-center gap-1 text-[11px] text-zinc-400 hover:text-red-400"
+                  title="Limpiar respuestas de la pantalla"
+                >
+                  🗑️ Limpiar feed
+                </button>
+              </div>
+            )}
+
             {/* Feed de Respuestas */}
             <div className="flex-1 flex flex-col gap-3 overflow-y-auto min-h-[300px]">
               {answers.length === 0 ? (
