@@ -13,6 +13,7 @@ import {
   detectQuestionLanguage,
   extractCurrentTurnQuestion,
   isIncompleteQuestion,
+  isActionableQuestion,
   matchSTARStory,
   detectFirmnessChallenge,
   type MasterAnswer,
@@ -311,6 +312,14 @@ export default function CopilotPage() {
         return;
       }
 
+      // Descartar confirmaciones, muletillas o frases de cierre que NO son preguntas ("es la práctica", "okay thank you")
+      if (!isActionableQuestion(recentText)) {
+        if (newLastId !== null) {
+          lastProcessedLineIdRef.current = newLastId;
+        }
+        return;
+      }
+
       if (recentText && recentText.length >= 6) {
         lastProcessedLineIdRef.current = newLastId;
         const lang = detectQuestionLanguage(recentText);
@@ -402,6 +411,7 @@ export default function CopilotPage() {
     },
     onSpeculativeTurn: (interimText) => {
       if (!autoRespond || isGeneratingRef.current) return;
+      if (!isActionableQuestion(interimText)) return;
       startSpeculativePreFetch({
         question: interimText,
         transcript: transcriptLinesRef.current

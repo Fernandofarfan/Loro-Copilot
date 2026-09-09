@@ -80,7 +80,8 @@ export function textStreamResponse(stream: ReadableStream) {
 export function sseTextStream(
   upstream: ReadableStream<Uint8Array>,
   extract: (json: string) => string | null,
-  streamTimeoutMs = 60_000
+  streamTimeoutMs = 60_000,
+  onFlush?: () => string | null
 ): ReadableStream {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -151,6 +152,12 @@ export function sseTextStream(
             if (buffer.trim()) {
               processLine(buffer);
               buffer = "";
+            }
+            if (onFlush) {
+              const flushed = onFlush();
+              if (flushed) {
+                controller.enqueue(encoder.encode(flushed));
+              }
             }
             if (!isClosed) {
               isClosed = true;
@@ -469,7 +476,7 @@ export async function streamOpenCode(
       continue;
     }
     const isReasoning = /^(gpt-5|o[0-9]|deepseek-r1)/.test(model);
-    const maxTokens = options.maxTokens ?? (options.image ? 3500 : 1200);
+    const maxTokens = options.maxTokens ?? (options.image ? 3500 : 2000);
 
     const imageMime =
       options.image?.mimeType === "image/webp" && isOpenCodeHost
@@ -498,11 +505,14 @@ export async function streamOpenCode(
     };
 
     if (isReasoning) {
-      reqBody.max_completion_tokens = options.maxTokens ?? 1500;
+      reqBody.max_completion_tokens = maxTokens;
       reqBody.reasoning_effort = "low";
     } else {
       reqBody.max_tokens = maxTokens;
       reqBody.temperature = options.temperature ?? 0.35;
+      if (isOpenCodeHost) {
+        reqBody.reasoning_effort = "low";
+      }
     }
 
     try {
@@ -515,7 +525,7 @@ export async function streamOpenCode(
             Authorization: `Bearer ${apiKey}`,
             "HTTP-Referer": SITE_URL,
             "X-Title": APP_NAME,
-            "x-opencode-session": "loro-copilot-session",
+            "x-opencode-session": `loro-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           },
           body: JSON.stringify(reqBody),
         },
@@ -525,18 +535,33 @@ export async function streamOpenCode(
       const contentType = upstream.headers.get("content-type") || "";
 
       if (upstream.ok && upstream.body && (contentType.includes("text/event-stream") || contentType.includes("application/x-ndjson"))) {
-        let sentThinkingMarker = false;
+        let contentReceived = false;
+        let reasoningAccumulator = "";
         return textStreamResponse(
-          sseTextStream(upstream.body, (json) => {
-            const evt = JSON.parse(json);
-            const delta = evt.choices?.[0]?.delta;
-            if (delta?.content) return delta.content;
-            if ((delta?.reasoning_content || delta?.reasoning) && !sentThinkingMarker) {
-              sentThinkingMarker = true;
-              return "🧠 *Analizando respuesta...*\n\n";
+          sseTextStream(
+            upstream.body,
+            (json) => {
+              const evt = JSON.parse(json);
+              const delta = evt.choices?.[0]?.delta;
+              if (delta?.content) {
+                contentReceived = true;
+                return delta.content;
+              }
+              if (delta?.reasoning_content || delta?.reasoning) {
+                reasoningAccumulator += (delta.reasoning_content || delta.reasoning);
+              }
+              return null;
+            },
+            60_000,
+            () => {
+              // Si el modelo cerró el stream habiendo generado razonamiento pero cero contenido formal,
+              // usar el razonamiento como respuesta para evitar que el usuario se quede con tarjeta vacía
+              if (!contentReceived && reasoningAccumulator.trim()) {
+                return reasoningAccumulator.trim();
+              }
+              return null;
             }
-            return null;
-          })
+          )
         );
       }
 

@@ -5,6 +5,7 @@ import {
   detectTrickQuestion,
   detectQuestionLanguage,
   isIncompleteQuestion,
+  isActionableQuestion,
   extractCurrentTurnQuestion,
   fmtTime,
   findMatchingAnswer,
@@ -16,6 +17,30 @@ import {
 } from "../app/lib/interviewHelpers";
 
 describe("interviewHelpers", () => {
+  describe("isActionableQuestion", () => {
+    it("debe descartar muletillas y confirmaciones de la entrevistadora", () => {
+      expect(isActionableQuestion("Es la práctica.")).toBe(false);
+      expect(isActionableQuestion("Obvio, avísame nomás.")).toBe(false);
+      expect(isActionableQuestion("Sí, cien por ciento.")).toBe(false);
+      expect(isActionableQuestion("Claro, sí. Entiendo, entiendo.")).toBe(false);
+      expect(isActionableQuestion("Ahí se detuvo.")).toBe(false);
+      expect(isActionableQuestion("Perfect. Thank you. And the next question")).toBe(false);
+      expect(isActionableQuestion("Okay, thank you for your answers.")).toBe(false);
+      expect(isActionableQuestion("Okay, it's recording.")).toBe(false);
+      expect(isActionableQuestion("Bueno, oye que estés bien, hasta luego.")).toBe(false);
+      expect(isActionableQuestion("¿Viste?")).toBe(false);
+    });
+
+    it("debe aceptar preguntas técnicas y personales reales", () => {
+      expect(isActionableQuestion("¿Tenés mascotas o animales en tu casa?")).toBe(true);
+      expect(isActionableQuestion("Can you walk me through a complex backend application you built using Python?")).toBe(true);
+      expect(isActionableQuestion("What is the Python GIL and how do you handle CPU-bound tasks?")).toBe(true);
+      expect(isActionableQuestion("How do you design a scalable document processing pipeline with AWS?")).toBe(true);
+      expect(isActionableQuestion("Contame sobre un cuello de botella complejo de rendimiento que hayas resuelto")).toBe(true);
+      expect(isActionableQuestion("What are your salary expectations and availability?")).toBe(true);
+    });
+  });
+
   describe("isIncompleteQuestion", () => {
     it("debe detectar frases incompletas por conectores finales", () => {
       expect(isIncompleteQuestion("Trabajé una vez con Riak con SQL, MySQL, PHP o con")).toBe(true);

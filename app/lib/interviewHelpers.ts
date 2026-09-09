@@ -161,6 +161,76 @@ export function isIncompleteQuestion(text: string): boolean {
 }
 
 /**
+ * Determina si un texto transcrito es una pregunta sustantiva o una consigna técnica real de la entrevista,
+ * descartando automáticamente muletillas, pausas, confirmaciones ("es la práctica", "obvio avísame nomás")
+ * y avisos de grabación ("okay it's recording", "thank you for your answers") para evitar saturar el LLM.
+ */
+export function isActionableQuestion(text: string): boolean {
+  const clean = (text || "").trim().toLowerCase();
+  if (!clean) return false;
+
+  // 1. Descartar muletillas y frases conversacionales cortas que NO son preguntas
+  const NON_QUESTION_PATTERNS = [
+    /^(es la pr[aá]ctica|la pr[aá]ctica)\b/i,
+    /^(obvio|dale|bueno|listo|clar[oí]simo|totalmente|de una|seguro)\s*(av[ií]same|nom[aá]s|gracias|perfecto|joya)?$/i,
+    /^(av[ií]same nom[aá]s|avisame nomas|av[ií]same|avisame)$/i,
+    /^(s[ií],?\s*(cien por ciento|100%|totalmente|seguro|obvio|claro|exacto|tal cual))\b/i,
+    /^(cien por ciento|100%|exacto|tal cual|totalmente|sin duda|por supuesto)$/i,
+    /^(claro,? s[ií]|s[ií],? claro|claro que s[ií]|claro entiendo|entiendo,?\s*entiendo)\b/i,
+    /^(ah[ií] se detuvo|se detuvo la grabaci[oó]n|ah[ií] par[oó])\b/i,
+    /^(dale,? perfecto|perfecto,? gracias|muchas gracias|mil gracias|gracias a vos)\b/i,
+    /^(bueno,?\s*(oye\s*)?que est[eé]s bien|hasta luego|que tengas buen d[ií]a|nos vemos)\b/i,
+    /^(okay,?\s*thank you|thank you for your answers|thanks for your time|thank you very much)\b/i,
+    /^(perfect,?\s*thank you|great,?\s*thank you|sounds good|all right|got it|makes sense)\b/i,
+    /^(and the next question|next question is|let's move on|moving on)\s*$/i,
+    /^(okay,?\s*it's recording|it is recording|we can start|let's start now|recording now)\b/i,
+    /^(i will stop the recording|stopping the recording|recording stopped)\b/i,
+    /^(have a good one|take care|bye bye|see you later)\b/i,
+  ];
+
+  if (NON_QUESTION_PATTERNS.some((pattern) => pattern.test(clean))) {
+    return false;
+  }
+
+  // 2. Si tiene signos de interrogación, es una pregunta directa
+  if (/[?¿]/.test(text)) {
+    // Aún con signo de interrogación, descartar si es solo una muletilla retórica aislada
+    if (/^[¿\s]*(viste|no|cierto|verdad|ok|okay)[?\s]*$/i.test(clean)) {
+      return false;
+    }
+    return true;
+  }
+
+  // 3. Patrones interrogativos o directivas claras de entrevista en español
+  const SPANISH_QUESTION_STARTERS =
+    /^(qu[eé]|c[oó]mo|cu[aá]l(es)?|cu[aá]ndo|d[oó]nde|por\s*qu[eé]|qui[eé]n(es)?|contame|cu[eé]ntame|explicame|explica|describ[ií]|describe|ten[eé]s|tienes|hac[eé]s|haces|podr[ií]as|quisiera saber|hablemos de|profundicemos en|me gustar[ií]a saber)\b/i;
+
+  // 4. Patrones interrogativos o directivas claras de entrevista en inglés
+  const ENGLISH_QUESTION_STARTERS =
+    /^(what|how|why|when|where|who|which|can you|could you|would you|tell me|explain|describe|walk me through|do you|have you|are you|is there|could we|let's talk about|first question is|next question is|can you tell me|can you share|how would you)\b/i;
+
+  if (SPANISH_QUESTION_STARTERS.test(clean) || ENGLISH_QUESTION_STARTERS.test(clean)) {
+    return true;
+  }
+
+  // 5. Palabras técnicas sustanciales (si el entrevistador plantea una consigna técnica sin signo de interrogación)
+  const TECHNICAL_KEYWORDS =
+    /\b(python|gil|asyncio|fastapi|pydantic|sqlalchemy|postgres|postgresql|redis|aws|ecs|fargate|eks|kubernetes|docker|langchain|rag|pgvector|hnsw|microservices|architecture|monolith|cache|caching|latency|throughput|alembic|saga|opentelemetry|instana|pytest|tdd|clean architecture|ddd|lead|leader|leadership|salario|sueldo|remuneraci[oó]n|pretensi[oó]n)\b/i;
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 4 && TECHNICAL_KEYWORDS.test(clean)) {
+    return true;
+  }
+
+  // 6. Frases compuestas largas de más de 7 palabras que no sean despedidas
+  if (words.length >= 8 && !/^(bueno|muchas gracias|gracias|hasta luego|nos vemos)/i.test(clean)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Extrae de forma limpia y aislada el texto de la pregunta del turno actual del entrevistador,
  * evitando mezclar texto de preguntas anteriores.
  */
@@ -700,6 +770,33 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   // Conectividad, espacio remoto y setup
   workspace: "setup_concept", setup: "setup_concept", espacio: "setup_concept", equipamiento: "setup_concept",
   conexion: "setup_concept", conectividad: "setup_concept", internet: "setup_concept",
+
+  // EPAM: Python Internals & Concurrency
+  gil: "gil_concept", lock: "gil_concept", interpreter: "gil_concept",
+  garbage: "gc_concept", collector: "gc_concept", collection: "gc_concept",
+  concurrency: "async_concept", concurrencia: "async_concept", uvloop: "async_concept",
+  coroutine: "async_concept", coroutines: "async_concept", corrutinas: "async_concept",
+  mro: "mro_concept", inheritance: "mro_concept", herencia: "mro_concept",
+  mutable: "mutable_concept", mutabilidad: "mutable_concept",
+
+  // EPAM: LangChain, AI & RAG
+  langchain: "langchain_concept", langgraph: "langchain_concept",
+  agent: "agent_concept", agents: "agent_concept", react: "agent_concept",
+  hnsw: "hnsw_concept", ivfflat: "ivfflat_concept",
+  hallucination: "hallucination_concept", alucinacion: "hallucination_concept", alucinaciones: "hallucination_concept",
+
+  // EPAM: AWS, Cloud & DevOps
+  aws: "aws_concept", fargate: "fargate_concept", ecs: "fargate_concept", eks: "k8s_concept",
+  lambda: "lambda_concept", serverless: "lambda_concept", sqs: "sqs_concept", sns: "sqs_concept",
+  kubernetes: "k8s_concept", k8s: "k8s_concept", pod: "k8s_concept", pods: "k8s_concept",
+  docker: "docker_concept", multistage: "docker_concept",
+  liveness: "probe_concept", readiness: "probe_concept", probes: "probe_concept",
+
+  // EPAM: Architecture, Saga & Observability
+  saga: "saga_concept", alembic: "alembic_concept", migrations: "alembic_concept", migraciones: "alembic_concept",
+  idempotency: "idempotency_concept", idempotencia: "idempotency_concept",
+  pgbouncer: "pgbouncer_concept",
+  opentelemetry: "otel_concept", otel: "otel_concept", tracing: "otel_concept",
 };
 
 function canonicalizeToken(token: string): string {
