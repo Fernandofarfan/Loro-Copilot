@@ -182,7 +182,7 @@ export function isActionableQuestion(text: string): boolean {
     /^(bueno,?\s*(oye\s*)?que est[eé]s bien|hasta luego|que tengas buen d[ií]a|nos vemos)\b/i,
     /^(okay,?\s*thank you|thank you for your answers|thanks for your time|thank you very much)\b/i,
     /^(perfect,?\s*thank you|great,?\s*thank you|sounds good|all right|got it|makes sense)\b/i,
-    /^(and the next question|next question is|let's move on|moving on)\s*$/i,
+    /^(and the next question|next question is|let's move on|moving on)\s*[.?]?$/i,
     /^(okay,?\s*it's recording|it is recording|we can start|let's start now|recording now)\b/i,
     /^(i will stop the recording|stopping the recording|recording stopped)\b/i,
     /^(have a good one|take care|bye bye|see you later)\b/i,
@@ -192,10 +192,18 @@ export function isActionableQuestion(text: string): boolean {
     return false;
   }
 
-  // 2. Si tiene signos de interrogación, es una pregunta directa
+  // Descartar frases de transición o avisos de cierre aunque contengan '?' o muletillas
+  if (/(and\s*the\s*next\s*question|next\s*question\s*[.?]?$|stop\s*(the\s*)?recording|thank\s*you\s*for\s*your\s*answers)/i.test(clean)) {
+    const hasTechnicalSubject = /\b(python|gil|asyncio|fastapi|pydantic|sqlalchemy|postgres|redis|aws|ecs|fargate|eks|kubernetes|docker|langchain|rag|pgvector|hnsw|saga|architecture|database|experience)\b/i.test(clean);
+    if (!hasTechnicalSubject) {
+      return false;
+    }
+  }
+
+  // 2. Si tiene signos de interrogación, verificar que no sea una muletilla o frase de transición
   if (/[?¿]/.test(text)) {
-    // Aún con signo de interrogación, descartar si es solo una muletilla retórica aislada
-    if (/^[¿\s]*(viste|no|cierto|verdad|ok|okay)[?\s]*$/i.test(clean)) {
+    // Aún con signo de interrogación, descartar si es solo una muletilla retórica aislada o aviso de turno
+    if (/^[¿\s]*(viste|no|cierto|verdad|ok|okay|and the next question)[?\s]*$/i.test(clean)) {
       return false;
     }
     return true;
@@ -278,6 +286,12 @@ export function extractCurrentTurnQuestion(
  */
 export function checkInstantGreeting(q: string, company = ""): { enText: string; esText: string; cleanText: string } | null {
   const lower = (q || "").trim().toLowerCase();
+
+  // Si contiene frases de despedida, cierre, aviso de grabación o preguntas siguientes, NO es un saludo de bienvenida
+  if (/(recording|stop|answers|finished|next question|gracias por|hasta luego|que est[eé]s bien|despedida)/i.test(lower)) {
+    return null;
+  }
+
   // Límite de 80 chars: los saludos reales de apertura de entrevista raramente superan esta longitud.
   // Evita tratar como saludo preguntas cortas que empiecen con "hola" pero contengan contenido técnico.
   const isGreeting = /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|c[oó]mo est[aá]s?|qu[eé] tal|todo bien|qu[eé] onda|hi|hello|hey|how are you|how is it going|how are you doing|can you hear me|me escuchas|me escuch[aá]s)\b/i.test(lower) && lower.length < 80;
