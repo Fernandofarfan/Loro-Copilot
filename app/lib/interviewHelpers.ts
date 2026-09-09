@@ -679,6 +679,25 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   // Preguntas finales
   questions: "question_concept", question: "question_concept", pregunta: "question_concept", preguntas: "question_concept",
   duda: "question_concept", dudas: "question_concept",
+
+  // Stakeholders, clientes internacionales y equipos US
+  stakeholders: "stakeholder_concept", stakeholder: "stakeholder_concept",
+  clientes: "stakeholder_concept", clients: "stakeholder_concept", client: "stakeholder_concept", cliente: "stakeholder_concept",
+  international: "international_concept", internacional: "international_concept", internacionales: "international_concept",
+  unidos: "us_concept", estados: "us_concept", usa: "us_concept",
+
+  // Plazos, Presión, Prioridades
+  deadlines: "deadline_concept", deadline: "deadline_concept", plazos: "deadline_concept", plazo: "deadline_concept",
+  pressure: "pressure_concept", presion: "pressure_concept",
+  priorities: "priority_concept", priority: "priority_concept", prioridades: "priority_concept", prioridad: "priority_concept",
+
+  // Procesos de selección y otras ofertas
+  offers: "offer_concept", offer: "offer_concept", oferta: "offer_concept", ofertas: "offer_concept",
+  propuesta: "offer_concept", propuestas: "offer_concept", procesos: "offer_concept", proceso: "offer_concept",
+
+  // Conectividad, espacio remoto y setup
+  workspace: "setup_concept", setup: "setup_concept", espacio: "setup_concept", equipamiento: "setup_concept",
+  conexion: "setup_concept", conectividad: "setup_concept", internet: "setup_concept",
 };
 
 function canonicalizeToken(token: string): string {

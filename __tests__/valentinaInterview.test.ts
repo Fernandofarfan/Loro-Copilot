@@ -5,7 +5,7 @@ import { parseInterviewMarkdownToMasterAnswers, findMatchingAnswer } from "../ap
 import { getValentinaMasterAnswers } from "../app/lib/valentinaPreset";
 
 describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", () => {
-  it("parses all 23 questions correctly from docs/valentina_backend_interview_memory.md", () => {
+  it("parses all 28 questions correctly from docs/valentina_backend_interview_memory.md", () => {
     const filePath = path.join(process.cwd(), "docs", "valentina_backend_interview_memory.md");
     const content = fs.readFileSync(filePath, "utf-8");
     const answers = parseInterviewMarkdownToMasterAnswers(
@@ -14,7 +14,7 @@ describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", (
       "Senior Python Backend Engineer & Technical Lead"
     );
 
-    expect(answers.length).toBe(23);
+    expect(answers.length).toBe(28);
     expect(answers[0].company).toBe("COMPANY86 / US Enterprise Client");
     expect(answers[0].role).toBe("Senior Python Backend Engineer & Technical Lead");
 
@@ -156,10 +156,35 @@ describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", (
     const reverseEs = findMatchingAnswer("Tenes alguna pregunta para nosotros sobre el equipo o el puesto?", answers, 0.40, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
     expect(reverseEs).not.toBeNull();
     expect(reverseEs?.match.esText).toContain("preguntas");
+
+    // Spanish: Clientes y equipos de Estados Unidos (Inglés)
+    const usClientsEs = findMatchingAnswer("Tenes experiencia trabajando con clientes o equipos de Estados Unidos en ingles?", answers, 0.40, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
+    expect(usClientsEs).not.toBeNull();
+    expect(usClientsEs?.match.esText).toContain("Estados Unidos");
+
+    // Spanish: Trabajo bajo presión y plazos
+    const pressureEs = findMatchingAnswer("Como te manejas bajo presion o con plazos cambiantes y prioridades?", answers, 0.40, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
+    expect(pressureEs).not.toBeNull();
+    expect(pressureEs?.match.esText).toContain("priorización");
+
+    // Spanish: Comunicación con perfiles no técnicos
+    const commEs = findMatchingAnswer("Como comunicas restricciones tecnicas a perfiles no tecnicos o Product Managers?", answers, 0.40, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
+    expect(commEs).not.toBeNull();
+    expect(commEs?.match.esText).toContain("Product Managers");
+
+    // Spanish: Otros procesos de selección
+    const offersEs = findMatchingAnswer("Estas en otros procesos de seleccion o evaluando otras propuestas actualmente?", answers, 0.40, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
+    expect(offersEs).not.toBeNull();
+    expect(offersEs?.match.esText).toContain("prioridad número uno");
+
+    // Spanish: Conectividad y setup remoto en Salta
+    const remoteEs = findMatchingAnswer("Como es tu espacio y conexion a internet de trabajo remoto en Salta?", answers, 0.40, "COMPANY86 / US Enterprise Client", "Senior Python Backend Engineer & Technical Lead");
+    expect(remoteEs).not.toBeNull();
+    expect(remoteEs?.match.esText).toContain("fibra óptica");
   });
 
-  it("loads all 23 preset answers via getValentinaMasterAnswers()", () => {
+  it("loads all 28 preset answers via getValentinaMasterAnswers()", () => {
     const presetAnswers = getValentinaMasterAnswers();
-    expect(presetAnswers.length).toBe(23);
+    expect(presetAnswers.length).toBe(28);
   });
 });

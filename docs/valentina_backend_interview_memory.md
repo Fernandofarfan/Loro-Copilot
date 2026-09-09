@@ -364,3 +364,78 @@ Sí, muchas gracias. Tengo tres preguntas:
 1. ¿Podrías contarme más sobre el producto principal que está construyendo este hub de ingeniería en Buenos Aires y cuáles son los hitos técnicos más importantes de este trimestre?
 2. ¿Cómo está organizado el equipo entre la sede en Estados Unidos y la nueva oficina de Buenos Aires? ¿Cómo es la interacción cotidiana?
 3. ¿Cuáles serían los siguientes pasos del proceso de selección tras nuestra llamada de hoy?
+
+---
+
+### 24. Pregunta: Do you have experience working with US teams or international stakeholders in English? / ¿Tenés experiencia trabajando con equipos o clientes internacionales de Estados Unidos en inglés?
+
+[KEY] Comfortable collaborating daily in English (B2) with distributed US/international teams across Slack, video syncs, and architecture documentation.
+
+[EN]
+Yes, I have extensive experience collaborating with distributed, cross-border teams. In my engineering roles and consulting work, I've used English on a daily basis for technical RFCs, sprint planning, pull request reviews, and async communication on Slack. I'm completely comfortable expressing complex technical concepts, clarifying requirements, and discussing architectural trade-offs with native English-speaking stakeholders.
+
+[PHO]
+(jɛs, aɪ hæv ɪkˈstɛnsɪv ɪkˈspɪriəns kəˈlæbəˌreɪtɪŋ wɪð dɪsˈtrɪbjətəd timz. aɪ juz ˈɪŋglɪʃ ˈdeɪli fɔr ˌɑrkəˈtɛktʃər ˌdɑkjəmɛnˈteɪʃən, pʊl rɪˈkwɛst rɪˈvjuz, ænd ˈtɛknɪkəl sɪŋks.)
+
+[ES]
+Sí, tengo amplia experiencia trabajando con equipos distribuidos internacionales. En mis roles de ingeniería y consultoría utilicé inglés a diario para redactar RFCs técnicos, documentación de arquitectura, code reviews en GitHub y coordinación ágil en Slack. Me siento muy cómodo comunicando ideas técnicas complejas, negociando prioridades y debatiendo trade-offs con colegas y líderes de Estados Unidos.
+
+---
+
+### 25. Pregunta: How do you handle tight deadlines, pressure, and shifting priorities? / ¿Cómo manejás plazos ajustados, presión y cambios de prioridad en el proyecto?
+
+[KEY] Ruthless prioritization (MoSCoW/Eisenhower), transparent stakeholder communication, delivering minimal shippable increments without sacrificing test coverage.
+
+[EN]
+When deadlines are tight or priorities shift, my approach is transparent communication and structured prioritization. First, I align with the Product Manager to distinguish what is truly critical for the release versus what can be deferred to the next iteration. Second, I break down features into minimal shippable increments so value is delivered continuously. Finally, I never cut corners on automated testing or code reviews—delivering a smaller, robust feature on time is always better than rushing untested code that will break production.
+
+[PHO]
+(wɛn ˈdɛdˌlaɪnz ɑr taɪt, aɪ əˈlaɪn wɪð ðə ˈprɑdəkt ˈmænədʒər ɑn ˈkrɪtəkəl ˌpraɪˈɔrəˌtiz. aɪ ˈdɛlɪvər ˌɪnkrəˈmɛntəli ænd ˈnɛvər kʌt ˈkɔrnərz ɑn ˌɔtəˈmeɪtəd ˈtɛstɪŋ.)
+
+[ES]
+Frente a plazos ajustados o cambios de prioridad, mi enfoque es comunicación transparente y priorización estricta. Primero me alineo con el Product Manager para separar lo indispensable del MVP de lo postergable. Segundo, divido la funcionalidad en entregables mínimos para aportar valor de forma incremental. Y por último, nunca negocio la calidad ni los tests automáticos: prefiero entregar un módulo más acotado pero 100% sólido antes que apurar código frágil que genere incidentes en producción.
+
+---
+
+### 26. Pregunta: How do you communicate technical concepts and constraints to non-technical stakeholders? / ¿Cómo comunicás restricciones técnicas o decisiones a perfiles no técnicos o de producto?
+
+[KEY] Translate technical debt and latency into business metrics (conversion rates, cloud costs, SLAs), using visual diagrams and zero jargon.
+
+[EN]
+I believe strong technical leadership requires empathy and bridge-building between engineering and business. When speaking with non-technical stakeholders or Product Managers, I avoid engineering jargon like database locks or N+1 queries. Instead, I frame discussions around business outcomes: how an architectural improvement reduces p95 latency to protect user conversion rates, or how caching cuts monthly Google Cloud infrastructure spend by forty percent. I also use clear flowcharts and architecture diagrams so everyone shares the same mental model.
+
+[PHO]
+(aɪ bɪld ə brɪdʒ bɪˈtwin ˌɛndʒəˈnɪrɪŋ ænd ˈbɪznəs baɪ ˈfreɪmɪŋ ˌdɪskəˈʃənz əˈraʊnd ˈaʊtˌkʌmz laɪk klaʊd kɔsts ænd ˈjuːzər ˌkɒnvərʒən rˈeɪts, əˈvɔɪdɪŋ ˈdʒɑrgən.)
+
+[ES]
+Considero clave que el liderazgo técnico tienda puentes claros con el negocio. Al hablar con Product Managers o clientes, evito tecnicismos como locks de base de datos o N+1. Traduzco esas realidades a métricas de negocio: cómo reducir la latencia p95 protege la tasa de conversión o cómo el caching reduce un 40% la factura de Google Cloud. Además empleo diagramas de flujo visuales para que todo el equipo comparta la misma visión sin ambigüedades.
+
+---
+
+### 27. Pregunta: Are you currently in other interview processes or considering other offers? / ¿Estás en otros procesos de selección o evaluando otras propuestas?
+
+[KEY] Transparent & professional: in active conversations with a couple of selective enterprise opportunities, but this role is top priority due to Python/GCP/GenAI and the Puerto Madero hub.
+
+[EN]
+To be transparent, I am in active conversations with a couple of other selective tech companies for senior backend positions. However, I want to emphasize that this opportunity with your company is my top priority. The specific combination of modern Python, Google Cloud Platform, production Generative AI, and the opportunity to help build the foundational engineering team at your new Puerto Madero hub aligns perfectly with where I want to take my career.
+
+[PHO]
+(tu bi trænˈspɛrənt, aɪ æm ɪn ˈkɑnvərˌseɪʃənz wɪð ə ˈkʌpəl əv ˈʌðər ˈkʌmpəniz, bʌt ðɪs roʊl ɪz maɪ tɑp ˌpraɪˈɔrəti bɪˈkɔz əv ðə ˈpaɪθɑn, dʒi-si-pi, ænd ˈpwɛrtoʊ məˈdɛroʊ hub mætʃ.)
+
+[ES]
+Para ser transparente, estoy en conversaciones activas con un par de empresas de tecnología para posiciones senior de backend. Sin embargo, quiero destacar que esta oportunidad con ustedes es mi prioridad número uno. La combinación de Python moderno, Google Cloud, IA Generativa y la posibilidad de sumarme al equipo fundacional de su hub en Puerto Madero encaja con exactitud con el impacto que busco generar en mi carrera.
+
+---
+
+### 28. Pregunta: What is your remote workspace setup like in Salta? / ¿Cómo es tu espacio y equipamiento de trabajo remoto en Salta?
+
+[KEY] Professional dedicated home office: fiber optic internet (300 Mbps symmetrical), dual monitors, 4G/5G mobile hotspot backup, and quiet environment.
+
+[EN]
+My remote setup in Salta is fully professional and optimized for high productivity. I have a dedicated home office room with ergonomic furniture and a dual-monitor setup. For connectivity, I have a high-speed fiber optic connection with three hundred megabits symmetrical speed, backed up by a 4G/5G mobile hotspot to ensure zero downtime during working hours. I also have UPS power protection, ensuring a quiet, uninterrupted, and reliable work environment for the three remote days of the week.
+
+[PHO]
+(maɪ rɪˈmoʊt ˈsɛtˌʌp ɪz ˈfʊli prəˈfɛʃənəl: ə ˈdɛdəˌkeɪtəd hoʊm ˈɔfəs wɪð haɪ-spid ˈfaɪbər ˈɑptɪk ˈɪntərˌnɛt ænd ə foʊr-dʒi bækˈʌp fɔr ˈzɪroʊ ˈdaʊnˌtaɪm.)
+
+[ES]
+Mi espacio de trabajo remoto en Salta es 100% profesional: cuento con un home office dedicado, escritorio ergonómico y doble monitor. En conectividad dispongo de fibra óptica simétrica de 300 Mbps más un enlace de backup 4G/5G para garantizar cero interrupciones en la jornada laboral, además de UPS para cortes eléctricos. Es un entorno silencioso y preparado para rendir al máximo en los días remotos de la semana.
