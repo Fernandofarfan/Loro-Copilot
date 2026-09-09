@@ -60,7 +60,15 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
               profile: typeof p.profile === "string" ? p.profile : "",
               extraInstructions: typeof p.extraInstructions === "string" ? p.extraInstructions : "",
               interviewerBio: typeof p.interviewerBio === "string" ? p.interviewerBio : "",
-            }));
+            }))
+            // Purgar perfiles de procesos finalizados (Valentina / COMPANY86)
+            .filter((p) => !/company86|valentina/i.test(p.company + " " + p.name + " " + (p.interviewerBio || "")));
+
+          if (validProfiles.length !== parsed.length) {
+            try {
+              localStorage.setItem(LS_PROFILES_KEY, JSON.stringify(validProfiles));
+            } catch {}
+          }
           setSavedProfiles(validProfiles);
         }
       }
@@ -83,7 +91,27 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
                 company: typeof a.company === "string" ? a.company : "",
                 favorite: Boolean(a.favorite),
                 createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
-              }));
+              }))
+              // Purgar respuestas maestras de procesos finalizados (Valentina / COMPANY86)
+              .filter((a) => {
+                const comp = (a.company || "").toLowerCase();
+                const q = (a.question || "").toLowerCase();
+                const tags = (a.tags || []).join(" ").toLowerCase();
+                return !(
+                  comp.includes("company86") ||
+                  comp.includes("valentina") ||
+                  q.includes("valentina") ||
+                  q.includes("puerto madero") ||
+                  tags.includes("valentina") ||
+                  tags.includes("company86")
+                );
+              });
+
+            if (validAnswers.length !== parsed.length) {
+              try {
+                localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(validAnswers));
+              } catch {}
+            }
             setMasterAnswers(validAnswers);
           } else {
             setMasterAnswers([]);
@@ -127,11 +155,17 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
       if (raw) {
         const saved = JSON.parse(raw);
         if (saved && typeof saved === "object") {
-          if (typeof saved.company === "string") setCompany(saved.company);
-          if (typeof saved.role === "string") setRole(saved.role);
-          if (typeof saved.profile === "string") setProfile(saved.profile);
-          if (typeof saved.extraInstructions === "string") setExtraInstructions(saved.extraInstructions);
-          if (typeof saved.interviewerBio === "string") setInterviewerBio(saved.interviewerBio);
+          const isValentinaContext =
+            (typeof saved.company === "string" && /company86|valentina/i.test(saved.company)) ||
+            (typeof saved.interviewerBio === "string" && /valentina/i.test(saved.interviewerBio));
+
+          if (!isValentinaContext) {
+            if (typeof saved.company === "string") setCompany(saved.company);
+            if (typeof saved.role === "string") setRole(saved.role);
+            if (typeof saved.profile === "string") setProfile(saved.profile);
+            if (typeof saved.extraInstructions === "string") setExtraInstructions(saved.extraInstructions);
+            if (typeof saved.interviewerBio === "string") setInterviewerBio(saved.interviewerBio);
+          }
           const validModels = availableModelIdsRef.current;
           if (typeof saved.modelId === "string" && (validModels.length === 0 || validModels.includes(saved.modelId))) {
             setModelId(saved.modelId);

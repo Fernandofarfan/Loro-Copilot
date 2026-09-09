@@ -74,4 +74,35 @@ describe("useInterviewContext", () => {
     act(() => result.current.removeAllProfiles());
     expect(result.current.savedProfiles).toEqual([]);
   });
+
+  it("debe purgar automáticamente respuestas y perfiles de Valentina / COMPANY86 en mount", async () => {
+    localStorage.setItem(
+      "loro-master-answers:v1",
+      JSON.stringify([
+        { id: "1", question: "Tell me about yourself", enText: "I am a dev", company: "EPAM" },
+        { id: "2", question: "Why Valentina?", enText: "Valentina interview", company: "COMPANY86 / US Enterprise Client" },
+        { id: "3", question: "Hybrid in Puerto Madero?", enText: "Yes Puerto Madero", company: "General" },
+      ])
+    );
+    localStorage.setItem(
+      "loro-saved-profiles",
+      JSON.stringify([
+        { name: "EPAM Profile", company: "EPAM", role: "Dev", profile: "Python" },
+        { name: "Valentina Profile", company: "COMPANY86", role: "Dev", profile: "Python" },
+      ])
+    );
+
+    const { result } = renderHook(() => useInterviewContext());
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.masterAnswers).toHaveLength(1);
+    expect(result.current.masterAnswers[0].company).toBe("EPAM");
+    expect(result.current.savedProfiles).toHaveLength(1);
+    expect(result.current.savedProfiles[0].name).toBe("EPAM Profile");
+
+    // Verificar que localStorage se sincronizó con la purga
+    const storedAnswers = JSON.parse(localStorage.getItem("loro-master-answers:v1") || "[]");
+    expect(storedAnswers).toHaveLength(1);
+    expect(storedAnswers[0].company).toBe("EPAM");
+  });
 });
