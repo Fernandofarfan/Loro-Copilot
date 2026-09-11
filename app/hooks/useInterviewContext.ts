@@ -331,6 +331,20 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     });
   }, []);
 
+  const importSTARStories = useCallback((newStories: STARStory[]) => {
+    if (!newStories || newStories.length === 0) return;
+    setStarStories((prev) => {
+      const combined = [
+        ...newStories,
+        ...prev.filter((p) => !newStories.some((n) => n.id === p.id || n.title === p.title)),
+      ];
+      try {
+        localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(combined));
+      } catch {}
+      return combined;
+    });
+  }, []);
+
   return {
     company,
     setCompany,
@@ -361,6 +375,7 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     starStories,
     saveSTARStory,
     deleteSTARStory,
+    importSTARStories,
     isLoaded,
   };
 }

@@ -1,9 +1,9 @@
-import { MasterAnswer, parseInterviewMarkdownToMasterAnswers } from "./interviewHelpers";
+import { MasterAnswer, parseInterviewMarkdownToMasterAnswers, type STARStory } from "./interviewHelpers";
 
 export const EPAM_PRESET_COMPANY = "EPAM";
 export const EPAM_PRESET_ROLE = "Python Backend Engineer & Technical Lead";
 
-export const EPAM_PRESET_INTERVIEWER_BIO = `Darío — Senior Technical Interviewer @ EPAM Systems.
+export const EPAM_PRESET_INTERVIEWER_BIO = `Senior Technical Lead & Interviewer @ EPAM Systems.
 Evaluating for:
 1) Position 4: AWS, LangChain, REST API, Generative AI (RAG, Vector DBs, Agents, LLM Integrations).
 2) Position 3: AWS, DevOps, Kubernetes, Python Web Development.
@@ -830,14 +830,14 @@ Mi pretensión salarial bruta es de 4.000 USD al mes, tal como conversé con Ang
 
 ---
 
-### 35. Pregunta: Do you have any questions for me? (Great Reverse Questions for Darío)
+### 35. Pregunta: Do you have any questions for me? (Great Reverse Questions for the Interviewer)
 [KEY]
 Ask about EPAM's architectural patterns for LLMs, deployment pipeline maturity, and engineering autonomy.
 
 [EN]
-Yes, Darío, I have a few questions about your technical roadmap and engineering practices at EPAM:
+Yes, I have a few questions about your technical roadmap and engineering practices at EPAM:
 
-1. Regarding the Python and AI positions: Are your teams building proprietary RAG and agent architectures using custom frameworks on AWS, or is there a standardized EPAM enterprise accelerator for LLM deployment and observability?
+1. Regarding the Python and AI positions: Are your teams building proprietary RAG and agent architectures using custom frameworks on AWS, or is there a standardized EPAM enterprise accelerator (like EPAM DIAL) for LLM deployment and observability?
 2. How does EPAM handle technical governance and architectural decision-making between client engineering teams and EPAM's internal technical leads?
 3. In this specific project, what does the CI/CD deployment cadence look like, and what are the main technical hurdles the team is aiming to solve in the next quarter?
 
@@ -1153,4 +1153,45 @@ export function getEpamMasterAnswers(): MasterAnswer[] {
     EPAM_PRESET_COMPANY,
     EPAM_PRESET_ROLE
   );
+}
+
+export function getEpamStarStories(): STARStory[] {
+  return [
+    {
+      id: "star_epam_1",
+      title: "Clean Architecture & DDD en Reforest Latam (Liderazgo & Refactor)",
+      situation: "Prototipo monolítico de telemetría acoplado, sin tests automatizados (<40%) y con entregas lentas en un equipo de 6 ingenieros.",
+      task: "Transicionar a microservicios limpios y desacoplados, formalizar ADRs y elevar la velocidad de entrega sin regresiones.",
+      action: "Lideré la adopción de Clean Architecture y DDD con FastAPI, formalicé decisiones con ADRs y establecí suites de Pytest bajo TDD (>85% cobertura) y CI/CD en GitHub Actions.",
+      result: "Aceleramos un 35% el delivery de features modulares, eliminamos discusiones de arquitectura estériles y logramos cero incidentes en producción.",
+      tags: ["Clean Architecture", "DDD", "Tech Lead", "Pytest", "FastAPI", "Leadership", "Refactor"],
+    },
+    {
+      id: "star_epam_2",
+      title: "Saturación de Conexiones en PostgreSQL en la UBA (Incidente Crítico)",
+      situation: "Pico masivo de 50.000 usuarios concurrentes en inscripciones anuales; el pool de conexiones colapsó (max_connections=500) y CPU al 100% con HTTP 500.",
+      task: "Contener la falla de inmediato sin reiniciar la base de datos ni perder transacciones de alumnos.",
+      action: "Identifiqué conexiones 'idle in transaction' de un script ETL con pg_stat_activity, las terminé con pg_terminate_backend() y desplegué PgBouncer en transaction pooling reduciendo conexiones activas a 40.",
+      result: "Latencia p95 cayó un 65%, se eliminaron todos los errores 500 y el proceso de inscripciones finalizó con 100% de disponibilidad.",
+      tags: ["PostgreSQL", "PgBouncer", "Incident Management", "Performance", "DBA", "Failure", "Outage"],
+    },
+    {
+      id: "star_epam_3",
+      title: "Discrepancia Técnica de Arquitectura (Have Backbone; Disagree & Commit)",
+      situation: "Debate en el equipo: un ingeniero senior quería dividir el backend inmediatamente en 7 microservicios, mientras yo sostenía que introducía sobrecarga excesiva de red y CI/CD para 6 personas.",
+      task: "Resolver la controversia de forma objetiva basada en datos y mantener la cohesión del equipo.",
+      action: "Propuse una prueba de concepto (Spike/POC) de 2 días midiendo latencia y contratos inter-servicios, documenté los trade-offs en un ADR y acordamos un Monolito Modular Hexagonal listo para extraer servicios cuando la escala lo demande.",
+      result: "Consenso total del equipo, lanzamiento de la plataforma 3 semanas antes de la fecha límite y alta moral de trabajo.",
+      tags: ["Conflict", "Disagreement", "ADRs", "Architecture", "Have Backbone", "Decision"],
+    },
+    {
+      id: "star_epam_4",
+      title: "Resolución de Cuello de Botella N+1 en Consultoría Enterprise",
+      situation: "APIs transaccionales de sincronización ERP/SAP con latencias p95 superiores a 800ms debido a consultas N+1 en SQLAlchemy sincrónico.",
+      task: "Optimizar el rendimiento para responder en menos de 100ms bajo alta concurrencia.",
+      action: "Migré la persistencia a SQLAlchemy 2.0 asíncrono con cargas eager explícitas (selectinload/joinedload), implementé Redis distribuido para caché de lecturas e integré validación con Pydantic v2 en Rust.",
+      result: "Reducción del 60% en latencia p95 (bajó a 45ms) y reducción del 70% en la carga del servidor de base de datos.",
+      tags: ["Performance", "SQLAlchemy", "FastAPI", "Redis", "Scale", "Optimization"],
+    },
+  ];
 }

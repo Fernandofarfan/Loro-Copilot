@@ -25,6 +25,7 @@ import {
   EPAM_PRESET_INTERVIEWER_BIO,
   EPAM_PRESET_EXTRA_INSTRUCTIONS,
   getEpamMasterAnswers,
+  getEpamStarStories,
 } from "../lib/epamPreset";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
@@ -148,6 +149,7 @@ export default function CopilotPage() {
     starStories,
     saveSTARStory,
     deleteSTARStory,
+    importSTARStories,
     isLoaded: isContextLoaded,
   } = useInterviewContext("deepseek-v4-flash", MODELS.map((m) => m.id));
 
@@ -834,7 +836,9 @@ export default function CopilotPage() {
     setSttLang("en");
     const answers = getEpamMasterAnswers();
     importMasterAnswers(answers);
-    setWarmupMessage(`⚡ ¡Preset EPAM cargado! Se configuró el CV de Guillermo Farfán, el Dossier de Darío y ${answers.length} respuestas maestras (<50ms).`);
+    const stories = getEpamStarStories();
+    importSTARStories(stories);
+    setWarmupMessage(`⚡ ¡Preset EPAM cargado! Se configuró el CV de Guillermo Farfán, el Dossier Técnico de EPAM, ${answers.length} respuestas maestras (<50ms) y ${stories.length} historias STAR reales.`);
   };
 
   const handleImportGlassdoor = useCallback(() => {
@@ -1379,9 +1383,9 @@ export default function CopilotPage() {
                   type="button"
                   onClick={handleLoadEpamPreset}
                   className="px-3 py-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/60 hover:bg-emerald-900/80 text-xs font-bold text-emerald-300 transition-all flex items-center gap-1.5 shadow-sm"
-                  title="Cargar automáticamente el contexto, CV de Guillermo Farfán, Dossier de Darío y respuestas maestras para la entrevista técnica de EPAM"
+                  title="Cargar automáticamente el contexto, CV de Guillermo Farfán, Dossier Técnico y respuestas maestras para la entrevista técnica de EPAM"
                 >
-                  <span>⚡ Preset EPAM (Darío)</span>
+                  <span>⚡ Preset EPAM (Técnico)</span>
                 </button>
                 <button
                   type="button"
