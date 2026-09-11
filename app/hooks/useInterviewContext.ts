@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MasterAnswer } from "../lib/interviewHelpers";
+import { getEpamMasterAnswers, getEpamStarStories } from "../lib/epamPreset";
 
 export interface SavedProfile {
   name: string;
@@ -107,12 +108,23 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
                 );
               });
 
-            if (validAnswers.length !== parsed.length) {
+            // Auto-upgrade / auto-sync EPAM answers if existing cache has an older preset version (e.g. 44 answers)
+            const epamPreset = getEpamMasterAnswers();
+            const currentEpamCount = validAnswers.filter((a) => (a.company || "").toUpperCase() === "EPAM").length;
+            let finalAnswers = validAnswers;
+
+            if (currentEpamCount >= 30 && currentEpamCount < epamPreset.length) {
+              const nonEpam = validAnswers.filter((a) => (a.company || "").toUpperCase() !== "EPAM");
+              finalAnswers = [...epamPreset, ...nonEpam];
+              try {
+                localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(finalAnswers));
+              } catch {}
+            } else if (validAnswers.length !== parsed.length) {
               try {
                 localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(validAnswers));
               } catch {}
             }
-            setMasterAnswers(validAnswers);
+            setMasterAnswers(finalAnswers);
           } else {
             setMasterAnswers([]);
           }
@@ -140,7 +152,19 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
                 tags: Array.isArray(s.tags) ? s.tags.map(String) : [],
                 createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
               }));
-            setStarStories(valid);
+
+            const epamStories = getEpamStarStories();
+            let finalStories = valid;
+            if (valid.length < epamStories.length) {
+              const missingStories = epamStories.filter((es) => !valid.some((v) => v.id === es.id || v.title === es.title));
+              if (missingStories.length > 0) {
+                finalStories = [...valid, ...missingStories];
+                try {
+                  localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(finalStories));
+                } catch {}
+              }
+            }
+            setStarStories(finalStories);
           } else {
             setStarStories([]);
           }

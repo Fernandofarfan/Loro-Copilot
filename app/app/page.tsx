@@ -1686,6 +1686,15 @@ export default function CopilotPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleLoadEpamPreset}
+                  className="px-3 py-1.5 rounded-lg border border-cyan-500/60 bg-cyan-950/50 hover:bg-cyan-900/80 text-cyan-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:border-cyan-400"
+                  title="Cargar las 85 respuestas maestras completas de EPAM Systems y sincronizar memoria"
+                >
+                  <span>⚡ Cargar Preset EPAM (85)</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleGenerateWarmup}
                   disabled={warmupLoading}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-bold transition-all disabled:opacity-50"
