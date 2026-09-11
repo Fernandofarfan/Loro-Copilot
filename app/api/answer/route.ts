@@ -347,7 +347,7 @@ palabra1 | palabra2 | palabra3
 [/KEY]
 
 [EN]
-<Respuesta hablada en inglés SIMPLE, claro y directo (A2/B1 vocabulario, frases cortas de 8-12 palabras, pronunciación fluida y sin jerga rebuscada). 1 frase de apertura contundente + 2-3 viñetas breves.>
+<Respuesta hablada en inglés SIMPLE, claro y directo (A2/B1 vocabulario, frases cortas de 8-12 palabras, pronunciación fluida y sin jerga rebuscada). 1 frase de apertura contundente + 2-3 viñetas breves. EVITÁ NÚMEROS COMPLEJOS O PORCENTAJES (usá términos cualitativos como 'substantially reduced latency', 'high test coverage', 'tens of thousands of users').>
 
 [PHO]
 <Guía fonética o pronunciación aproximada con sílabas mayúsculas para leer sin trabarse.>
@@ -362,7 +362,7 @@ palabra1 | palabra2 | palabra3
 [/KEY]
 
 [EN]
-<Respuesta directa y hablada en inglés (1 frase de apertura contundente + 2-3 viñetas cortas de 8-14 palabras, vocabulario técnico exacto y sin rodeos).>
+<Respuesta directa y hablada en inglés (1 frase de apertura contundente + 2-3 viñetas cortas de 8-14 palabras, vocabulario técnico exacto y sin rodeos). EVITÁ NÚMEROS COMPLEJOS O PORCENTAJES innecesarios; usá frases cualitativas naturales como 'significantly increased test coverage', 'cut query latency dramatically', 'high-volume concurrent traffic'.>
 
 [ES]
 <Traducción/resumen conceptual en español en 1-2 oraciones cortas para captar la idea al vuelo.>`;

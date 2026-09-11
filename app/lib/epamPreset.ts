@@ -11,8 +11,9 @@ Technical focus: Python internals (GIL, memory, asyncio, uvloop), FastAPI, Pydan
 
 export const EPAM_PRESET_EXTRA_INSTRUCTIONS = `All answers in natural, fluent English.
 Structure: Punchline first ([KEY]), followed by production-grade technical depth ([EN]), phonetic pronunciation guide for tricky words ([PHO]), and a brief Spanish conceptual recap ([ES]).
-Anchor answers in Guillermo's real experience at Reforest Latam (Tech Lead), UBA (DBA & Async Python for 50k users), GCBA, and enterprise consulting.
-Include architectural trade-offs ([WHY_NOT]) and failure modes ([EDGE_CASES]) when discussing system design and APIs.`;
+Anchor answers in Guillermo's real experience at Reforest Latam (Tech Lead), UBA (DBA & Async Python for high-traffic platforms), GCBA, and enterprise consulting.
+Include architectural trade-offs ([WHY_NOT]) and failure modes ([EDGE_CASES]) when discussing system design and APIs.
+CRITICAL RULE - AVOID COMPLEX NUMBERS: Strictly avoid complex numbers, percentages, and multi-digit statistics in [KEY] and [EN] (e.g. do NOT say "850 milliseconds to 45 milliseconds", "85% coverage", or "50,000 users"). The candidate finds numbers stressful to pronounce in English. Use natural qualitative words instead: "substantially reduced query latency", "significantly increased automated test coverage", "handled high-volume concurrent traffic across tens of thousands of users". The only numbers allowed are simple experience ("over eight years") and salary ("four thousand dollars" gross). Always provide clear phonetic pronunciation in [PHO].`;
 
 export const EPAM_PRESET_CV = `Guillermo Fernando Farfán Romero
 Senior Python Backend Engineer & Technical Lead
@@ -73,7 +74,7 @@ I'm a Senior Python Backend Engineer and Technical Lead with over eight years of
 
 My core expertise is Python 3.10+—specifically using FastAPI, Asyncio, uvloop, SQLAlchemy 2.0, and Pydantic v2 for high-concurrency architectures. Over the past couple of years, I've integrated Generative AI into backend architectures, building production RAG pipelines, vector search with pgvector, and LLM agent workflows using LangChain.
 
-Most recently, as Tech Lead at Reforest Latam, I spearheaded the adoption of Clean Architecture and Domain-Driven Design across our engineering team, establishing automated CI/CD and Pytest suites with over 85% coverage. Prior to that, I served as Senior Software Engineer & DBA at the University of Buenos Aires, optimizing async pipelines for over 50,000 active users, and consulting on enterprise ERP/SAP transactional integrations.
+Most recently, as Tech Lead at Reforest Latam, I spearheaded the adoption of Clean Architecture and Domain-Driven Design across our engineering team, establishing automated CI/CD and high-coverage Pytest suites. Prior to that, I served as Senior Software Engineer and DBA at the University of Buenos Aires, optimizing async pipelines for large-scale university systems across tens of thousands of active users, and consulting on enterprise ERP/SAP transactional integrations.
 
 I bridge deep hands-on backend engineering—including AWS, Kubernetes, and database optimization—with engineering leadership and mentoring.
 
@@ -106,23 +107,23 @@ Me atrae el rigor de ingeniería y la escala global de EPAM. La posición combin
 
 ### 3. Pregunta: Walk me through your experience as a Technical Lead at Reforest Latam.
 [KEY]
-Led 6 engineers adopting Clean Architecture and DDD, instituted ADRs, and achieved >85% test coverage and 35% faster feature delivery.
+Led the engineering team adopting Clean Architecture and DDD, instituted ADRs, and achieved high test coverage with significantly faster feature delivery.
 
 [EN]
-At Reforest Latam, I stepped in as Technical Lead and Senior Systems Engineer for our environmental telemetry platforms. We had a team of six engineers and needed to transition from a monolithic prototype to a scalable, decoupled microservices architecture.
+At Reforest Latam, I stepped in as Technical Lead and Senior Systems Engineer for our environmental telemetry platforms. We had a team of engineers and needed to transition from a monolithic prototype to a scalable, decoupled microservices architecture.
 
 I led three key transformations:
-First, architecture and domain modeling: I introduced Clean Architecture and Domain-Driven Design (DDD), separating core domain logic from FastAPI transport and database layers. We formalized all major technical decisions using Architecture Decision Records (ADRs), which eliminated bikeshedding and accelerated modular feature delivery by 35%.
+First, architecture and domain modeling: I introduced Clean Architecture and Domain-Driven Design (DDD), separating core domain logic from FastAPI transport and database layers. We formalized all major technical decisions using Architecture Decision Records (ADRs), which eliminated bikeshedding and accelerated modular feature delivery substantially.
 
-Second, engineering reliability: I mandated Test-Driven Development practices with Pytest and Factory Boy, raising our automated test coverage from under 40% to over 85%.
+Second, engineering reliability: I mandated Test-Driven Development practices with Pytest and Factory Boy, raising our automated test coverage to rigorous production standards.
 
 Third, asynchronous scalability: We decoupled heavy telemetry ingestion using Celery, Redis, and Cloud Pub/Sub, while deploying containerized workloads to Kubernetes and Cloud Run via automated GitHub Actions CI/CD pipelines.
 
 [PHO]
-(lɛd sɪks ˌɛnʤəˈnɪrz əˈdɑptɪŋ klin ˌɑrkəˈtɛkʧər ænd di-di-di wɪð eɪ-di-ɑrz ænd ˈpaɪˌtɛst)
+(lɛd ði ˌɛnʤəˈnɪrɪŋ tim əˈdɑptɪŋ klin ˌɑrkəˈtɛkʧər ænd di-di-di wɪð eɪ-di-ɑrz ænd ˈpaɪˌtɛst)
 
 [ES]
-Lideré un equipo de 6 ingenieros pasando a Clean Architecture y DDD, documentando decisiones con ADRs y acelerando las entregas un 35%. Subí la cobertura de tests al 85% con Pytest y desacoplé la ingestión con Celery, Redis y Pub/Sub sobre Kubernetes.
+Lideré al equipo pasando a Clean Architecture y DDD, documentando decisiones con ADRs y acelerando las entregas sustancialmente. Elevé la cobertura de tests con Pytest y desacoplé la ingestión con Celery, Redis y Pub/Sub sobre Kubernetes.
 
 ---
 
@@ -791,25 +792,25 @@ Un colega quería dividir en 7 microservicios de inmediato y yo proponía modula
 
 ### 33. Pregunta: Tell me about a critical production incident you resolved under pressure.
 [KEY]
-SITUATION: DB connection pool exhaustion during traffic spike. ACTION: Identified missing asyncpg pool tuning and rogue transactions; stabilized with PgBouncer.
+SITUATION: DB connection pool exhaustion during traffic spike. ACTION: Identified missing pool tuning and rogue transactions; stabilized with PgBouncer.
 
 [EN]
-At the University of Buenos Aires, during an annual student enrollment peak with over 50,000 concurrent users, our backend API began throwing HTTP 500 errors, and database CPU spiked to 100%.
+At the University of Buenos Aires, during an annual student enrollment peak with tens of thousands of concurrent users, our backend API began throwing HTTP 500 errors, and database CPU spiked to maximum capacity.
 
-Situation: PostgreSQL was hitting its maximum connection limit (\`max_connections=500\`), leading to connection pool exhaustion and stalling all worker processes.
+Situation: PostgreSQL was hitting its connection limits, leading to connection pool exhaustion and stalling all worker processes.
 
 Action:
 1. Immediate triage: I checked connection states in \`pg_stat_activity\` and identified dozens of idle-in-transaction connections caused by a background ETL script holding locks while waiting for third-party responses.
 2. Immediate relief: I safely terminated the blocking idle backends using \`pg_terminate_backend()\` and temporarily scaled our API instances to drop failing connection attempts.
-3. Root cause resolution: That same afternoon, I placed PgBouncer in transaction pooling mode between our FastAPI services and PostgreSQL, reducing active database server connections from 500 down to 40 reusable connections. Furthermore, I set strict \`statement_timeout\` and \`idle_in_transaction_session_timeout\` limits.
+3. Root cause resolution: That same afternoon, I placed PgBouncer in transaction pooling mode between our FastAPI services and PostgreSQL, reducing active database server connections down to a tight, reusable pool. Furthermore, I set strict statement timeouts and session timeout limits.
 
-Result: We eliminated database saturation, p95 query latency dropped by 65%, and the enrollment process completed without further downtime.
+Result: We completely eliminated database saturation, query latency dropped dramatically, and the enrollment process finished with zero further downtime.
 
 [PHO]
 (kəˈnɛkʃən pul ɪgˈzɔːstʃən rɪˈzɑlvd baɪ ˈkɪlɪŋ aɪdl bæk-ɛndz ænd ˌɪmpləˈmɛntɪŋ pi-ʤi-ˈbaʊnsər)
 
 [ES]
-Durante un pico de 50.000 usuarios en la UBA, la base saturó conexiones al 100%. Identifiqué conexiones "idle in transaction" de un ETL con \`pg_stat_activity\`, las terminé con \`pg_terminate_backend()\` y monté PgBouncer en transaction pooling, bajando de 500 a 40 conexiones reales con caída del 65% en latencia p95.
+Durante un pico masivo de inscripciones en la UBA, la base saturó conexiones al máximo. Identifiqué conexiones "idle in transaction" de un ETL con \`pg_stat_activity\`, las terminé con \`pg_terminate_backend()\` y monté PgBouncer en transaction pooling, reduciendo drásticamente las conexiones activas y estabilizando el sistema con éxito total.
 
 ---
 
@@ -1160,37 +1161,37 @@ export function getEpamStarStories(): STARStory[] {
     {
       id: "star_epam_1",
       title: "Clean Architecture & DDD en Reforest Latam (Liderazgo & Refactor)",
-      situation: "Prototipo monolítico de telemetría acoplado, sin tests automatizados (<40%) y con entregas lentas en un equipo de 6 ingenieros.",
-      task: "Transicionar a microservicios limpios y desacoplados, formalizar ADRs y elevar la velocidad de entrega sin regresiones.",
-      action: "Lideré la adopción de Clean Architecture y DDD con FastAPI, formalicé decisiones con ADRs y establecí suites de Pytest bajo TDD (>85% cobertura) y CI/CD en GitHub Actions.",
-      result: "Aceleramos un 35% el delivery de features modulares, eliminamos discusiones de arquitectura estériles y logramos cero incidentes en producción.",
+      situation: "Prototipo monolítico de telemetría acoplado, con baja cobertura de tests y entregas lentas en el equipo de ingeniería.",
+      task: "Transicionar a microservicios limpios y desacoplados, formalizar ADRs y acelerar la velocidad de entrega sin regresiones.",
+      action: "Lideré la adopción de Clean Architecture y DDD con FastAPI, formalicé decisiones con ADRs y establecí suites de Pytest bajo TDD y CI/CD en GitHub Actions.",
+      result: "Aceleramos sustancialmente el delivery de features modulares, eliminamos discusiones de arquitectura estériles y logramos cero incidentes en producción.",
       tags: ["Clean Architecture", "DDD", "Tech Lead", "Pytest", "FastAPI", "Leadership", "Refactor"],
     },
     {
       id: "star_epam_2",
       title: "Saturación de Conexiones en PostgreSQL en la UBA (Incidente Crítico)",
-      situation: "Pico masivo de 50.000 usuarios concurrentes en inscripciones anuales; el pool de conexiones colapsó (max_connections=500) y CPU al 100% con HTTP 500.",
+      situation: "Pico masivo de inscripciones anuales con decenas de miles de usuarios concurrentes; el pool de conexiones colapsó y la base saturó al máximo.",
       task: "Contener la falla de inmediato sin reiniciar la base de datos ni perder transacciones de alumnos.",
-      action: "Identifiqué conexiones 'idle in transaction' de un script ETL con pg_stat_activity, las terminé con pg_terminate_backend() y desplegué PgBouncer en transaction pooling reduciendo conexiones activas a 40.",
-      result: "Latencia p95 cayó un 65%, se eliminaron todos los errores 500 y el proceso de inscripciones finalizó con 100% de disponibilidad.",
+      action: "Identifiqué conexiones 'idle in transaction' de un script ETL con pg_stat_activity, las terminé con pg_terminate_backend() y desplegué PgBouncer en transaction pooling estabilizando el pool.",
+      result: "La latencia de consultas cayó drásticamente, se eliminaron todos los errores 500 y el proceso de inscripciones finalizó con disponibilidad total.",
       tags: ["PostgreSQL", "PgBouncer", "Incident Management", "Performance", "DBA", "Failure", "Outage"],
     },
     {
       id: "star_epam_3",
       title: "Discrepancia Técnica de Arquitectura (Have Backbone; Disagree & Commit)",
-      situation: "Debate en el equipo: un ingeniero senior quería dividir el backend inmediatamente en 7 microservicios, mientras yo sostenía que introducía sobrecarga excesiva de red y CI/CD para 6 personas.",
+      situation: "Debate en el equipo: un ingeniero senior quería dividir el backend inmediatamente en múltiples microservicios, mientras yo sostenía que introducía sobrecarga excesiva de red y CI/CD.",
       task: "Resolver la controversia de forma objetiva basada en datos y mantener la cohesión del equipo.",
-      action: "Propuse una prueba de concepto (Spike/POC) de 2 días midiendo latencia y contratos inter-servicios, documenté los trade-offs en un ADR y acordamos un Monolito Modular Hexagonal listo para extraer servicios cuando la escala lo demande.",
-      result: "Consenso total del equipo, lanzamiento de la plataforma 3 semanas antes de la fecha límite y alta moral de trabajo.",
+      action: "Propuse una prueba de concepto (Spike/POC) de dos días midiendo latencia y contratos inter-servicios, documenté los trade-offs en un ADR y acordamos un Monolito Modular Hexagonal listo para extraer servicios cuando la escala lo demande.",
+      result: "Consenso total del equipo, lanzamiento de la plataforma semanas antes de la fecha límite y alta moral de trabajo.",
       tags: ["Conflict", "Disagreement", "ADRs", "Architecture", "Have Backbone", "Decision"],
     },
     {
       id: "star_epam_4",
       title: "Resolución de Cuello de Botella N+1 en Consultoría Enterprise",
-      situation: "APIs transaccionales de sincronización ERP/SAP con latencias p95 superiores a 800ms debido a consultas N+1 en SQLAlchemy sincrónico.",
-      task: "Optimizar el rendimiento para responder en menos de 100ms bajo alta concurrencia.",
+      situation: "APIs transaccionales de sincronización ERP/SAP con latencias elevadas debido a consultas N+1 en SQLAlchemy sincrónico.",
+      task: "Optimizar el rendimiento para lograr respuestas ultrarrápidas bajo alta concurrencia.",
       action: "Migré la persistencia a SQLAlchemy 2.0 asíncrono con cargas eager explícitas (selectinload/joinedload), implementé Redis distribuido para caché de lecturas e integré validación con Pydantic v2 en Rust.",
-      result: "Reducción del 60% en latencia p95 (bajó a 45ms) y reducción del 70% en la carga del servidor de base de datos.",
+      result: "Logramos una reducción masiva en los tiempos de respuesta y aliviamos drásticamente la carga sobre el servidor de base de datos.",
       tags: ["Performance", "SQLAlchemy", "FastAPI", "Redis", "Scale", "Optimization"],
     },
   ];
