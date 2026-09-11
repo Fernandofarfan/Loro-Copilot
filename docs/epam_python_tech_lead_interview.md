@@ -1405,22 +1405,22 @@ Usamos enfoque contract-first: FastAPI genera el esquema OpenAPI desde los model
 
 ---
 
-### 66. Pregunta: How are Python dictionaries and sets implemented under the hood, and how do they handle hash collisions?
+### 66. Pregunta: How are Python dictionaries and sets implemented under the hood, and can a set be used as a dictionary key?
 [KEY]
-Compact array combined with a sparse hash table; collisions are resolved via open addressing with pseudo-random perturbation.
+Compact array with open addressing; sets share this structure. A set CANNOT be a dict key because it is mutable and unhashable—use frozenset.
 
 [EN]
 In modern Python:
-1. Memory Layout: Dictionaries use a compact array of entries (storing hash, key pointer, and value pointer) paired with a sparse index array. This provides insertion-order preservation and reduced memory overhead.
-2. Hash Collision Resolution: Python uses open addressing rather than chaining. When two keys produce the same initial slot index, Python computes a perturbation sequence using the high-order bits of the hash to probe subsequent slots until an empty slot or the matching key is found.
-3. Key Invariant: Keys must be hashable and immutable (implementing `__hash__` and `__eq__`). If an object's hash changes after insertion, lookups fail.
-4. Sets: Sets share the exact same underlying hash table architecture, but store only keys without value pointers.
+1. Memory Layout: Dictionaries use a compact array of entries paired with a sparse index array, preserving insertion order with minimal memory overhead.
+2. Hash Collisions: Resolved via open addressing with pseudo-random perturbation based on high-order hash bits.
+3. Dict Key Invariant: Keys must be hashable and immutable.
+4. Set vs Frozenset Trap: A standard `set` is mutable and unhashable (`TypeError: unhashable type: 'set'`). Therefore, a `set` CANNOT be a dictionary key. To use a set as a dict key or within another set, you MUST use `frozenset`.
 
 [PHO]
-(ˈkɑmpækt əˈreɪ wɪð ə spɑrs hæʃ ˈteɪbəl; kəˈlɪʒənz rɪˈzɑlvd vaɪə ˈoʊpən əˈdrɛsɪŋ)
+(ə sɛt ˈkænɑt bi ə dɪkt ki bɪˈkɔz ɪts ˈmjutəbəl; juz ˈfroʊzənsɛt ɪnˈstɛd)
 
 [ES]
-Los diccionarios en Python moderno usan una tabla hash dispersa combinada con un arreglo compacto ordenado por inserción. Las colisiones se resuelven mediante direccionamiento abierto (open addressing) con una secuencia de perturbación pseudo-aleatoria. Las claves deben ser inmutables y definir `__hash__` y `__eq__`.
+Los diccionarios usan una tabla hash dispersa y un arreglo compacto con direccionamiento abierto. Las claves deben ser inmutables y hashables. Un `set` NO puede ser clave de diccionario porque es mutable y no-hashable; para usar un conjunto como clave se DEBE usar `frozenset`.
 
 ---
 

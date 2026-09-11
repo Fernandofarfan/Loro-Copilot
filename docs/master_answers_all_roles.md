@@ -5,26 +5,26 @@
 ### 1. Pregunta: Do you have animals or pets in your home?
 
 [EN]
-Yes, I do! I have pets at home. They are great company, especially since I work remotely full-time. They keep me active and remind me to take quick breaks away from the screen during the day.
+Yes, I do! I have a rescued dog named Luna. She was adopted from the street and is my daily remote work companion here in Salta. We go on walks, she brings great positive energy, and she reminds me to take short breaks away from the screen during the day.
 
 [PHO]
-(jɛs, aɪ du! aɪ hæv pɛts æt hoʊm. ðeɪ ɑr greɪt ˈkʌmpəni fɔr rɪˈmoʊt wɜrk)
+(jɛs, aɪ du! aɪ hæv ə ˈrɛskjud dɔg neɪmd ˈlunə. ʃi ɪz maɪ rɪˈmoʊt wɜrk kəmˈpænjən ɪn ˈsɑltə)
 
 [ES]
-¡Sí, tengo mascotas en casa! Son una compañía bárbara trabajando remoto; me mantienen activo y me recuerdan despegar un poco la vista de la pantalla a lo largo del día.
+¡Sí, totalmente! Tengo una perrita adoptada que se llama Luna. Es mi fiel compañera trabajando remoto acá en Salta: salimos a caminar, aporta una energía bárbara y me ayuda a despejar la vista del monitor y resetear el foco mental.
 
 ---
 
 ### 2. Pregunta: ¿Tenés mascotas o animales en tu casa?
 
 [ES]
-¡Sí, tengo mascotas en casa! Son una compañía bárbara trabajando remoto; me mantienen activo y me recuerdan despegar un poco la vista de la pantalla a lo largo del día.
+¡Sí, totalmente! Tengo una perrita adoptada que se llama Luna. Es mi fiel compañera trabajando remoto acá en Salta: salimos a caminar, aporta una energía bárbara y me ayuda a despejar la vista del monitor y resetear el foco mental.
 
 [EN]
-Yes, I do! I have pets at home. They are great company, especially since I work remotely full-time. They keep me active and remind me to take quick breaks away from the screen during the day.
+Yes, I do! I have a rescued dog named Luna. She was adopted from the street and is my daily remote work companion here in Salta. We go on walks, she brings great positive energy, and she reminds me to take short breaks away from the screen during the day.
 
 [PHO]
-(jɛs, aɪ du! aɪ hæv pɛts æt hoʊm)
+(jɛs, aɪ du! aɪ hæv ə ˈrɛskjud dɔg neɪmd ˈlunə)
 
 ---
 
@@ -57,26 +57,26 @@ Last weekend was pretty relaxing. I spent some time outdoors, went for a bike ri
 ### 5. Pregunta: Tell me about yourself, your background, and your personal life.
 
 [EN]
-Personally, I’m based in Salta, Argentina. I live with my pets, and in my free time I love cycling and outdoor activities. Professionally, I'm an Engineer with over 8 years of experience across Cloud Architecture, Backend, and Data, delivering resilient and automated enterprise systems.
+Personally, I’m based in Salta, Argentina, living with my adopted rescue dog Luna, and I love cycling outdoors. Professionally, I bring over eight years of total IT and software engineering experience, with the last four years focused on Cloud Architecture, DevOps, and backend systems.
 
 [PHO]
-(ˈpɜrsənəli, aɪm beɪst ɪn ˈsɑltə, ɑrdʒənˈtinə. aɪ lɪv wɪð maɪ pɛts, ænd aɪ lʌv ˈaʊtˌdɔr ækˈtɪvətiz)
+(ˈpɜrsənəli, aɪm beɪst ɪn ˈsɑltə. aɪ lɪv wɪð maɪ ˈrɛskju dɔg ˈlunə, ænd aɪ lʌv ˈaʊtˌdɔr ˈsaɪklɪŋ)
 
 [ES]
-En lo personal vivo en Salta, tengo mascotas y me gusta mucho andar en bici y el aire libre. En lo profesional tengo más de 8 años en arquitectura cloud, backend y datos, diseñando sistemas enterprise automatizados y resilientes.
+En lo personal vivo en Salta, tengo a mi perrita adoptada Luna y me encanta salir a pedalear. En lo profesional sumo más de 8 años en software y backend, con los últimos 4 años dedicados a arquitectura cloud, DevOps y sistemas escalables.
 
 ---
 
 ### 6. Pregunta: Contame de vos, tu historia personal y tu recorrido laboral.
 
 [ES]
-En lo personal vivo en Salta, tengo mascotas y me gusta mucho andar en bici y el aire libre. En lo profesional tengo más de 8 años en tecnología, pasando por infraestructura cloud, backend y bases de datos, con foco en escala y calidad.
+En lo personal vivo en Salta, tengo a mi perrita adoptada Luna y me encanta salir a pedalear. En lo profesional sumo más de 8 años en software y backend, con los últimos 4 años dedicados a arquitectura cloud, DevOps y sistemas escalables.
 
 [EN]
-Personally, I’m based in Salta, Argentina. I live with my pets, and in my free time I love cycling and outdoor activities. Professionally, I have 8+ years across Cloud, Backend, and Data architecture.
+Personally, I’m based in Salta, Argentina, living with my adopted rescue dog Luna, and I love cycling outdoors. Professionally, I bring over eight years of total IT and software engineering experience, with the last four years focused on Cloud Architecture, DevOps, and backend systems.
 
 [PHO]
-(ˈpɜrsənəli, aɪm beɪst ɪn ˈsɑltə, ɑrdʒənˈtinə)
+(ˈpɜrsənəli, aɪm beɪst ɪn ˈsɑltə, lɪvɪŋ wɪð maɪ ˈrɛskju dɔg ˈlunə)
 
 ---
 

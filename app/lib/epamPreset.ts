@@ -10,7 +10,8 @@ Evaluating for:
 Technical focus: Python internals (GIL, memory, asyncio, uvloop), FastAPI, Pydantic v2, SQLAlchemy 2.0 async, PostgreSQL/pgvector, Redis caching, AWS (ECS/EKS/Lambda/SQS), Docker multi-stage, Kubernetes, Clean Architecture, Pytest TDD, and Tech Lead leadership.`;
 
 export const EPAM_PRESET_EXTRA_INSTRUCTIONS = `All answers in natural, fluent English.
-Structure: Punchline first ([KEY]), followed by production-grade technical depth ([EN]), phonetic pronunciation guide for tricky words ([PHO]), and a brief Spanish conceptual recap ([ES]).
+RADICAL BREVITY MANDATE (MAX 40 WORDS SPOKEN IN [EN]): Time in interview calls is extremely scarce ("Just short answers, please"). Explanations must be ultra-concise. Exactly 1 direct opening sentence (conclusion/punchline first, 10-14 words) + exactly 2 short bullets ('- ') of 8-12 words each. Never 3 bullets. Total spoken response in [EN] must stay between 35 and 45 words.
+Structure: Punchline first ([KEY]), followed by ultra-concise spoken English ([EN]), phonetic pronunciation guide for tricky words ([PHO]), and a brief Spanish conceptual recap ([ES]).
 Anchor answers in Guillermo's real experience at Reforest Latam (Tech Lead), UBA (DBA & Async Python for high-traffic platforms), GCBA, and enterprise consulting.
 Include architectural trade-offs ([WHY_NOT]) and failure modes ([EDGE_CASES]) when discussing system design and APIs.
 CRITICAL RULE - AVOID COMPLEX NUMBERS: Strictly avoid complex numbers, percentages, and multi-digit statistics in [KEY] and [EN] (e.g. do NOT say "850 milliseconds to 45 milliseconds", "85% coverage", or "50,000 users"). The candidate finds numbers stressful to pronounce in English. Use natural qualitative words instead: "substantially reduced query latency", "significantly increased automated test coverage", "handled high-volume concurrent traffic across tens of thousands of users". The only numbers allowed are simple experience ("over eight years") and salary ("four thousand dollars" gross). Always provide clear phonetic pronunciation in [PHO].`;
@@ -1468,22 +1469,22 @@ Usamos enfoque contract-first: FastAPI genera el esquema OpenAPI desde los model
 
 ---
 
-### 66. Pregunta: How are Python dictionaries and sets implemented under the hood, and how do they handle hash collisions?
+### 66. Pregunta: How are Python dictionaries and sets implemented under the hood, and can a set be used as a dictionary key?
 [KEY]
-Compact array combined with a sparse hash table; collisions are resolved via open addressing with pseudo-random perturbation.
+Compact array with open addressing; sets share this structure. A set CANNOT be a dict key because it is mutable and unhashable—use frozenset.
 
 [EN]
 In modern Python:
-1. Memory Layout: Dictionaries use a compact array of entries (storing hash, key pointer, and value pointer) paired with a sparse index array. This provides insertion-order preservation and reduced memory overhead.
-2. Hash Collision Resolution: Python uses open addressing rather than chaining. When two keys produce the same initial slot index, Python computes a perturbation sequence using the high-order bits of the hash to probe subsequent slots until an empty slot or the matching key is found.
-3. Key Invariant: Keys must be hashable and immutable (implementing \`__hash__\` and \`__eq__\`). If an object's hash changes after insertion, lookups fail.
-4. Sets: Sets share the exact same underlying hash table architecture, but store only keys without value pointers.
+1. Memory Layout: Dictionaries use a compact array of entries paired with a sparse index array, preserving insertion order with minimal memory overhead.
+2. Hash Collisions: Resolved via open addressing with pseudo-random perturbation based on high-order hash bits.
+3. Dict Key Invariant: Keys must be hashable and immutable.
+4. Set vs Frozenset Trap: A standard \`set\` is mutable and unhashable (\`TypeError: unhashable type: 'set'\`). Therefore, a \`set\` CANNOT be a dictionary key. To use a set as a dict key or within another set, you MUST use \`frozenset\`.
 
 [PHO]
-(ˈkɑmpækt əˈreɪ wɪð ə spɑrs hæʃ ˈteɪbəl; kəˈlɪʒənz rɪˈzɑlvd vaɪə ˈoʊpən əˈdrɛsɪŋ)
+(ə sɛt ˈkænɑt bi ə dɪkt ki bɪˈkɔz ɪts ˈmjutəbəl; juz ˈfroʊzənsɛt ɪnˈstɛd)
 
 [ES]
-Los diccionarios en Python moderno usan una tabla hash dispersa combinada con un arreglo compacto ordenado por inserción. Las colisiones se resuelven mediante direccionamiento abierto (open addressing) con una secuencia de perturbación pseudo-aleatoria. Las claves deben ser inmutables y definir \`__hash__\` y \`__eq__\`.
+Los diccionarios usan una tabla hash dispersa y un arreglo compacto con direccionamiento abierto. Las claves deben ser inmutables y hashables. Un \`set\` NO puede ser clave de diccionario porque es mutable y no-hashable; para usar un conjunto como clave se DEBE usar \`frozenset\`.
 
 ---
 
