@@ -5,12 +5,12 @@ import { parseInterviewMarkdownToMasterAnswers, findMatchingAnswer } from "../ap
 import { getEpamMasterAnswers } from "../app/lib/epamPreset";
 
 describe("EPAM Technical Interview Master Answers", () => {
-  it("parses all 43 questions correctly from docs/epam_python_tech_lead_interview.md", () => {
+  it("parses all 85 questions correctly from docs/epam_python_tech_lead_interview.md", () => {
     const filePath = path.join(process.cwd(), "docs", "epam_python_tech_lead_interview.md");
     const content = fs.readFileSync(filePath, "utf-8");
     const answers = parseInterviewMarkdownToMasterAnswers(content, "EPAM", "Python Backend Engineer & Technical Lead");
 
-    expect(answers.length).toBeGreaterThanOrEqual(40);
+    expect(answers.length).toBe(85);
     expect(answers[0].company).toBe("EPAM");
     expect(answers[0].role).toBe("Python Backend Engineer & Technical Lead");
 
@@ -34,6 +34,6 @@ describe("EPAM Technical Interview Master Answers", () => {
 
   it("loads all preset answers via getEpamMasterAnswers()", () => {
     const presetAnswers = getEpamMasterAnswers();
-    expect(presetAnswers.length).toBeGreaterThanOrEqual(40);
+    expect(presetAnswers.length).toBe(85);
   });
 });
