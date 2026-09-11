@@ -10,8 +10,11 @@ Evaluating for:
 Technical focus: Python internals (GIL, memory, asyncio, uvloop), FastAPI, Pydantic v2, SQLAlchemy 2.0 async, PostgreSQL/pgvector, Redis caching, AWS (ECS/EKS/Lambda/SQS), Docker multi-stage, Kubernetes, Clean Architecture, Pytest TDD, and Tech Lead leadership.`;
 
 export const EPAM_PRESET_EXTRA_INSTRUCTIONS = `All answers in natural, fluent English.
-RADICAL BREVITY MANDATE (MAX 40 WORDS SPOKEN IN [EN]): Time in interview calls is extremely scarce ("Just short answers, please"). Explanations must be ultra-concise. Exactly 1 direct opening sentence (conclusion/punchline first, 10-14 words) + exactly 2 short bullets ('- ') of 8-12 words each. Never 3 bullets. Total spoken response in [EN] must stay between 35 and 45 words.
-Structure: Punchline first ([KEY]), followed by ultra-concise spoken English ([EN]), phonetic pronunciation guide for tricky words ([PHO]), and a brief Spanish conceptual recap ([ES]).
+RADICAL BREVITY MANDATE (MAX 35 WORDS IN CONTINUOUS SPOKEN TEXT): Time in interview calls is extremely scarce ("Just short answers, please"). Explanations must be ultra-concise and conversational.
+STRICTLY NO BULLET POINTS, NO HYPHENS, NO LISTS ('-', '*', '•', '1.'). Output a single continuous paragraph of exactly 2 spoken sentences:
+- Sentence 1: Direct answer and technical punchline first (10-14 words).
+- Sentence 2: Internal architectural reason or production solution (12-16 words).
+Structure: Punchline first ([KEY]), followed by ultra-concise continuous spoken English ([EN]), phonetic pronunciation guide for tricky words ([PHO]), and a brief Spanish conceptual recap ([ES]).
 Anchor answers in Guillermo's real experience at Reforest Latam (Tech Lead), UBA (DBA & Async Python for high-traffic platforms), GCBA, and enterprise consulting.
 Include architectural trade-offs ([WHY_NOT]) and failure modes ([EDGE_CASES]) when discussing system design and APIs.
 CRITICAL RULE - AVOID COMPLEX NUMBERS: Strictly avoid complex numbers, percentages, and multi-digit statistics in [KEY] and [EN] (e.g. do NOT say "850 milliseconds to 45 milliseconds", "85% coverage", or "50,000 users"). The candidate finds numbers stressful to pronounce in English. Use natural qualitative words instead: "substantially reduced query latency", "significantly increased automated test coverage", "handled high-volume concurrent traffic across tens of thousands of users". The only numbers allowed are simple experience ("over eight years") and salary ("four thousand dollars" gross). Always provide clear phonetic pronunciation in [PHO].`;
