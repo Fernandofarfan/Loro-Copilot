@@ -941,3 +941,146 @@ To ingest and index 100,000 documents daily on AWS without latency spikes:
 
 [ES]
 Subida directa a S3 con URLs prefirmadas -> evento a cola SQS -> autoscaling de workers en ECS Fargate según volumen de SQS -> chunking semántico y embeddings en lote -> almacenamiento en Aurora PostgreSQL con `pgvector` (HNSW) o OpenSearch. Manejo de fallas con DLQ y API de consulta en FastAPI con búsqueda híbrida.
+
+---
+
+### 44. Pregunta: What is the difference between a list comprehension and a generator expression, and when do you choose each?
+[KEY]
+List comprehension allocates the entire list in memory eagerly ([...]), while generator expressions evaluate lazily on demand ((...)) with O(1) memory complexity.
+
+[EN]
+A list comprehension `[x for x in iterable]` constructs and stores the full list in RAM immediately. It offers faster iteration if you need to access elements multiple times, slice the data, or check `len()`, but its memory consumption scales linearly O(N).
+A generator expression `(x for x in iterable)` produces a generator object that computes values one at a time on demand (lazy evaluation). Its memory footprint remains constant O(1), making it mandatory when streaming large files, processing database cursors, or chaining pipeline transformations without triggering Out-Of-Memory (OOM) errors.
+
+[PHO]
+(lɪst ˌkɑmprɪˈhɛnʃən ˈæləkeɪts ˈiːgərli; ˈʤɛnəˌreɪtər ɪkˈsprɛʃən ˈɪvæljuˌeɪts ˈleɪzɪli wɪð oʊ-wʌn ˈmɛməri)
+
+[ES]
+List comprehension crea la lista completa en memoria de inmediato (`[...]`), ideal si necesitás indexar, reusar o medir longitud. Generator expression (`(...)`) evalúa perezosamente (lazy) elemento por elemento con O(1) de memoria, ideal para pipelines y procesar grandes volúmenes de datos sin agotar la RAM.
+
+---
+
+### 45. Pregunta: Explain shallow copy versus deep copy in Python with a nested structure example.
+[KEY]
+Shallow copy duplicates the outer container but references original inner objects. Deep copy recursively duplicates all nested objects and containers.
+
+[EN]
+In Python, assignment (`b = a`) only copies the memory reference.
+A shallow copy (`copy.copy(a)` or `a.copy()`) creates a new container object, but populates it with references to the child objects found in the original. If the list contains nested mutable structures—such as `a = [[1, 2], [3, 4]]`—modifying `b[0].append(99)` mutates `a[0]` as well because both inner lists point to the identical memory address.
+A deep copy (`copy.deepcopy(a)`) recursively clones every object found in the hierarchy. It creates brand-new instances for inner mutable containers, ensuring complete isolation so mutating `b` can never have side effects on `a`. In high-throughput APIs, deepcopy has a CPU performance cost due to recursive object traversal and memoization.
+
+[PHO]
+(ˈʃæloʊ ˈkɑpi ˈdjuːplɪkeɪts ði ˈaʊtər kənˈteɪnər; dip ˈkɑpi rɪˈkɜrsɪvli ˈklonz ɔl ˈnɛstɪd ˈɑbʤɛkts)
+
+[ES]
+Shallow copy (`copy.copy`) crea un contenedor nuevo pero mantiene referencias a los objetos hijos internos; si modificás una lista interna anidada, se modifica en ambos. Deep copy (`copy.deepcopy`) clona recursivamente toda la jerarquía en direcciones de memoria nuevas, garantizando aislamiento total a cambio de mayor costo de CPU.
+
+---
+
+### 46. Pregunta: How would you write a context manager to measure and log function or block execution time?
+[KEY]
+Use `contextlib.contextmanager` with `time.perf_counter()` around a `yield`, or a class implementing `__enter__` and `__exit__`.
+
+[EN]
+The cleanest production implementation uses `@contextlib.contextmanager`:
+```python
+import time
+from contextlib import contextmanager
+
+@contextmanager
+def execution_timer(label: str):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info(f"{label} took {elapsed_ms:.2f}ms")
+```
+Using `time.perf_counter()` is critical because it provides a monotonic clock with highest available resolution unaffected by system clock adjustments. The `try...finally` block guarantees that the timer logs elapsed time even if an unhandled exception or early return occurs within the `with` block. Alternatively, implementing `__enter__` and `__exit__` in a class is ideal when you need to retain state or inspect exception details before propagating.
+
+[PHO]
+(kriˈeɪt ə ˈtaɪmər ˈkɑntɛkst ˈmænəʤər juzɪŋ taɪm dɑt pɜrf-ˈkaʊntər ɪnsaɪd ə traɪ ˈfaɪnəli blɑk)
+
+[ES]
+Usamos `@contextlib.contextmanager` con `time.perf_counter()` (reloj monotónico de alta resolución) antes del `yield` y calculamos el tiempo transcurrido en un bloque `finally` para asegurar que se registre incluso ante excepciones no controladas.
+
+---
+
+### 47. Pregunta: What are Python's LEGB scope rules and the late-binding closure pitfall in loops?
+[KEY]
+LEGB stands for Local, Enclosing, Global, Built-in. Late binding means closures look up variables when called, not when defined. Fix with default arguments (`lambda i=i: i`).
+
+[EN]
+Python resolves variable identifiers following the LEGB hierarchy: Local scope first, then Enclosing functions (closures), Global (module level), and finally Built-in.
+A classic senior trap is late-binding closures inside loops:
+`funcs = [lambda: i for i in range(5)]`
+When invoked later (`funcs[0]()`), all lambdas return `4` because `i` is not evaluated at closure definition time; it looks up `i` in the enclosing scope when called, at which point the loop has completed and `i == 4`.
+To fix this, we bind the variable at definition time using default argument evaluation:
+`funcs = [lambda i=i: i for i in range(5)]` or using `functools.partial`. Because default arguments evaluate at function creation time, each lambda captures its own copy of the loop counter.
+
+[PHO]
+(ɛl-i-ʤi-bi skoʊp ruːlz: ˈloʊkəl, ɪnˈkloʊzɪŋ, ˈgloʊbəl, ˈbɪlt-ɪn; leɪt ˈbaɪndɪŋ luks ʌp ˈvɛriəbəlz æt kɔl taɪm)
+
+[ES]
+LEGB define el orden de resolución de variables: Local, Enclosing, Global y Built-in. El late-binding en closures hace que las funciones anidadas busquen el valor de la variable al momento de ser llamadas y no al definirse; en un loop todas ven el último valor. Se resuelve fijando el valor con un argumento por defecto (`lambda i=i: i`) o `functools.partial`.
+
+---
+
+### 48. Pregunta: When do you choose dataclasses versus standard classes or Pydantic in Python?
+[KEY]
+Use Dataclasses for internal domain models and value objects; use Pydantic for API boundaries, schema validation, and serialization.
+
+[EN]
+In modern Python architectures:
+1. Standard Python Classes: Used when managing complex stateful behavior, custom metaclasses, or private encapsulation with dynamic dunder methods.
+2. Dataclasses (`@dataclass(slots=True, frozen=True)`): Part of Python's standard library since 3.7. Ideal for clean internal domain models, DTOs, and value objects. By enabling `frozen=True`, they become immutable and hashable; `slots=True` (in Python 3.10+) reduces memory overhead by ~20% and accelerates attribute access. They have zero external dependencies and zero runtime parsing overhead.
+3. Pydantic v2: Mandatory at I/O boundaries—FastAPI request/response validation, configuration settings (`BaseSettings`), and external API parsing. Pydantic executes data coercion, type validation, and serialization compiled in Rust (`pydantic-core`), making it 10x faster than Pydantic v1.
+
+[PHO]
+(ˈdeɪtəˌklæsɪz fɔr ɪnˈtɜrnəl doʊˈmeɪn ˈmɑdəlz; paɪˈdæntɪk fɔr eɪ-pi-aɪ ˈbaʊndəriz ænd ˈskimə ˌvælɪˈdeɪʃən)
+
+[ES]
+Usamos dataclasses (`frozen=True`, `slots=True`) de la librería estándar para modelos de dominio internos y value objects livianos sin dependencias. Usamos Pydantic v2 para fronteras de entrada/salida (APIs en FastAPI, validación estricta de esquemas y parseo de payloads) aprovechando su núcleo en Rust.
+
+---
+
+### 49. Pregunta: What is your workflow for debugging and profiling Python performance or memory leak issues?
+[KEY]
+Reproduce -> Measure with `cProfile`/`py-spy` or `tracemalloc` -> Isolate root cause -> Optimize -> Benchmark to prevent regressions.
+
+[EN]
+Senior troubleshooting follows a strict measurement-first discipline: never guess, always profile.
+1. CPU Bottlenecks:
+   - For non-invasive live production profiling, I use `py-spy` to generate flame graphs without stopping running processes.
+   - For staging/local profiling, I use `cProfile` with `SnakeViz` or `yappi` for async coroutines.
+   - Common culprits: N+1 ORM queries, synchronous blocking calls in asyncio event loops, or unvectorized CPU loops.
+2. Memory Leaks:
+   - In Python, leaks are typically uncollected references rather than low-level leaks. Common causes are unbounded `@lru_cache` (without `maxsize`), growing global dictionaries, or circular references combined with custom `__del__` methods.
+   - I investigate using `tracemalloc` snapshots to compare memory allocation deltas between requests, and `objgraph` to inspect reference graphs and identify objects refusing garbage collection.
+3. Fix & Verification: Write an automated benchmark test using `pytest-benchmark` in CI to ensure no performance regression occurs.
+
+[PHO]
+(ˈproʊfaɪl bɪˈfɔr ˈɑptɪmaɪzɪŋ juzɪŋ paɪ-spaɪ, si-ˈproʊfaɪl, ænd treɪs-ˈmælək fɔr ˈmɛməri lɪks)
+
+[ES]
+Nunca optimizamos a ciegas: 1) Reproducir y medir con `py-spy` (flamegraphs no invasivos en producción) o `cProfile`/`yappi` para CPU. 2) Para fugas de memoria usamos `tracemalloc` y `objgraph` para detectar referencias vivas (caches infinitas o dicts globales). 3) Corregir y blindar con tests de `pytest-benchmark` en CI para evitar regresiones.
+
+---
+
+### 50. Pregunta: What do you know about EPAM's proprietary and open-source AI platforms like EPAM DIAL and EliteA?
+[KEY]
+EPAM DIAL is an open-source enterprise GenAI orchestration layer; EliteA modernizes SDLC with Copilot; EPAM is an official premier partner of AWS Bedrock and Google Vertex AI.
+
+[EN]
+EPAM is a recognized industry leader in enterprise AI engineering:
+1. EPAM DIAL (Domain-Intelligent AI Layer): An open-source, modular GenAI orchestration platform that enables enterprise clients to build, govern, and deploy multi-model AI applications with complete vendor neutrality and security compliance.
+2. EPAM EliteA™: A dedicated platform that integrates GenAI and tools like GitHub Copilot into the enterprise software development lifecycle, increasing developer velocity and code quality across clients like Canadian Tire.
+3. Enterprise Success Stories: EPAM built StatGPT v2.0 for the International Monetary Fund (IMF) for complex statistical data exchange, and developed generative retail platforms like JenAii™.
+As a Python backend engineer with GenAI expertise in RAG pipelines, pgvector, and LLM orchestration, my goal is to contribute to projects leveraging EPAM DIAL or enterprise clients on AWS and GCP.
+
+[PHO]
+(ˈi-pæm ˈdɑɪəl ɪz ən ˈoʊpən sɔrs ˌʤɛn-eɪ-aɪ ˌɔrkəˈstreɪʃən ˈplætfɔrm; i-ˈlit-eɪ fɔr ɛs-di-ɛl-si)
+
+[ES]
+Conozco a fondo las plataformas clave de EPAM: EPAM DIAL (su plataforma open-source líder de orquestación de GenAI empresarial neutral y segura), EPAM EliteA (para acelerar el ciclo de desarrollo con Copilot) y casos como StatGPT para el FMI. Como backend especializado en Python y GenAI, me entusiasma sumar en proyectos que usen estas plataformas o partners de AWS Bedrock y GCP.
+
