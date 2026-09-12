@@ -3,7 +3,14 @@
 import React, { useState, useMemo } from "react";
 import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
 import { MarkdownText } from "./MarkdownText";
-import { classifyQuestion, detectTrickQuestion, detectFirmnessChallenge, fmtTime } from "../lib/interviewHelpers";
+import {
+  classifyQuestion,
+  detectTrickQuestion,
+  detectFirmnessChallenge,
+  fmtTime,
+  type InstantBridge,
+  type SurgicalPhonetic,
+} from "../lib/interviewHelpers";
 import { extractAndEvaluateCode } from "../lib/codeEvaluator";
 import ArchitectureCanvas from "./ArchitectureCanvas";
 import { extractMermaidBlocks } from "../lib/mermaidParser";
@@ -28,10 +35,14 @@ export interface AnswerItem {
   latencyMs?: number;
   modelName?: string;
   fromMemory?: boolean;
+  keyWords?: string[];
   edgeCases?: string[];
   whyNot?: string;
   dryRun?: string;
   firmnessTip?: string;
+  bridge?: InstantBridge | null;
+  triggerCards?: string[];
+  surgicalPhonetics?: SurgicalPhonetic[];
 }
 
 interface AnswerCardProps {
@@ -178,6 +189,53 @@ export const AnswerCard = React.memo(function AnswerCard({
           {cat.label}
         </span>
       </div>
+
+      {/* 1. Puente Inmediato (<200ms) Anti-Silencio */}
+      {a.bridge && (
+        <div className="bg-sky-950/40 border-2 border-sky-500/60 rounded-xl p-2.5 mt-2 text-xs shadow-md animate-fadeIn">
+          <div className="flex items-center justify-between text-sky-400 font-bold text-[11px] mb-1">
+            <span className="flex items-center gap-1.5">
+              <span>🎙️</span> PUENTE INMEDIATO (ARRANCÁ A HABLAR YA):
+            </span>
+            <span className="bg-sky-500/20 text-sky-300 border border-sky-500/40 px-1.5 py-0.2 rounded text-[9px] font-mono uppercase font-bold">
+              &lt;200ms
+            </span>
+          </div>
+          <p className="text-sky-100 font-semibold text-[13px] leading-relaxed italic">
+            &ldquo;{a.bridge.bridgeEn}&rdquo;
+          </p>
+          <p className="text-sky-300/80 text-[11px] mt-0.5">
+            {a.bridge.bridgeEs}
+          </p>
+        </div>
+      )}
+
+      {/* 2. Tarjetas Disparadoras (Trigger Cards) - Visión Periférica 0.1s */}
+      {((a.triggerCards && a.triggerCards.length > 0) || (a.keyWords && a.keyWords.length > 0)) && (
+        <div className="mt-2.5 mb-1 p-2.5 rounded-xl bg-zinc-950/90 border-2 border-amber-500/50 shadow-lg">
+          <div className="text-amber-400 text-[10px] font-extrabold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <span>⚡</span> CONCEPTOS DISPARADORES (VISIÓN PERIFÉRICA 0.1s):
+            </span>
+            <span className="text-[9px] text-zinc-500 font-mono">PUNCHLINE FIRST</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {(a.triggerCards && a.triggerCards.length > 0
+              ? a.triggerCards
+              : (a.keyWords || []).map((k, idx) => `${idx + 1}. ${k.toUpperCase()}`)
+            ).map((card, idx, arr) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="bg-gradient-to-r from-amber-500/25 to-amber-600/15 text-amber-300 border-2 border-amber-400 px-3 py-1 rounded-lg font-mono font-black text-[13px] tracking-wide shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+                  {card}
+                </span>
+                {idx < arr.length - 1 && (
+                  <span className="text-amber-400 font-bold text-sm select-none">➔</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Alerta de Pregunta Trampa / Delicada */}
       {warning && (
@@ -402,6 +460,25 @@ export const AnswerCard = React.memo(function AnswerCard({
                 </div>
               )}
             </div>
+            {/* Fonética Quirúrgica para Términos Complejos */}
+            {a.surgicalPhonetics && a.surgicalPhonetics.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap mb-2.5 p-2 rounded-lg bg-black/50 border border-amber-500/40 text-xs">
+                <span className="text-amber-400 font-extrabold text-[11px] flex items-center gap-1">
+                  <span>🗣️</span> FONÉTICA QUIRÚRGICA:
+                </span>
+                {a.surgicalPhonetics.map((sp, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 bg-amber-950/80 border border-amber-400/60 px-2 py-0.5 rounded text-[11.5px] font-mono text-amber-200"
+                    title={sp.tip || `Pronunciar ${sp.word} como ${sp.phonetic}`}
+                  >
+                    <strong className="text-white">{sp.word}:</strong>
+                    <span className="text-amber-400 font-extrabold">[{sp.phonetic}]</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
             <div
               className="answer-card-text font-semibold text-[1.08em] leading-relaxed"
               style={{ color: "var(--ink)" }}

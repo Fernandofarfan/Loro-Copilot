@@ -288,6 +288,8 @@ export default function SimuladorPage() {
   const [persona, setPersona] = useState<Persona>("standard");
   const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityItem[] | null>(null);
   const [showVulnModal, setShowVulnModal] = useState(false);
+  const [pushbackMode, setPushbackMode] = useState(false);
+  const [answerDurationSec, setAnswerDurationSec] = useState(0);
   // Largo fijo de la entrevista (el selector se quitó del setup a pedido).
   const questionsCount = 5;
 
@@ -377,6 +379,7 @@ export default function SimuladorPage() {
       if (saved.modelId && MODELS.some((m) => m.id === saved.modelId)) setModelId(saved.modelId);
       if (saved.lang === "es" || saved.lang === "en") setLang(saved.lang);
       if (saved.interviewType) setInterviewType(saved.interviewType);
+      if (saved.pushbackMode !== undefined) setPushbackMode(!!saved.pushbackMode);
     } catch {}
   }, []);
 
@@ -398,10 +401,10 @@ export default function SimuladorPage() {
     try {
       localStorage.setItem(
         LS_KEY_CONTEXT,
-        JSON.stringify({ company, role, profile, modelId, lang, interviewType })
+        JSON.stringify({ company, role, profile, modelId, lang, interviewType, pushbackMode })
       );
     } catch {}
-  }, [company, role, profile, modelId, lang, interviewType]);
+  }, [company, role, profile, modelId, lang, interviewType, pushbackMode]);
 
   // ---------- Timers del turno ----------
 
@@ -698,6 +701,7 @@ export default function SimuladorPage() {
           history: currentHistory,
           questionIndex,
           questionsCount,
+          pushbackMode,
           lastAnswerLikelyCut: closing ? false : lastCutRef.current,
           ...(image ? { image } : {}),
         }),
@@ -1124,6 +1128,21 @@ export default function SimuladorPage() {
   const interim = lines.length > 0 && !lines[lines.length - 1].final ? lines[lines.length - 1].text : "";
   const isListening = phase === "listening" || phase === "confirming";
 
+  useEffect(() => {
+    if (!isListening) {
+      setAnswerDurationSec(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      const start = listeningStartedAtRef.current;
+      const secs = start ? Math.floor((Date.now() - start) / 1000) : 0;
+      setAnswerDurationSec(secs);
+    }, 400);
+    return () => clearInterval(interval);
+  }, [isListening]);
+
+  const liveWords = (currentAnswer + " " + interim).trim().split(/\s+/).filter(Boolean).length;
+
   // Anuncio para lectores de pantalla (aria-live): la fase no es visible a SR.
   const liveMsg =
     phase === "connecting"
@@ -1237,6 +1256,28 @@ export default function SimuladorPage() {
                 ]}
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-xl border border-amber-500/40 bg-amber-950/20 mt-3 shadow-sm">
+            <div className="flex flex-col pr-3">
+              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <span>🛡️</span> Modo Pushback (Have Backbone)
+              </span>
+              <span className="text-[11.5px] text-zinc-400 mt-0.5">
+                El entrevistador cuestionará tus decisiones técnicas para evaluar si sostenés tu postura con trade-offs y métricas.
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                pushbackMode
+                  ? "bg-amber-500 text-black font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+                  : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-white"
+              }`}
+              onClick={() => setPushbackMode((prev) => !prev)}
+            >
+              {pushbackMode ? "ACTIVADO ⚡" : "DESACTIVADO"}
+            </button>
           </div>
 
           {error && <div className="mono sim-error-box" style={{ marginTop: 10 }}>⚠️ {error}</div>}
@@ -1390,6 +1431,17 @@ export default function SimuladorPage() {
               >
                 <SpeakerIcon off={isVoiceMuted} />
               </button>
+              <button
+                className={`sim-ctl-btn font-mono text-[11px] px-2.5 flex items-center gap-1.5 transition-colors ${
+                  pushbackMode
+                    ? "text-amber-300 border-amber-500/60 bg-amber-500/20 font-bold"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+                onClick={() => setPushbackMode((prev) => !prev)}
+                title="Modo Pushback (Have Backbone): El entrevistador desafía tus soluciones técnicas"
+              >
+                <span>🛡️</span> {pushbackMode ? "Pushback ON" : "Pushback OFF"}
+              </button>
               <button className="sim-finish-btn" onClick={confirmEndInterview}>
                 <PhoneIcon /> Finalizar
               </button>
@@ -1505,6 +1557,60 @@ export default function SimuladorPage() {
                 {(phase === "asking" || phase === "speaking" ? spokenQuestion : currentQuestion) && (
                   <div className="sim-bubble sim-bubble-q">
                     {phase === "asking" || phase === "speaking" ? spokenQuestion : currentQuestion}
+                  </div>
+                )}
+
+                {/* Alerta de Desafío de Firmeza (Have Backbone) */}
+                {pushbackMode && history.length > 0 && (
+                  <div className="p-2.5 mb-2 rounded-xl bg-amber-950/40 border-2 border-amber-500/50 text-xs text-amber-200 animate-fadeIn">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-400 text-[11.5px]">
+                      <span>🛡️</span> DESAFÍO DE FIRMEZA (HAVE BACKBONE ACTIVADO):
+                    </div>
+                    <p className="text-[11px] text-amber-200/90 mt-0.5 leading-relaxed">
+                      El entrevistador puede cuestionar tu solución. Mantené tu postura técnica con trade-offs de producción y métricas; no te disculpes ni dudes.
+                    </p>
+                  </div>
+                )}
+
+                {/* Gimnasio de 25 Segundos: Semáforo y Pacing Timer */}
+                {isListening && (
+                  <div className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-950/95 mb-2.5 shadow-md animate-fadeIn">
+                    <div className="flex items-center justify-between text-xs mb-1.5 font-mono">
+                      <span className="flex items-center gap-1.5 font-bold text-zinc-300">
+                        <span>⏱️</span> Gimnasio 25s: <strong className="text-white">{answerDurationSec}s</strong> · {liveWords} palabras
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                          answerDurationSec <= 15
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                            : answerDurationSec <= 25
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            : answerDurationSec <= 35
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                            : "bg-rose-600 text-white animate-pulse"
+                        }`}
+                      >
+                        {answerDurationSec <= 15
+                          ? "⚡ Ritmo Óptimo (<15s)"
+                          : answerDurationSec <= 25
+                          ? "⚠️ Cerrá la Idea (15-25s)"
+                          : answerDurationSec <= 35
+                          ? "🛑 Límite 35 Palabras"
+                          : "🚨 Monólogo Excesivo"}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          answerDurationSec <= 15
+                            ? "bg-emerald-500"
+                            : answerDurationSec <= 25
+                            ? "bg-amber-500"
+                            : "bg-rose-500"
+                        }`}
+                        style={{ width: `${Math.min(100, (answerDurationSec / 35) * 100)}%` }}
+                      />
+                    </div>
                   </div>
                 )}
 

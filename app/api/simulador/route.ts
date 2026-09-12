@@ -234,6 +234,7 @@ export async function POST(req: Request) {
     history?: Array<{ question: string; answer: string }>;
     questionIndex?: number;
     questionsCount?: number;
+    pushbackMode?: boolean;
   };
   try {
     body = await req.json();
@@ -286,7 +287,7 @@ export async function POST(req: Request) {
   const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## DESCRIPCIÓN DEL PUESTO\n${role || "(sin especificar)"}\n\n## PERFIL DEL CANDIDATO\n${profile || "(sin perfil)"}\n\n## TIPO DE ENTREVISTA\n${interviewType}\n\n## PROGRESO\n${progressText}\n\n## ${isFeedback ? "IDIOMA DEL REPORTE" : "IDIOMA DE LA RESPUESTA"}\n${answerLangLabel}\n${isClosing ? "\n## CIERRE\nLa entrevista TERMINÓ. Despedite amablemente.\n" : ""}\n## HISTORIAL\n${historyText}`;
   const systemPrompt = isFeedback
     ? SYSTEM_PROMPT_FEEDBACK
-    : buildInterviewerSystemPrompt(body.persona || "standard");
+    : buildInterviewerSystemPrompt(body.persona || "standard", !!body.pushbackMode);
 
   const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
 

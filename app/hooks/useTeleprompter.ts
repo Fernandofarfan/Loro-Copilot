@@ -27,6 +27,17 @@ export interface TeleprompterPayload {
     isChallenge: boolean;
     tip?: string;
   } | null;
+  bridge?: {
+    bridgeEn: string;
+    bridgeEs: string;
+    category?: string;
+  } | null;
+  triggerCards?: string[];
+  surgicalPhonetics?: Array<{
+    word: string;
+    phonetic: string;
+    tip?: string;
+  }>;
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";

@@ -27,6 +27,17 @@ interface TeleprompterData {
     isChallenge: boolean;
     tip?: string;
   } | null;
+  bridge?: {
+    bridgeEn: string;
+    bridgeEs: string;
+    category?: string;
+  } | null;
+  triggerCards?: string[];
+  surgicalPhonetics?: Array<{
+    word: string;
+    phonetic: string;
+    tip?: string;
+  }>;
 }
 
 // Valida que el payload tiene la forma TeleprompterData antes de usarlo
@@ -45,7 +56,10 @@ function isValidTeleprompterData(data: unknown): data is TeleprompterData {
     typeof d.whyNot === "string" ||
     typeof d.dryRun === "string" ||
     (typeof d.matchedStory === "object" && d.matchedStory !== null) ||
-    (typeof d.firmnessAlert === "object" && d.firmnessAlert !== null)
+    (typeof d.firmnessAlert === "object" && d.firmnessAlert !== null) ||
+    (typeof d.bridge === "object" && d.bridge !== null) ||
+    Array.isArray(d.triggerCards) ||
+    Array.isArray(d.surgicalPhonetics)
   );
 }
 
@@ -355,6 +369,21 @@ export default function TeleprompterPage() {
             <div className="flex-1 overflow-x-auto space-y-1">
               <div className="text-[#6a9955]">{"// ----------------------------------------------------"}</div>
               <div className="text-[#6a9955]">{"// TASK: "} {data.question || "Awaiting task..."}</div>
+              {data.bridge && (
+                <div className="text-[#4fc1ff] font-bold bg-[#007acc]/20 p-1 rounded border border-[#007acc]/40">
+                  {"// [OPENING_BRIDGE]: "} &quot;{data.bridge.bridgeEn}&quot;
+                </div>
+              )}
+              {((data.triggerCards && data.triggerCards.length > 0) || (data.keyWords && data.keyWords.length > 0)) && (
+                <div className="text-[#e5c07b] font-mono font-bold">
+                  {"// [TRIGGERS]: "} {(data.triggerCards || data.keyWords || []).join(" ➔ ")}
+                </div>
+              )}
+              {data.surgicalPhonetics && data.surgicalPhonetics.length > 0 && (
+                <div className="text-[#dcdcaa] font-mono text-[11px]">
+                  {"// [PHONETICS]: "} {data.surgicalPhonetics.map(p => `${p.word} -> [${p.phonetic}]`).join(" | ")}
+                </div>
+              )}
               {data.firmnessAlert?.isChallenge && (
                 <div className="text-[#f43f5e] font-bold">{"// [BACKBONE_DEFENSE]: "} {data.firmnessAlert.tip}</div>
               )}
@@ -398,6 +427,21 @@ export default function TeleprompterPage() {
             <div className="text-sky-400 font-semibold">
               [INPUT] - RECV_PROMPT: &quot;{data.question}&quot;
             </div>
+            {data.bridge && (
+              <div className="text-sky-300 bg-sky-950/40 p-1.5 rounded border border-sky-800/50">
+                [BRIDGE] - FAST_OPENING: &quot;{data.bridge.bridgeEn}&quot;
+              </div>
+            )}
+            {((data.triggerCards && data.triggerCards.length > 0) || (data.keyWords && data.keyWords.length > 0)) && (
+              <div className="text-amber-300 font-mono font-bold bg-amber-950/40 p-1 rounded border border-amber-800/50">
+                [TRIGGERS] - EXEC_KEYS: {(data.triggerCards || data.keyWords || []).join(" ➔ ")}
+              </div>
+            )}
+            {data.surgicalPhonetics && data.surgicalPhonetics.length > 0 && (
+              <div className="text-yellow-200/90 text-[11px] font-mono">
+                [PHONETICS] - TRICKY_TERMS: {data.surgicalPhonetics.map(p => `${p.word} -> [${p.phonetic}]`).join(" | ")}
+              </div>
+            )}
             {data.firmnessAlert?.isChallenge && (
               <div className="text-rose-400 font-bold bg-rose-950/30 p-1.5 rounded border border-rose-800/50">
                 [WARN] [HAVE_BACKBONE_TEST]: {data.firmnessAlert.tip}
@@ -479,20 +523,52 @@ export default function TeleprompterPage() {
             </div>
           </section>
 
-          {/* Palabras Clave Punchline First */}
-          {data.keyWords && data.keyWords.length > 0 && (
-            <section className="mb-2.5">
-              <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                ⚡ Punchline Clave (Decilo de entrada)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {data.keyWords.map((kw, i) => (
-                  <span
-                    key={i}
-                    className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md font-bold text-[0.85em]"
-                  >
-                    {kw}
+          {/* 1. Puente Inmediato (<200ms) Anti-Silencio */}
+          {data.bridge && (
+            <section className="mb-2.5 animate-fadeIn">
+              <div className="bg-sky-950/80 border-2 border-sky-400 rounded-xl p-2.5 text-xs shadow-lg">
+                <div className="flex items-center justify-between font-bold text-sky-300 text-[11px] mb-1">
+                  <span className="flex items-center gap-1.5">
+                    <span>🎙️</span> PUENTE INMEDIATO (ARRANCÁ A HABLAR YA):
                   </span>
+                  <span className="bg-sky-500 text-black px-1.5 py-0.2 rounded text-[9px] font-black uppercase">
+                    &lt;200ms
+                  </span>
+                </div>
+                <div className="text-sky-100 font-bold text-[13.5px] leading-snug italic">
+                  &ldquo;{data.bridge.bridgeEn}&rdquo;
+                </div>
+                {data.bridge.bridgeEs && (
+                  <div className="text-sky-300/80 text-[10.5px] mt-0.5">
+                    {data.bridge.bridgeEs}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* 2. Tarjetas Disparadoras (Trigger Cards) - Visión Periférica 0.1s */}
+          {((data.triggerCards && data.triggerCards.length > 0) || (data.keyWords && data.keyWords.length > 0)) && (
+            <section className="mb-2.5">
+              <div className="text-amber-400 text-[10px] font-black uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <span>⚡</span> CONCEPTOS DISPARADORES (VISIÓN PERIFÉRICA 0.1s):
+                </span>
+                <span className="text-[9px] text-zinc-400 font-mono">PUNCHLINE FIRST</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(data.triggerCards && data.triggerCards.length > 0
+                  ? data.triggerCards
+                  : (data.keyWords || []).map((kw, idx) => `${idx + 1}. ${kw.toUpperCase()}`)
+                ).map((card, idx, arr) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <span className="bg-gradient-to-r from-amber-500/30 to-amber-600/20 text-amber-300 border-2 border-amber-400 px-2.5 py-1 rounded-lg font-mono font-black text-[13px] tracking-wide shadow-md">
+                      {card}
+                    </span>
+                    {idx < arr.length - 1 && (
+                      <span className="text-amber-400 font-bold text-xs select-none">➔</span>
+                    )}
+                  </div>
                 ))}
               </div>
             </section>
@@ -523,6 +599,27 @@ export default function TeleprompterPage() {
               </div>
               <div className="bg-indigo-950/30 border border-indigo-500/40 rounded-lg p-2 text-indigo-200 text-[0.85em]">
                 {data.whyNot}
+              </div>
+            </section>
+          )}
+
+          {/* 3. Fonética Quirúrgica para Términos Tramposos */}
+          {data.surgicalPhonetics && data.surgicalPhonetics.length > 0 && (
+            <section className="mb-2">
+              <div className="flex items-center gap-1.5 flex-wrap p-2 rounded-lg bg-black/70 border border-amber-500/40 text-xs">
+                <span className="text-amber-400 font-black text-[11px] flex items-center gap-1">
+                  <span>🗣️</span> PRONUNCIACIÓN QUIRÚRGICA:
+                </span>
+                {data.surgicalPhonetics.map((sp, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 bg-amber-950/80 border border-amber-400/70 px-2 py-0.5 rounded text-[11.5px] font-mono text-amber-200"
+                    title={sp.tip || `Pronunciar ${sp.word} como ${sp.phonetic}`}
+                  >
+                    <strong className="text-white">{sp.word}:</strong>
+                    <span className="text-amber-400 font-bold">[{sp.phonetic}]</span>
+                  </span>
+                ))}
               </div>
             </section>
           )}

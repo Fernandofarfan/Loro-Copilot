@@ -1084,4 +1084,212 @@ export function matchSTARStory(
   return bestMatch;
 }
 
+// -------------------------------------------------------------
+// Pilares Tácticos de Fluidez (<200ms)
+// -------------------------------------------------------------
+
+export interface InstantBridge {
+  bridgeEn: string;
+  bridgeEs: string;
+  category: string;
+}
+
+/**
+ * Genera de forma sincrónica (<1ms) una frase puente contextualizada y ultra-profesional
+ * para que el candidato comience a hablar de inmediato apenas termina la pregunta del entrevistador,
+ * eliminando el silencio incómodo mientras el LLM termina de generar la respuesta completa.
+ */
+export function getInstantBridge(question: string, lang: "en" | "es" = "en"): InstantBridge {
+  const clean = (question || "").toLowerCase();
+
+  // 1. Python Internals & Data Structures
+  if (/\b(python|gil|asyncio|fastapi|pydantic|sqlalchemy|generator|decorator|dunder|frozenset|tuple|dict|list|set|hash|mutab|garbage|memory leak)\b/i.test(clean)) {
+    return {
+      category: "python_internals",
+      bridgeEn: "That fundamentally comes down to how Python manages mutability and memory hashing.",
+      bridgeEs: "Eso se reduce fundamentalmente a cómo Python gestiona la mutabilidad y el hashing en memoria.",
+    };
+  }
+
+  // 2. System Design, Scaling & Distributed Systems
+  if (/\b(architecture|scale|scalability|system design|microservices|distributed|throughput|latency|load balancer|cache|caching|redis|kafka|sharding|partition|cap theorem|saga)\b/i.test(clean)) {
+    return {
+      category: "system_design",
+      bridgeEn: "From an architectural perspective, the primary trade-off to address first is data consistency versus write throughput.",
+      bridgeEs: "Desde una perspectiva de arquitectura, el trade-off principal a abordar primero es la consistencia frente al throughput de escritura.",
+    };
+  }
+
+  // 3. Databases & Data Persistence
+  if (/\b(database|postgres|postgresql|sql|nosql|index|indexing|query|queries|acid|transaction|migration|alembic|db)\b/i.test(clean)) {
+    return {
+      category: "data_persistence",
+      bridgeEn: "Looking directly at the data layer, the key bottleneck centers on query indexing and connection pool contention.",
+      bridgeEs: "Mirando directamente a la capa de datos, el cuello de botella clave se centra en la indexación y la contención del pool de conexiones.",
+    };
+  }
+
+  // 4. Concurrency, Threads & Async
+  if (/\b(thread|threading|concurrency|parallel|worker|celery|event loop|coroutine|race condition|deadlock|mutex|lock)\b/i.test(clean)) {
+    return {
+      category: "concurrency_async",
+      bridgeEn: "Handling concurrency efficiently here requires balancing non-blocking event loops against thread contention under heavy load.",
+      bridgeEs: "Manejar la concurrencia acá requiere balancear el event loop no bloqueante frente a la contención de threads bajo carga alta.",
+    };
+  }
+
+  // 5. Cloud, DevOps & Infrastructure
+  if (/\b(kubernetes|k8s|docker|container|aws|gcp|terraform|ci\/cd|pipeline|deploy|deployment|monitoring|observability|datadog|prometheus|ansible)\b/i.test(clean)) {
+    return {
+      category: "cloud_devops",
+      bridgeEn: "In production cloud infrastructure, the core objective is isolating the blast radius while maintaining automated recovery.",
+      bridgeEs: "En infraestructura cloud de producción, el objetivo central es aislar el radio de impacto manteniendo recuperación automatizada.",
+    };
+  }
+
+  // 6. Behavioral, Conflicts & Leadership (STAR)
+  if (/\b(conflict|disagree|team|lead|leadership|stakeholder|priority|deadline|mistake|failure|challenge|difficult|project|tell me about a time|contame sobre|describe a situation)\b/i.test(clean)) {
+    return {
+      category: "behavioral_star",
+      bridgeEn: "In my recent experience leading technical initiatives, a clear example of navigating this was...",
+      bridgeEs: "En mi experiencia reciente liderando iniciativas técnicas, un ejemplo claro de cómo resolver esto fue...",
+    };
+  }
+
+  // 7. General / Technical Fallback
+  return {
+    category: "general_technical",
+    bridgeEn: "To break that down directly based on production experience, the core decision centers on...",
+    bridgeEs: "Para desglosarlo directamente en base a experiencia en producción, la decisión central pasa por...",
+  };
+}
+
+export interface SurgicalPhonetic {
+  word: string;
+  phonetic: string;
+  tip?: string;
+}
+
+export const SURGICAL_PHONETICS_DICT: Record<string, { pho: string; tip?: string }> = {
+  query: { pho: "KWI-ri", tip: "No decir 'kue-ri'" },
+  queries: { pho: "KWI-reez" },
+  async: { pho: "EI-sink", tip: "Acento en EI, no 'a-sink'" },
+  asyncio: { pho: "EI-sink-eye-oh" },
+  tuple: { pho: "TOO-pl", tip: "O 'TUH-pl', nunca 'tiu-pl'" },
+  tuples: { pho: "TOO-plz" },
+  daemon: { pho: "DEE-mon", tip: "Suena como 'demon', no 'day-mon'" },
+  daemons: { pho: "DEE-monz" },
+  frozenset: { pho: "FRO-zen-set" },
+  frozensets: { pho: "FRO-zen-sets" },
+  queue: { pho: "KYOO", tip: "Suena igual a la letra Q" },
+  queues: { pho: "KYOOZ" },
+  schema: { pho: "SKEE-ma", tip: "CH suena como K, no como SH" },
+  schemas: { pho: "SKEE-maz" },
+  cache: { pho: "KASH", tip: "Rima con 'cash', no 'cay-sh' ni 'ca-ché'" },
+  caching: { pho: "KASH-ing" },
+  cached: { pho: "KASHT" },
+  hierarchy: { pho: "HAI-er-ar-ki" },
+  epoch: { pho: "EH-pok" },
+  regex: { pho: "REJ-eks" },
+  yield: { pho: "YEELD" },
+  yields: { pho: "YEELDZ" },
+  coroutine: { pho: "koh-ROO-teen" },
+  coroutines: { pho: "koh-ROO-teenz" },
+  idempotent: { pho: "eye-dem-POH-tent" },
+  idempotency: { pho: "eye-dem-POH-ten-see" },
+  paradigm: { pho: "PA-ra-dime", tip: "G muda" },
+  throughput: { pho: "THROO-put" },
+  latency: { pho: "LAY-ten-see" },
+  mutex: { pho: "MYOO-teks" },
+  auth: { pho: "AWTH" },
+  oauth: { pho: "OH-awth" },
+  kubernetes: { pho: "koo-ber-NET-eez" },
+  postgres: { pho: "POST-gres" },
+  postgresql: { pho: "post-gres-KYOO-el" },
+  sqlite: { pho: "SEE-kwel-lite" },
+  iterable: { pho: "I-te-ra-bl", tip: "Acento en la I" },
+  iterables: { pho: "I-te-ra-blz" },
+  immutable: { pho: "ih-MYOO-tuh-bl" },
+  mutable: { pho: "MYOO-tuh-bl" },
+  parameter: { pho: "puh-RAM-i-ter", tip: "Acento en RAM" },
+  parameters: { pho: "puh-RAM-i-terz" },
+  cohesion: { pho: "koh-HEE-zhun" },
+  polymorphism: { pho: "pol-ee-MOR-fiz-uhm" },
+  singleton: { pho: "SING-gl-ton" },
+  deadlock: { pho: "DED-lok" },
+  deadlocks: { pho: "DED-loks" },
+  amortized: { pho: "AM-er-tyzd" },
+  asynchronous: { pho: "ey-SINK-ruh-nuhs" },
+  synchronous: { pho: "SINK-ruh-nuhs" },
+  lambda: { pho: "LAM-duh" },
+  heuristic: { pho: "hyoo-RIS-tik" },
+};
+
+/**
+ * Escanea quirúrgicamente el texto en inglés y extrae únicamente los términos técnicos
+ * con fonética propensa a errores para hispanohablantes, eliminando párrafos fonéticos abrumadores.
+ */
+export function getSurgicalPhonetics(englishText: string): SurgicalPhonetic[] {
+  if (!englishText) return [];
+  const clean = englishText.toLowerCase();
+  const words = clean.match(/[a-z0-9_\/]+/g) || [];
+  const found: SurgicalPhonetic[] = [];
+  const seen = new Set<string>();
+
+  for (const w of words) {
+    if (seen.has(w)) continue;
+    const entry = SURGICAL_PHONETICS_DICT[w];
+    if (entry) {
+      seen.add(w);
+      found.push({
+        word: w,
+        phonetic: entry.pho,
+        tip: entry.tip,
+      });
+      if (found.length >= 4) break; // Máximo 4 pastillas clave para no sobrecargar
+    }
+  }
+
+  return found;
+}
+
+/**
+ * Extrae y formatea de 2 a 4 tarjetas disparadoras (Trigger Cards) de alta visibilidad
+ * para permitir lectura con visión periférica (0.1s) sin desviar la mirada de la cámara.
+ */
+export function extractTriggerCards(
+  keyWords?: string[],
+  answerText?: string,
+  question?: string
+): string[] {
+  // 1. Si ya tenemos palabras clave de [KEY]
+  if (keyWords && keyWords.length > 0) {
+    return keyWords
+      .map((k) => k.replace(/^[0-9.\-\s]+/, "").trim().toUpperCase())
+      .filter((k) => k.length > 0 && k.length <= 25)
+      .slice(0, 3)
+      .map((k, idx) => `${idx + 1}. ${k}`);
+  }
+
+  // 2. Extraer términos técnicos destacados del texto o la pregunta como fallback
+  const corpus = `${question || ""} ${answerText || ""}`;
+  const candidates: string[] = [];
+
+  const TECH_REGEX = /\b(frozenset|tuple|asyncio|fastapi|pydantic|sqlalchemy|postgresql|redis|kafka|kubernetes|terraform|docker|immutable|hashable|indexing|throughput|latency|read-replicas|event-driven|deadlock)\b/gi;
+  const matches = corpus.match(TECH_REGEX) || [];
+  for (const m of matches) {
+    const upper = m.toUpperCase();
+    if (!candidates.includes(upper)) {
+      candidates.push(upper);
+    }
+    if (candidates.length >= 3) break;
+  }
+
+  if (candidates.length > 0) {
+    return candidates.map((c, idx) => `${idx + 1}. ${c}`);
+  }
+
+  return [];
+}
+
 

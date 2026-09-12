@@ -30,7 +30,7 @@
 - **Frontend**: React 18, TypeScript, CSS nativo de alto rendimiento
 - **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16 estéreo), [Deepgram Nova-2](https://deepgram.com/)
 - **Modelos de IA**: OpenCode / OpenRouter (DeepSeek, MiMo), Google Gemini, Anthropic Claude, OpenAI GPT
-- **Testing**: [Vitest](https://vitest.dev/) (157 tests automatizados en 25 suites)
+- **Testing**: [Vitest](https://vitest.dev/) (173 tests automatizados en 26 suites)
 - **Analytics**: PostHog (fail-safe) + Vercel Analytics
 
 ---
@@ -84,7 +84,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador (recomendado
 
 ## 🧪 Tests y Validación
 
-Para ejecutar la suite completa de **157 pruebas unitarias automatizadas en 25 suites**:
+Para ejecutar la suite completa de **173 pruebas unitarias automatizadas en 26 suites**:
 ```bash
 npm test
 ```
@@ -136,7 +136,7 @@ loro/
 ├── pdf/                         # 12 CVs de referencia en PDF (EN/ES)
 ├── extension/                   # Extensión de Chrome para captura local
 ├── public/                      # AudioWorklet estéreo PCM16 (pcm-worklet.js)
-└── __tests__/                   # Suite de 157 tests con Vitest (25 suites)
+└── __tests__/                   # Suite de 173 tests con Vitest (26 suites)
 ```
 
 ---

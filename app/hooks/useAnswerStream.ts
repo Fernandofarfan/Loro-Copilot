@@ -5,7 +5,12 @@ import {
   parseBlocks,
   checkInstantGreeting,
   findMatchingAnswer,
+  getInstantBridge,
+  getSurgicalPhonetics,
+  extractTriggerCards,
   type MasterAnswer,
+  type InstantBridge,
+  type SurgicalPhonetic,
 } from "../lib/interviewHelpers";
 import { parseModelJson } from "../lib/llm";
 import { track } from "../lib/track";
@@ -38,6 +43,9 @@ export interface Answer {
   whyNot?: string;
   dryRun?: string;
   firmnessTip?: string;
+  bridge?: InstantBridge | null;
+  triggerCards?: string[];
+  surgicalPhonetics?: SurgicalPhonetic[];
   matchedStory?: {
     storyIndex: number;
     title: string;
@@ -282,6 +290,10 @@ export function useAnswerStream() {
         }
       }
 
+      // Generar instantáneamente el Puente Apertura (<1ms) para evitar silencios incómodos
+      const instantBridge = getInstantBridge(question, detectedLang === "es" ? "es" : "en");
+      const initialTriggerCards = extractTriggerCards([], "", question);
+
       // 3. Streaming desde el Backend LLM
       const initialAnswer: Answer = {
         id: currentId,
@@ -300,6 +312,9 @@ export function useAnswerStream() {
         feedback: null,
         modelName: modelLabel,
         keyWords: [],
+        bridge: instantBridge,
+        triggerCards: initialTriggerCards,
+        surgicalPhonetics: [],
       };
 
       setAnswers((prev) => [initialAnswer, ...prev].slice(0, MAX_ANSWERS));
@@ -307,11 +322,13 @@ export function useAnswerStream() {
 
       syncTeleprompter?.({
         question,
-        enText: "Generando respuesta...",
-        esText: "",
-        cleanText: "",
+        enText: instantBridge.bridgeEn,
+        esText: instantBridge.bridgeEs,
+        cleanText: instantBridge.bridgeEn,
         isGenerating: true,
         modelName: modelLabel,
+        bridge: instantBridge,
+        triggerCards: initialTriggerCards,
       });
 
       const controller = new AbortController();
@@ -474,6 +491,9 @@ export function useAnswerStream() {
               }
             }
 
+            const currentTriggerCards = extractTriggerCards(parsed.keyWords, parsed.enText || parsed.cleanText, question);
+            const currentSurgicalPho = getSurgicalPhonetics(parsed.enText || parsed.cleanText);
+
             setAnswers((prev) =>
               prev.map((a) =>
                 a.id === currentId
@@ -492,6 +512,9 @@ export function useAnswerStream() {
                       edgeCases: parsed.edgeCases,
                       whyNot: parsed.whyNot,
                       dryRun: parsed.dryRun,
+                      bridge: instantBridge,
+                      triggerCards: currentTriggerCards,
+                      surgicalPhonetics: currentSurgicalPho,
                     }
                   : a
               )
@@ -514,6 +537,9 @@ export function useAnswerStream() {
                   edgeCases: parsed.edgeCases,
                   whyNot: parsed.whyNot,
                   dryRun: parsed.dryRun,
+                  bridge: instantBridge,
+                  triggerCards: currentTriggerCards,
+                  surgicalPhonetics: currentSurgicalPho,
                 },
                 false
               );
@@ -552,6 +578,9 @@ export function useAnswerStream() {
           }
         }
 
+        const finalTriggerCards = extractTriggerCards(finalParsed.keyWords, finalParsed.enText || finalParsed.cleanText, question);
+        const finalSurgicalPho = getSurgicalPhonetics(finalParsed.enText || finalParsed.cleanText);
+
         setAnswers((prev) =>
           prev.map((a) =>
             a.id === currentId
@@ -572,6 +601,9 @@ export function useAnswerStream() {
                   edgeCases: finalParsed.edgeCases,
                   whyNot: finalParsed.whyNot,
                   dryRun: finalParsed.dryRun,
+                  bridge: instantBridge,
+                  triggerCards: finalTriggerCards,
+                  surgicalPhonetics: finalSurgicalPho,
                 }
               : a
           )
@@ -590,6 +622,9 @@ export function useAnswerStream() {
           edgeCases: finalParsed.edgeCases,
           whyNot: finalParsed.whyNot,
           dryRun: finalParsed.dryRun,
+          bridge: instantBridge,
+          triggerCards: finalTriggerCards,
+          surgicalPhonetics: finalSurgicalPho,
         });
       } catch (err: unknown) {
         if (
