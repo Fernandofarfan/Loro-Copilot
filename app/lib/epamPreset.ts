@@ -240,24 +240,17 @@ Un decorador es una función de orden superior que envuelve a otra función para
 
 ### 9. Pregunta: Why do you choose FastAPI over Flask or Django for microservices?
 [KEY]
-Native async ASGI performance, automatic OpenAPI documentation, and high-speed data validation powered by Pydantic v2 in Rust.
+FastAPI over Django | Native async ASGI | Pydantic v2 validation
+[/KEY]
 
 [EN]
-For modern microservices and API-first architectures, FastAPI provides distinct advantages over Flask and Django:
-
-First, native ASGI and Asynchronous I/O: FastAPI runs on ASGI servers like Uvicorn and uvloop. It supports asynchronous coroutines natively, handling thousands of concurrent non-blocking I/O connections per worker process without the thread exhaustion issues common in WSGI frameworks like Flask.
-
-Second, robust contract-first validation with Pydantic: Request validation, serialization, and typing are declarative. In Pydantic v2, validation is implemented in Rust (\`pydantic-core\`), delivering a 5x to 15x performance increase over Python-based validation.
-
-Third, automated documentation: It automatically generates OpenAPI (Swagger) and Redoc specifications directly from code signatures and Pydantic schemas, eliminating documentation drift between frontend and backend teams.
-
-Fourth, modular Dependency Injection: FastAPI's \`Depends\` system provides clean, testable injection for database sessions, authentication, and service repositories, making unit testing and mocking straightforward without monkey patching.
+I choose FastAPI for microservices because its native ASGI architecture handles thousands of concurrent async connections per worker with uvloop. I pair it with Pydantic v2 for high-speed contract validation in Rust, keeping Django only for full-stack monoliths.
 
 [PHO]
-(fɑst-eɪ-pi-aɪ ˈɔfərz ˈneɪtɪv eɪ-ɛs-ʤi-aɪ spid, pɪˈdæntɪk vi-tu ˌvælɪˈdeɪʃən, ænd ˌoʊpən-eɪ-pi-aɪ dɑkjəmənˈteɪʃən)
+(aɪ tʃuz fɑst-eɪ-pi-aɪ bɪˈkɔz ɪts ˈneɪtɪv eɪ-ɛs-ʤi-aɪ ˈhændəlz ˈmaɪkroʊˌsɜrvəsɪz wɪð uvloop. pɪˈdæntɪk vi-tu ˌvælɪˈdeɪts ɪn rʌst)
 
 [ES]
-Elijo FastAPI por su arquitectura nativa ASGI con Asyncio, validación ultrarrápida con Pydantic v2 compilado en Rust, documentación OpenAPI automática y un sistema de inyección de dependencias (\`Depends\`) limpio y desacoplado, ideal para microservicios.
+Elijo FastAPI por su arquitectura nativa ASGI con Asyncio para miles de conexiones concurrentes y validación en Rust con Pydantic v2, reservando Django solo para monolitos con panel admin.
 
 ---
 
@@ -398,23 +391,17 @@ Uso Cache-Aside con TTLs estrictos e invalidación orientada a eventos. Para evi
 
 ### 16. Pregunta: What is LangChain / LangGraph, and when should you use it versus direct LLM API calls?
 [KEY]
-LangChain provides modular abstractions for RAG, vector retrieval, and prompt chaining; LangGraph provides cyclical state machines for multi-agent workflows.
+LangChain for RAG pipelines | LangGraph for cyclical agents | State machines
+[/KEY]
 
 [EN]
-Direct API calls using the official OpenAI, Anthropic, or Gemini SDKs are great for simple, single-turn completions. However, when building complex, enterprise AI systems, LangChain and LangGraph provide essential architectural scaffolding.
-
-LangChain provides standardized abstractions for:
-1. Document loaders and text splitters for ingestion pipelines.
-2. Vector store interfaces that let you switch between pgvector, Pinecone, and Qdrant without rewriting retrieval logic.
-3. Chains and Expression Language (LCEL) for streaming, asynchronous execution, and fallback models.
-
-LangGraph builds on this by providing a cyclical, stateful graph framework. Standard LLM chains are Directed Acyclic Graphs (DAGs), meaning they run sequentially from start to finish. In real-world enterprise applications, agentic workflows require loops—such as generating code, executing tests, evaluating errors, and self-correcting in a loop until criteria are met. LangGraph models these workflows as state machines with human-in-the-loop checkpoints, persistence, and deterministic routing.
+I use direct SDK calls for simple prompts, but rely on LangChain for RAG ingestion and pgvector retrievers. When an agentic workflow requires loops, retries, and stateful human-in-the-loop checkpoints, I implement LangGraph as a cyclic state machine.
 
 [PHO]
-(ˈlæŋˌʧeɪn ˈɔfərz ˌkɒmpəˈzɪʃənəl ˈpwalɪns, waɪl ˈlæŋgræf ˈmɒdɪlz ˈsteɪtfʊl ˈeɪʤənt lupz)
+(aɪ juz daɪˈrɛkt ɛs-di-keɪz fɔr ˈsɪmpəl prɑmpts, bʌt ˈlæŋgræf fɔr ˈsteɪtfʊl lupz ænd ˈsaɪkəlz)
 
 [ES]
-Llamar al SDK directo sirve para prompts simples. LangChain estandariza la carga de documentos, chunking, retrieval y chains con streaming. LangGraph añade máquinas de estado con ciclos y persistencia, imprescindible para agentes que necesitan reflexionar, ejecutar herramientas y auto-corregirse en bucle.
+Uso el SDK directo para llamadas simples, pero elijo LangChain para pipelines de RAG y LangGraph cuando necesito máquinas de estado con ciclos, reintentos y persistencia para agentes.
 
 ---
 
@@ -1474,20 +1461,17 @@ Usamos enfoque contract-first: FastAPI genera el esquema OpenAPI desde los model
 
 ### 66. Pregunta: How are Python dictionaries and sets implemented under the hood, and can a set be used as a dictionary key?
 [KEY]
-Compact array with open addressing; sets share this structure. A set CANNOT be a dict key because it is mutable and unhashable—use frozenset.
+Set cannot be dict key | Mutable and unhashable | Use frozenset
+[/KEY]
 
 [EN]
-In modern Python:
-1. Memory Layout: Dictionaries use a compact array of entries paired with a sparse index array, preserving insertion order with minimal memory overhead.
-2. Hash Collisions: Resolved via open addressing with pseudo-random perturbation based on high-order hash bits.
-3. Dict Key Invariant: Keys must be hashable and immutable.
-4. Set vs Frozenset Trap: A standard \`set\` is mutable and unhashable (\`TypeError: unhashable type: 'set'\`). Therefore, a \`set\` CANNOT be a dictionary key. To use a set as a dict key or within another set, you MUST use \`frozenset\`.
+A standard set cannot be a dictionary key because it is mutable and unhashable, throwing a TypeError at runtime. To use a set of elements as a dictionary key or in another set, I always use frozenset instead.
 
 [PHO]
-(ə sɛt ˈkænɑt bi ə dɪkt ki bɪˈkɔz ɪts ˈmjutəbəl; juz ˈfroʊzənsɛt ɪnˈstɛd)
+(ə sɛt ˈkænɑt bi ə dɪkt ki bɪˈkɔz ɪts ˈmjutəbəl. juz ˈfroʊzənsɛt ɪnˈstɛd)
 
 [ES]
-Los diccionarios usan una tabla hash dispersa y un arreglo compacto con direccionamiento abierto. Las claves deben ser inmutables y hashables. Un \`set\` NO puede ser clave de diccionario porque es mutable y no-hashable; para usar un conjunto como clave se DEBE usar \`frozenset\`.
+Un set no puede ser clave de diccionario porque es mutable y no-hashable, lanzando TypeError; para usar un conjunto como clave de diccionario o dentro de otro set se debe usar siempre frozenset.
 
 ---
 
