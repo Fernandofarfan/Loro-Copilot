@@ -1,5 +1,11 @@
 # Informe de Entrevista — EPAM (Puesto: Python Backend Engineer & Technical Lead)
 
+> **Reglas del Motor Conversacional y Estándar de Producción:**
+> 1. **Brevedad Radical (25-35 palabras habladas):** Un solo párrafo continuo de exactamente 2 oraciones (Oración 1: Veredicto técnico/Punchline directo; Oración 2: Razón técnica, solución en producción o trade-off).
+> 2. **Cero Viñetas ni Listas:** Prohibición estricta de viñetas (`•`, `- `, `*`), guiones o enumeraciones para asegurar dicción natural y evitar sonar robótico leyendo diapositivas.
+> 3. **Invariantes Técnicos:** Claves de diccionarios en Python deben ser inmutables (`frozenset`, nunca `set`), tipado nativo en minúsculas (`list[int]`), y comandos Unix precisos (`chmod +x`, `pgrep`, `lsof -i`, `ss -tulpn`).
+> 4. **Integración con la App:** Banco sincronizado con `app/lib/epamPreset.ts` (85 preguntas y respuestas con recarga 1-click en la pestaña de Memoria).
+
 ## CAPÍTULO 1: INTRODUCCIÓN, ELEVATOR PITCH Y MOTIVACIÓN
 
 ### 1. Pregunta: Tell me about yourself and your background.

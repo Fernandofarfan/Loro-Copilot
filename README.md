@@ -8,7 +8,7 @@
 
 - **🎧 Audio Dual Simultáneo (Micrófono + Pestaña)**: Captura combinada de tu voz (Canal L) y la del entrevistador (Canal R) con remuestreo estéreo a 16kHz PCM16 en `AudioWorklet`, diarización multicanal exacta en Deepgram y liberación estricta de nodos Web Audio.
 - **⏱️ VAD Local y Barge-in Inteligente**: Detección de actividad vocal en `<80ms` con ventana de gracia anti-falsos positivos (4.5s) y umbral de discurso sustancial (>=15 caracteres) para no cortar respuestas involuntariamente.
-- **⚡ Prompt Caching (KV-Cache) y Estructura "Punchline First"**: Prefijo estático inmutable para activar caché en DeepSeek/Gemini/Claude y entrega obligatoria del bloque `[KEY]` con 3 palabras clave telegráficas para empezar a hablar en el segundo 1.
+- **⚡ Prompt Caching (KV-Cache) y Respuestas Conversacionales "Punchline First"**: Prefijo estático inmutable para activar caché en DeepSeek/Gemini/Claude y entrega del bloque `[KEY]` junto con respuestas ultra-concisas habladas en **un solo párrafo corrido de exactamente 2 oraciones (25-35 palabras: Answer → Why/Solution)**, con **prohibición estricta de viñetas, guiones o enumeraciones** para sonar 100% natural sin leer listas.
 - **🎯 Clasificador Temprano de Preguntas**: Categorización instantánea en `<5ms` (*System Design*, *Live Coding / LeetCode*, *Behavioral STAR*, *Fit Cultural*, *Técnico*) inyectando directivas de respuesta específicas.
 - **🛡️ Dual Stream Asíncrono de Trampas**: Modelo secundario en segundo plano que detecta preguntas trampa, supuestos ocultos o red flags (`⚠️ TIP TÁCTICO`).
 - **🗣️ Modo Bilingüe con Fonética en Vivo (`[EN]`, `[PHO]`, `[ES]`)**: Respuesta en inglés senior, pronunciación fonética simplificada en español con mayúsculas y resumen conceptual.
@@ -19,7 +19,7 @@
 - **📊 Speech Coach en Tiempo Real**: Telemetría de habla que mide palabras por minuto (WPM), proporción de escucha vs. habla (*Talk-to-Listen Ratio*) y conteo de muletillas (*fillers*).
 - **🤖 Simulador de Entrevistas Interactivo**: Práctica con entrevistador virtual por IA, voz natural (TTS/STT), turnos conversacionales y reporte de desempeño con feedback estructurado.
 - **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **DeepSeek Chat / MiMo**, **Gemini Flash**, **GPT-4o Mini**, **Claude Haiku**, con conmutación automática por error en Edge Runtime.
-- **🧠 Banco de Memoria Inteligente (<50ms)**: Caché local con sinónimos canónicos (`CANONICAL_SYNONYMS`), aislamiento por empresa y rol (`matchesRole`) y enciclopedia de 107 respuestas maestras (`docs/master_answers_all_roles.md`).
+- **🧠 Banco de Memoria Inteligente (<50ms)**: Caché local con sinónimos canónicos (`CANONICAL_SYNONYMS`), aislamiento por empresa y rol (`matchesRole`), preset especializado de 85 respuestas para EPAM Python Tech Lead y enciclopedia universal de 107 respuestas maestras (`docs/master_answers_all_roles.md`).
 - **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste.
 
 ---
@@ -30,7 +30,7 @@
 - **Frontend**: React 18, TypeScript, CSS nativo de alto rendimiento
 - **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16 estéreo), [Deepgram Nova-2](https://deepgram.com/)
 - **Modelos de IA**: OpenCode / OpenRouter (DeepSeek, MiMo), Google Gemini, Anthropic Claude, OpenAI GPT
-- **Testing**: [Vitest](https://vitest.dev/) (152 tests automatizados en 25 suites)
+- **Testing**: [Vitest](https://vitest.dev/) (162 tests automatizados en 27 suites)
 - **Analytics**: PostHog (fail-safe) + Vercel Analytics
 
 ---
@@ -40,7 +40,10 @@
 Toda la documentación técnica y operativa se encuentra organizada en el directorio [`docs/`](./docs/README.md):
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — Diagramas de secuencia Mermaid, pipeline de audio dual y diseño de sistemas.
+- [docs/epam_python_tech_lead_interview.md](./docs/epam_python_tech_lead_interview.md) — Banco maestro de 85 respuestas para Technical Lead Python con invariantes técnicos de Python y Unix.
+- [docs/epam_live_interview_audit_2026_09_11.md](./docs/epam_live_interview_audit_2026_09_11.md) — Transcripción cronológica completa de 20 turnos y auditoría forense post-mortem de la entrevista técnica real en EPAM Systems.
 - [docs/master_answers_all_roles.md](./docs/master_answers_all_roles.md) — Banco maestro universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
+- [docs/valentina_backend_interview_memory.md](./docs/valentina_backend_interview_memory.md) — Memoria bilingüe completa para la entrevista con Valentina Lopez Salinas (Python, GCP, GenAI).
 - [docs/EXTENSION.md](./docs/EXTENSION.md) — Extensión de Chrome Manifest V3 para captura local en desarrollo.
 - [docs/LAUNCH.md](./docs/LAUNCH.md) — Estrategia y checklist pre-lanzamiento, límites y antimarketing.
 - [docs/BRANCH_PROTECTION.md](./docs/BRANCH_PROTECTION.md) — Reglas recomendadas de protección de ramas en GitHub.
@@ -84,7 +87,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador (recomendado
 
 ## 🧪 Tests y Validación
 
-Para ejecutar la suite completa de **152 pruebas unitarias automatizadas en 25 suites**:
+Para ejecutar la suite completa de **162 pruebas unitarias automatizadas en 27 suites**:
 ```bash
 npm test
 ```
@@ -136,7 +139,7 @@ loro/
 ├── pdf/                         # 12 CVs de referencia en PDF (EN/ES)
 ├── extension/                   # Extensión de Chrome para captura local
 ├── public/                      # AudioWorklet estéreo PCM16 (pcm-worklet.js)
-└── __tests__/                   # Suite de 152 tests con Vitest (25 suites)
+└── __tests__/                   # Suite de 162 tests con Vitest (27 suites)
 ```
 
 ---

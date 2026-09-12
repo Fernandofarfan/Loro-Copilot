@@ -260,9 +260,13 @@ graph LR
 
 ### Formato Punchline First y Bloques Especializados (`parseBlocks`)
 1. **`[KEY]` (Punchline First):** 3 a 5 palabras clave telegráficas para que el candidato comience a hablar de inmediato sin titubear.
-2. **`[EN]`:** Respuesta hablada concisa en primera persona para perfiles Senior (apertura directa de 1 frase + 2 a 3 viñetas breves de 8 a 14 palabras).
+2. **`[EN]` (Motor Conversacional Ultra-Conciso — Radical Brevity):** Respuesta hablada para perfiles Senior estructurada en **un solo párrafo corrido de exactamente 2 oraciones (25 a 35 palabras en total)**:
+   - **Oración 1 (Veredicto Técnico / Punchline Directo):** 10 a 14 palabras dando la respuesta técnica contundente sin rodeos (*Answer*).
+   - **Oración 2 (Por qué arquitectónico / Solución en producción / Trade-off):** 12 a 16 palabras con la justificación técnica de diseño (*Why / Solution*).
+   - **PROHIBICIÓN ESTRICTA DE VIÑETAS:** Cero viñetas (`•`, `- `, `*`), listas o enumeraciones (`1.`, `2.`). En llamadas de entrevista reales, las viñetas inducían lectura robótica y fragmentada como diapositivas.
+   - **PROHIBICIÓN DE NÚMEROS / ESTADÍSTICAS:** Cero porcentajes o números estadísticos inventados en el inglés hablado.
 3. **`[PHO]`:** Fonética simplificada en español con acentuación tónica en mayúsculas (ej. `DE-ko-rei-ter`, `kub-er-NE-tis`, `AR-ki-tek-chur`).
-4. **`[ES]`:** Resumen conceptual rápido en español para tranquilidad cognitiva.
+4. **`[ES]`:** Resumen conceptual rápido en español para tranquilidad cognitiva (máximo 25 palabras en texto fluido).
 5. **`[WHY_NOT]`:** Alternativa popular descartada con justificación técnica cuantitativa (latencia, costo, límites de memoria).
 6. **`[EDGE_CASES]`:** Casos límite y trampas de test cases a consensuar antes de programar en vivo.
 7. **`[DRY_RUN]`:** Trazado de estados paso a paso para relatar la ejecución de algoritmos con naturalidad.
@@ -601,6 +605,40 @@ Diseñada específicamente para las entrevistas reales y de alta exigencia técn
   - Selector de modo en `app/teleprompter/page.tsx`: **Normal**, **IDE (VS Code)** y **Terminal (Linux Bash)**.
   - **Modo IDE:** Simula una pestaña de VS Code (`solution.ts`) con números de línea y la respuesta formateada como comentarios de código y types.
   - **Modo Terminal:** Simula una consola tailing de logs de servidor (`[INFO]`, `[WARN]`, `[EXEC]`), 100% indistinguible de una terminal de desarrollo activa.
+
+---
+
+## ⚡ 14. Motor Conversacional de Brevedad Radical y Blindaje Técnico (Live Production Hardening)
+
+Esta sección consolida la evolución del motor de inferencia tras la experiencia en entrevistas técnicas reales de alta exigencia (auditoría en `docs/epam_live_interview_audit_2026_09_11.md`):
+
+### 1. El Problema de las Viñetas en Entrevistas Reales
+- **Falla observada:** Cuando la interfaz renderizaba viñetas markdown (`- ` / `•`), el candidato tendía de forma subconsciente a leer cada punto de corrido como si expusiera una diapositiva (*"Punto 1... Punto 2... Punto 3..."*). Esto provocaba monólogos excesivamente largos (>60s), pérdida de dinamismo e impaciencia en los entrevistadores.
+- **Regla Estricta de 2 Oraciones Corridas:**
+  - Se prohíbe taxativamente la emisión de viñetas, guiones o listas (`•`, `- `, `*`, `1.`) en `[EN]` y `[ES]`.
+  - La respuesta hablada se genera en **un único párrafo fluido de exactamente 2 oraciones (25 a 35 palabras)**:
+    1. **Oración 1 (10-14 palabras):** Veredicto técnico directo (*Answer / Punchline*).
+    2. **Oración 2 (12-16 palabras):** Razón arquitectónica, patrón de producción o trade-off (*Why / Solution*).
+  - Prohibición de inventar porcentajes o métricas numéricas complejas en el discurso hablado para mantener credibilidad absoluta.
+
+### 2. Blindaje de Invariantes Técnicos (Python & Unix)
+En el system prompt (`app/api/answer/route.ts`), se codificaron axiomas de ingeniería para evitar errores sutiles de LLM bajo presión:
+- **Python Invariants:**
+  - Las claves de un diccionario en Python deben ser inmutables y *hashables*: `set` es mutable y **no puede** ser clave (arroja `TypeError: unhashable type: 'set'`); la alternativa inmutable obligatoria es `frozenset`.
+  - Tipado moderno nativo en minúsculas para Python 3.9+ (`list[int]`, `dict[str, Any]`, `tuple[str, ...]`) en lugar del módulo deprecado `typing.List` / `typing.Dict`.
+  - Diferenciación rigurosa entre `@pytest.fixture` con `yield` para teardown de recursos vs mocking ingenuo.
+- **Unix & Troubleshooting Invariants:**
+  - Verificación de permisos ejecutables (`chmod +x script.sh`).
+  - Inspección de procesos activos en segundo plano (`pgrep -fl`, `ps aux | grep`).
+  - Inspección y diagnóstico de puertos de red (`lsof -i :8000`, `ss -tulpn`).
+
+### 3. Banco de Memoria EPAM & Sincronización Automática
+- **Preset de 85 Respuestas Maestras:** Banco especializado para Technical Lead Python (`app/lib/epamPreset.ts` y `docs/epam_python_tech_lead_interview.md`).
+- **Recarga 1-Click & Auto-Upgrade:**
+  - El botón `🔄 Recargar Preset EPAM (85)` en la pestaña de Memoria permite actualizar el preset instantáneamente.
+  - El hook de inicialización actualiza automáticamente el almacenamiento local de 44 respuestas legadas a la versión de 85 respuestas al detectar desactualización.
+- **Latencia de Respuesta:** Respuestas en `<50ms` mediante matching semántico ponderado por sinónimos canónicos (`CANONICAL_SYNONYMS`), sin consumir tokens de LLM.
+
 
 
 

@@ -19,7 +19,7 @@ npm run dev
 ```
 
 ### Comandos de Validación
-- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 158 tests en 27 suites de `__tests__/`).
+- **Tests unitarios:** `npm test` (ejecuta [Vitest](https://vitest.dev/) con suite completa de 162 tests en 27 suites de `__tests__/`).
 - **Chequeo de tipos:** `npx tsc --noEmit`.
 - **Build de producción:** `npm run build`.
 
@@ -37,7 +37,7 @@ npm run dev
 - `app/hooks/useScreenVision.ts` — Captura de pantalla en WebP ultraliviano y Live OCR multimodal para LeetCode y diagramas de arquitectura (`Ctrl+Shift+S` o tecla `` ` ``) con generación de Dry-Run Stepper.
 - `app/hooks/useEarbudWhisper.ts` — Modo "Susurro al Oído" con sintetizador Web Speech API acelerado (1.5x) para dictado privado del punchline en auricular.
 - `app/hooks/useGazeTracker.ts` — Asistente de contacto visual (Eye-Contact Coach) con la webcam local (100% privado en navegador) para evitar desviar la mirada al teleprompter.
-- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Fast-Transpiler Multilenguaje (`type: "transpile"`), calibración de sesgo y tono por Dossier Psicológico del Entrevistador (`interviewerBio`), directiva de trazado de estados Dry-Run Stepper (`[DRY_RUN]`), Prompt Caching (KV-Cache), Punchline First, directivas `[EDGE_CASES]` y `[WHY_NOT]`, clasificación temprana de preguntas (`system_design`, `live_coding`, `behavioral`, `salary_negotiation`, `fit`), Company Dossier context injection, Fact Ledger consistency, anclaje en Historias STAR reales, Spanglish técnico, soporte multimodal para Vision Coding (`mode: "vision_coding"`), modo Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`).
+- `app/api/answer/route.ts` — Generación de respuestas con streaming SSE, Fast-Transpiler Multilenguaje (`type: "transpile"`), motor de respuestas ultra-concisas conversacionales (máximo 25-35 palabras, exactamente 2 oraciones corridas Answer → Why/Solution, PROHIBICIÓN ESTRICTA de viñetas, guiones o puntos), calibración de sesgo y tono por Dossier Psicológico del Entrevistador (`interviewerBio`), directiva de trazado de estados Dry-Run Stepper (`[DRY_RUN]`), Prompt Caching (KV-Cache), Punchline First, directivas `[EDGE_CASES]` y `[WHY_NOT]`, clasificación temprana de preguntas (`system_design`, `live_coding`, `behavioral`, `salary_negotiation`, `fit`), Company Dossier context injection, Fact Ledger consistency, anclaje en Historias STAR reales, Spanglish técnico, soporte multimodal para Vision Coding (`mode: "vision_coding"`), modo Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`).
 - `app/api/deepgram-token/route.ts` — Emisión de token temporal (grant de 60s) para aislar la API key permanente de Deepgram.
 - `app/api/simulador/route.ts` — Generador de preguntas dinámicas según personalidad elegida (`amazon_bar_raiser`, `skeptic_architect`, `faang_recruiter`, `standard`) y feedback estructurado JSON.
 - `app/api/waitlist/route.ts` — Captura y registro de lista de espera con rate limiting.
@@ -60,11 +60,13 @@ npm run dev
 - `docs/` — Centro de documentación técnica:
   - `docs/ARCHITECTURE.md` — Mapeo completo del flujo de datos, diagramas de secuencia Mermaid y especificación de las capacidades avanzadas y de nivel élite.
   - `docs/master_answers_all_roles.md` — Enciclopedia universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
+  - `docs/epam_python_tech_lead_interview.md` — Banco de 85 respuestas maestras para Technical Lead Python con invariantes técnicos de Python y Unix.
+  - `docs/epam_live_interview_audit_2026_09_11.md` — Transcripción cronológica completa de 20 turnos y auditoría forense post-mortem de la entrevista técnica real en EPAM Systems.
   - `docs/valentina_backend_interview_memory.md` — Memoria bilingüe completa para la entrevista con Valentina Lopez Salinas (Python, GCP, GenAI, Puerto Madero).
   - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
   - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
   - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.
-- `__tests__/` — Suite de 158 tests unitarios automatizados en 27 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `epamInterview`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `valentinaInterview`, `vulnerabilityRadar`).
+- `__tests__/` — Suite de 162 tests unitarios automatizados en 27 archivos (`antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `epamInterview`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `valentinaInterview`, `vulnerabilityRadar`).
 
 ## Convenciones de Código
 
@@ -103,4 +105,24 @@ npm run dev
   - **Experiencia ESPECÍFICA en Infraestructura Cloud / Linux / DevOps:** **~4 años** (Google Cloud Platform, GKE, Terraform, Ansible, Docker, Bash, Linux sysadmin/hardening).
   - **NUNCA afirmar "8 años en infraestructura / DevOps / GCP"**: siempre discriminar los +8 años de base tecnológica y desarrollo de los ~4 años dedicados exclusivamente a cloud e infraestructura.
 - **Mascota y Vida Personal:** Tiene una perrita rescatada de la calle y adoptada llamada **Luna**. Es su fiel compañera de trabajo remoto en Salta, salen a caminar y le aporta excelente energía positiva para despejarse del monitor y resetear el foco mental. **NUNCA mencionar gatos** (no tiene gatos, tiene a su perrita rescatada y adoptada Luna).
+
+## Estándar de Respuestas Habladas y Brevedad Radical (Zero-Bullet Mandate)
+
+- **Un solo párrafo fluido de exactamente 2 oraciones (25-35 palabras en total):**
+  - **Oración 1 (10-14 palabras):** Veredicto técnico directo (*Answer / Punchline*).
+  - **Oración 2 (12-16 palabras):** Razón arquitectónica, patrón de producción o trade-off (*Why / Solution*).
+- **PROHIBICIÓN ESTRICTA DE VIÑETAS O LISTAS:** Prohibido emitir viñetas (`•`, `- `, `*`), guiones o listas enumeradas (`1.`, `2.`) en `[EN]` y `[ES]`. En entrevistas reales, ver viñetas provoca lectura robótica y desconectada tipo diapositiva de presentación.
+- **PROHIBICIÓN DE NÚMEROS / PORCENTAJES INVENTADOS:** Prohibido inventar estadísticas o métricas porcentuales en el discurso hablado en inglés.
+
+## Invariantes Técnicos de Python y Unix (Ground Truth)
+
+- **Python Invariants:**
+  - Las claves de un diccionario deben ser inmutables y *hashables*: `set` es mutable y **no puede** ser clave; la alternativa inmutable obligatoria es `frozenset`.
+  - Tipado moderno nativo en minúsculas para Python 3.9+ (`list[int]`, `dict[str, Any]`, `tuple[str, ...]`) en lugar de `typing.List` / `typing.Dict`.
+  - Uso correcto de `@pytest.fixture` con `yield` para teardown de recursos en tests.
+- **Unix & Troubleshooting Invariants:**
+  - Verificación de permisos ejecutables (`chmod +x script.sh`).
+  - Inspección de procesos activos en segundo plano (`pgrep -fl`, `ps aux | grep`).
+  - Inspección de puertos de red (`lsof -i :8000`, `ss -tulpn`).
+
 
