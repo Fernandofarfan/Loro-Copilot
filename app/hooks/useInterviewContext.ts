@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MasterAnswer } from "../lib/interviewHelpers";
-import { getEpamMasterAnswers, getEpamStarStories } from "../lib/epamPreset";
 
 export interface SavedProfile {
   name: string;
@@ -62,8 +61,8 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
               extraInstructions: typeof p.extraInstructions === "string" ? p.extraInstructions : "",
               interviewerBio: typeof p.interviewerBio === "string" ? p.interviewerBio : "",
             }))
-            // Purgar perfiles de procesos finalizados (Valentina / COMPANY86)
-            .filter((p) => !/company86|valentina/i.test(p.company + " " + p.name + " " + (p.interviewerBio || "")));
+            // Purgar perfiles de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS)
+            .filter((p) => !/company86|valentina|epam|evocs/i.test(p.company + " " + p.name + " " + (p.interviewerBio || "")));
 
           if (validProfiles.length !== parsed.length) {
             try {
@@ -93,38 +92,33 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
                 favorite: Boolean(a.favorite),
                 createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
               }))
-              // Purgar respuestas maestras de procesos finalizados (Valentina / COMPANY86)
+              // Purgar respuestas maestras de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS)
               .filter((a) => {
                 const comp = (a.company || "").toLowerCase();
                 const q = (a.question || "").toLowerCase();
                 const tags = (a.tags || []).join(" ").toLowerCase();
+                const en = (a.enText || "").toLowerCase();
                 return !(
                   comp.includes("company86") ||
                   comp.includes("valentina") ||
+                  comp.includes("epam") ||
+                  comp.includes("evocs") ||
                   q.includes("valentina") ||
                   q.includes("puerto madero") ||
+                  q.includes("epam") ||
                   tags.includes("valentina") ||
-                  tags.includes("company86")
+                  tags.includes("company86") ||
+                  tags.includes("epam") ||
+                  en.includes("angelica rodriguez")
                 );
               });
 
-            // Auto-upgrade / auto-sync EPAM answers if existing cache has an older preset version (e.g. 44 answers)
-            const epamPreset = getEpamMasterAnswers();
-            const currentEpamCount = validAnswers.filter((a) => (a.company || "").toUpperCase() === "EPAM").length;
-            let finalAnswers = validAnswers;
-
-            if (currentEpamCount >= 30 && currentEpamCount < epamPreset.length) {
-              const nonEpam = validAnswers.filter((a) => (a.company || "").toUpperCase() !== "EPAM");
-              finalAnswers = [...epamPreset, ...nonEpam];
-              try {
-                localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(finalAnswers));
-              } catch {}
-            } else if (validAnswers.length !== parsed.length) {
+            if (validAnswers.length !== parsed.length) {
               try {
                 localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(validAnswers));
               } catch {}
             }
-            setMasterAnswers(finalAnswers);
+            setMasterAnswers(validAnswers);
           } else {
             setMasterAnswers([]);
           }
@@ -151,20 +145,19 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
                 result: String(s.result || ""),
                 tags: Array.isArray(s.tags) ? s.tags.map(String) : [],
                 createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
-              }));
+              }))
+              // Purgar historias de procesos finalizados
+              .filter((s) => {
+                const text = (s.title + " " + s.situation + " " + s.task + " " + s.action + " " + s.result).toLowerCase();
+                return !(text.includes("epam") || text.includes("valentina") || text.includes("company86"));
+              });
 
-            const epamStories = getEpamStarStories();
-            let finalStories = valid;
-            if (valid.length < epamStories.length) {
-              const missingStories = epamStories.filter((es) => !valid.some((v) => v.id === es.id || v.title === es.title));
-              if (missingStories.length > 0) {
-                finalStories = [...valid, ...missingStories];
-                try {
-                  localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(finalStories));
-                } catch {}
-              }
+            if (valid.length !== parsed.length) {
+              try {
+                localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(valid));
+              } catch {}
             }
-            setStarStories(finalStories);
+            setStarStories(valid);
           } else {
             setStarStories([]);
           }
@@ -179,17 +172,32 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
       if (raw) {
         const saved = JSON.parse(raw);
         if (saved && typeof saved === "object") {
-          const isValentinaContext =
-            (typeof saved.company === "string" && /company86|valentina/i.test(saved.company)) ||
-            (typeof saved.interviewerBio === "string" && /valentina/i.test(saved.interviewerBio));
+          const isObsoleteCompany = typeof saved.company === "string" && /company86|valentina|epam|evocs/i.test(saved.company);
+          const isObsoleteBio = typeof saved.interviewerBio === "string" && /valentina|epam|angelica|company86|evocs/i.test(saved.interviewerBio);
+          const isObsoleteRole = typeof saved.role === "string" && /epam|valentina/i.test(saved.role);
+          const isObsoleteExtra = typeof saved.extraInstructions === "string" && /epam|valentina|puerto madero/i.test(saved.extraInstructions);
 
-          if (!isValentinaContext) {
-            if (typeof saved.company === "string") setCompany(saved.company);
-            if (typeof saved.role === "string") setRole(saved.role);
-            if (typeof saved.profile === "string") setProfile(saved.profile);
-            if (typeof saved.extraInstructions === "string") setExtraInstructions(saved.extraInstructions);
-            if (typeof saved.interviewerBio === "string") setInterviewerBio(saved.interviewerBio);
+          if (!isObsoleteCompany && typeof saved.company === "string") setCompany(saved.company);
+          if (!isObsoleteRole && typeof saved.role === "string") setRole(saved.role);
+          if (typeof saved.profile === "string") setProfile(saved.profile);
+          if (!isObsoleteExtra && typeof saved.extraInstructions === "string") setExtraInstructions(saved.extraInstructions);
+          if (!isObsoleteBio && typeof saved.interviewerBio === "string") setInterviewerBio(saved.interviewerBio);
+
+          if (isObsoleteCompany || isObsoleteBio || isObsoleteRole || isObsoleteExtra) {
+            try {
+              localStorage.setItem(
+                LS_KEY,
+                JSON.stringify({
+                  ...saved,
+                  company: isObsoleteCompany ? "" : saved.company,
+                  role: isObsoleteRole ? "" : saved.role,
+                  interviewerBio: isObsoleteBio ? "" : saved.interviewerBio,
+                  extraInstructions: isObsoleteExtra ? "" : saved.extraInstructions,
+                })
+              );
+            } catch {}
           }
+
           const validModels = availableModelIdsRef.current;
           if (typeof saved.modelId === "string" && (validModels.length === 0 || validModels.includes(saved.modelId))) {
             setModelId(saved.modelId);

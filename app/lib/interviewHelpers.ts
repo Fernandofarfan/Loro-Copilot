@@ -675,10 +675,9 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   pretension: "salary_concept", pretensiones: "salary_concept", cobrar: "salary_concept", ganar: "salary_concept",
   expectations: "salary_concept", expectativa: "salary_concept", expectativas: "salary_concept",
 
-  // Modalidad Híbrida / Presencial / Puerto Madero
+  // Modalidad Híbrida / Presencial / Onsite
   hybrid: "hybrid_concept", hibrido: "hybrid_concept", hibrida: "hybrid_concept", presencial: "hybrid_concept",
   presenciales: "hybrid_concept", presencialidad: "hybrid_concept", onsite: "hybrid_concept", oficina: "hybrid_concept", office: "hybrid_concept",
-  madero: "madero_concept", puerto: "madero_concept",
 
   // Cambio / Búsqueda de empleo / Interés
   change: "change_concept", changing: "change_concept", cambio: "change_concept", cambiar: "change_concept",
@@ -780,7 +779,7 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   workspace: "setup_concept", setup: "setup_concept", espacio: "setup_concept", equipamiento: "setup_concept",
   conexion: "setup_concept", conectividad: "setup_concept", internet: "setup_concept",
 
-  // EPAM: Python Internals & Concurrency
+  // Python Internals & Concurrency
   gil: "gil_concept", lock: "gil_concept", interpreter: "gil_concept",
   garbage: "gc_concept", collector: "gc_concept", collection: "gc_concept",
   concurrency: "async_concept", concurrencia: "async_concept", uvloop: "async_concept",
@@ -788,20 +787,20 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   mro: "mro_concept", inheritance: "mro_concept", herencia: "mro_concept",
   mutable: "mutable_concept", mutabilidad: "mutable_concept",
 
-  // EPAM: LangChain, AI & RAG
+  // LangChain, AI & RAG
   langchain: "langchain_concept", langgraph: "langchain_concept",
   agent: "agent_concept", agents: "agent_concept", react: "agent_concept",
   hnsw: "hnsw_concept", ivfflat: "ivfflat_concept",
   hallucination: "hallucination_concept", alucinacion: "hallucination_concept", alucinaciones: "hallucination_concept",
 
-  // EPAM: AWS, Cloud & DevOps
+  // AWS, Cloud & DevOps
   aws: "aws_concept", fargate: "fargate_concept", ecs: "fargate_concept", eks: "k8s_concept",
   lambda: "lambda_concept", serverless: "lambda_concept", sqs: "sqs_concept", sns: "sqs_concept",
   kubernetes: "k8s_concept", k8s: "k8s_concept", pod: "k8s_concept", pods: "k8s_concept",
   docker: "docker_concept", multistage: "docker_concept",
   liveness: "probe_concept", readiness: "probe_concept", probes: "probe_concept",
 
-  // EPAM: Architecture, Saga & Observability
+  // Architecture, Saga & Observability
   saga: "saga_concept", alembic: "alembic_concept", migrations: "alembic_concept", migraciones: "alembic_concept",
   idempotency: "idempotency_concept", idempotencia: "idempotency_concept",
   pgbouncer: "pgbouncer_concept",

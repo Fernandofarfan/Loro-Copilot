@@ -182,7 +182,7 @@ describe("useAnswerStream", () => {
       await result.current.requestAnswer({
         question: "Hi David, thank you for joining us today, how are you doing?",
         transcript: "",
-        company: "EPAM",
+        company: "TechCorp",
         role: "Dev",
         profile: "",
         provider: "opencode",

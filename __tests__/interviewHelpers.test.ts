@@ -368,7 +368,7 @@ describe("interviewHelpers", () => {
         "Can you introduce yourself or tell me about your background?",
         multiRoleMem,
         0.65,
-        "EPAM",
+        "TechCorp",
         "Python Backend Developer"
       );
       expect(pythonRes).not.toBeNull();

@@ -1280,15 +1280,15 @@ export default function SimuladorPage() {
                     cursor: "pointer",
                   }}
                   onClick={() => {
-                    setCompany("EPAM Systems");
+                    setCompany("");
                     setRole(
-                      "Senior Python Engineer (EPAM Technical Interview - 100% English).\nFocus: Python Core (LEGB scope, iterators/generators, context managers, mutability, copy vs deepcopy), Concurrency & Async (Asyncio vs multiprocessing vs threading, GIL), Debugging/Profiling (cProfile, tracemalloc), Testing (pytest fixtures), Live Coding & Algorithms."
+                      "Senior Python Backend Engineer (Technical Interview - 100% English).\nFocus: Python Core (LEGB scope, iterators/generators, context managers, mutability, copy vs deepcopy), Concurrency & Async (Asyncio vs multiprocessing vs threading, GIL), Debugging/Profiling (cProfile, tracemalloc), Testing (pytest fixtures), Live Coding & Algorithms."
                     );
                     setLang("en");
                     setInterviewType("technical");
                   }}
                 >
-                  ⚡ Preset EPAM (Inglés / Técnico)
+                  ⚡ Preset Python Senior (Inglés / Técnico)
                 </button>
               </div>
             </div>

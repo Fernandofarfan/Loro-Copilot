@@ -632,12 +632,9 @@ En el system prompt (`app/api/answer/route.ts`), se codificaron axiomas de ingen
   - Inspección de procesos activos en segundo plano (`pgrep -fl`, `ps aux | grep`).
   - Inspección y diagnóstico de puertos de red (`lsof -i :8000`, `ss -tulpn`).
 
-### 3. Banco de Memoria & Sincronización Automática
-- **Preset Especializado de 85 Respuestas Maestras:** Banco especializado para Technical Lead Python (`app/lib/epamPreset.ts`).
-- **Recarga 1-Click & Auto-Upgrade:**
-  - El botón `🔄 Recargar Preset EPAM (85)` en la pestaña de Memoria permite actualizar el preset instantáneamente.
-  - El hook de inicialización actualiza automáticamente el almacenamiento local de 44 respuestas legadas a la versión de 85 respuestas al detectar desactualización.
-- **Latencia de Respuesta:** Respuestas en `<50ms` mediante matching semántico ponderado por sinónimos canónicos (`CANONICAL_SYNONYMS`), sin consumir tokens de LLM.
+### 3. Banco de Memoria & Purga Automática de Procesos Finalizados
+- **Aislamiento y Purga Automática:** En cada montaje de sesión, el sistema purga automáticamente del almacenamiento local (`localStorage`) cualquier perfil o respuesta asociada a procesos de selección concluidos, manteniendo la memoria limpia y relevante.
+- **Búsqueda Semántica de Baja Latencia:** Respuestas en `<50ms` mediante matching semántico ponderado por sinónimos canónicos (`CANONICAL_SYNONYMS`) y enciclopedia de respuestas maestras (`docs/master_answers_all_roles.md`), sin consumir tokens de LLM.
 
 
 

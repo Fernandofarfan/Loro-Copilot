@@ -18,15 +18,6 @@ import {
   detectFirmnessChallenge,
   type MasterAnswer,
 } from "../lib/interviewHelpers";
-import {
-  EPAM_PRESET_COMPANY,
-  EPAM_PRESET_ROLE,
-  EPAM_PRESET_CV,
-  EPAM_PRESET_INTERVIEWER_BIO,
-  EPAM_PRESET_EXTRA_INSTRUCTIONS,
-  getEpamMasterAnswers,
-  getEpamStarStories,
-} from "../lib/epamPreset";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
 import { MarkdownText } from "../components/MarkdownText";
@@ -827,19 +818,6 @@ export default function CopilotPage() {
     reader.readAsText(file);
   };
 
-  const handleLoadEpamPreset = () => {
-    setCompany(EPAM_PRESET_COMPANY);
-    setRole(EPAM_PRESET_ROLE);
-    setProfile(EPAM_PRESET_CV);
-    setInterviewerBio(EPAM_PRESET_INTERVIEWER_BIO);
-    setExtraInstructions(EPAM_PRESET_EXTRA_INSTRUCTIONS);
-    setSttLang("en");
-    const answers = getEpamMasterAnswers();
-    importMasterAnswers(answers);
-    const stories = getEpamStarStories();
-    importSTARStories(stories);
-    setWarmupMessage(`⚡ ¡Preset EPAM cargado! Se configuró el CV de Guillermo Farfán, el Dossier Técnico de EPAM, ${answers.length} respuestas maestras (<50ms) y ${stories.length} historias STAR reales.`);
-  };
 
   const handleImportGlassdoor = useCallback(() => {
     if (!glassdoorText.trim()) return;
@@ -1381,14 +1359,6 @@ export default function CopilotPage() {
                 </label>
                 <button
                   type="button"
-                  onClick={handleLoadEpamPreset}
-                  className="px-3 py-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/60 hover:bg-emerald-900/80 text-xs font-bold text-emerald-300 transition-all flex items-center gap-1.5 shadow-sm"
-                  title="Cargar automáticamente el contexto, CV de Guillermo Farfán, Dossier Técnico y respuestas maestras para la entrevista técnica de EPAM"
-                >
-                  <span>⚡ Preset EPAM (Técnico)</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => {
                     const vulns = analyzeCvVulnerabilities(profile, role, company);
                     setVulnerabilities(vulns);
@@ -1518,7 +1488,7 @@ export default function CopilotPage() {
                   type="text"
                   value={profileNameInput}
                   onChange={(e) => setProfileNameInput(e.target.value)}
-                  placeholder="Nombre del perfil (ej: Backend EPAM)"
+                  placeholder="Nombre del perfil (ej: Senior Backend Python)"
                   className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-200 text-xs"
                 />
                 <button
@@ -1684,14 +1654,6 @@ export default function CopilotPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleLoadEpamPreset}
-                  className="px-3 py-1.5 rounded-lg border border-cyan-500/60 bg-cyan-950/50 hover:bg-cyan-900/80 text-cyan-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:border-cyan-400"
-                  title="Cargar las 85 respuestas maestras completas de EPAM Systems y sincronizar memoria"
-                >
-                  <span>⚡ Cargar Preset EPAM (85)</span>
-                </button>
 
                 <button
                   type="button"
