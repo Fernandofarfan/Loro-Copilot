@@ -1,14 +1,10 @@
 import { describe, it, expect } from "vitest";
-import fs from "fs";
-import path from "path";
-import { parseInterviewMarkdownToMasterAnswers, findMatchingAnswer } from "../app/lib/interviewHelpers";
+import { findMatchingAnswer } from "../app/lib/interviewHelpers";
 import { getEpamMasterAnswers } from "../app/lib/epamPreset";
 
 describe("EPAM Technical Interview Master Answers", () => {
-  it("parses all 85 questions correctly from docs/epam_python_tech_lead_interview.md", () => {
-    const filePath = path.join(process.cwd(), "docs", "epam_python_tech_lead_interview.md");
-    const content = fs.readFileSync(filePath, "utf-8");
-    const answers = parseInterviewMarkdownToMasterAnswers(content, "EPAM", "Python Backend Engineer & Technical Lead");
+  it("matches key questions accurately via getEpamMasterAnswers()", () => {
+    const answers = getEpamMasterAnswers();
 
     expect(answers.length).toBe(85);
     expect(answers[0].company).toBe("EPAM");

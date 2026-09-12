@@ -610,7 +610,7 @@ Diseñada específicamente para las entrevistas reales y de alta exigencia técn
 
 ## ⚡ 14. Motor Conversacional de Brevedad Radical y Blindaje Técnico (Live Production Hardening)
 
-Esta sección consolida la evolución del motor de inferencia tras la experiencia en entrevistas técnicas reales de alta exigencia (auditoría en `docs/epam_live_interview_audit_2026_09_11.md`):
+Esta sección consolida la evolución del motor de inferencia tras la validación en entrevistas técnicas reales de alta exigencia:
 
 ### 1. El Problema de las Viñetas en Entrevistas Reales
 - **Falla observada:** Cuando la interfaz renderizaba viñetas markdown (`- ` / `•`), el candidato tendía de forma subconsciente a leer cada punto de corrido como si expusiera una diapositiva (*"Punto 1... Punto 2... Punto 3..."*). Esto provocaba monólogos excesivamente largos (>60s), pérdida de dinamismo e impaciencia en los entrevistadores.
@@ -632,8 +632,8 @@ En el system prompt (`app/api/answer/route.ts`), se codificaron axiomas de ingen
   - Inspección de procesos activos en segundo plano (`pgrep -fl`, `ps aux | grep`).
   - Inspección y diagnóstico de puertos de red (`lsof -i :8000`, `ss -tulpn`).
 
-### 3. Banco de Memoria EPAM & Sincronización Automática
-- **Preset de 85 Respuestas Maestras:** Banco especializado para Technical Lead Python (`app/lib/epamPreset.ts` y `docs/epam_python_tech_lead_interview.md`).
+### 3. Banco de Memoria & Sincronización Automática
+- **Preset Especializado de 85 Respuestas Maestras:** Banco especializado para Technical Lead Python (`app/lib/epamPreset.ts`).
 - **Recarga 1-Click & Auto-Upgrade:**
   - El botón `🔄 Recargar Preset EPAM (85)` en la pestaña de Memoria permite actualizar el preset instantáneamente.
   - El hook de inicialización actualiza automáticamente el almacenamiento local de 44 respuestas legadas a la versión de 85 respuestas al detectar desactualización.

@@ -60,9 +60,6 @@ npm run dev
 - `docs/` — Centro de documentación técnica:
   - `docs/ARCHITECTURE.md` — Mapeo completo del flujo de datos, diagramas de secuencia Mermaid y especificación de las capacidades avanzadas y de nivel élite.
   - `docs/master_answers_all_roles.md` — Enciclopedia universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
-  - `docs/epam_python_tech_lead_interview.md` — Banco de 85 respuestas maestras para Technical Lead Python con invariantes técnicos de Python y Unix.
-  - `docs/epam_live_interview_audit_2026_09_11.md` — Transcripción cronológica completa de 20 turnos y auditoría forense post-mortem de la entrevista técnica real en EPAM Systems.
-  - `docs/valentina_backend_interview_memory.md` — Memoria bilingüe completa para la entrevista con Valentina Lopez Salinas (Python, GCP, GenAI, Puerto Madero).
   - `docs/EXTENSION.md` — Extensión de Chrome para captura local en desarrollo.
   - `docs/LAUNCH.md` — Checklist de lanzamiento y antimarketing.
   - `docs/BRANCH_PROTECTION.md` — Reglas de protección de ramas en GitHub.

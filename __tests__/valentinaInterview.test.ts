@@ -1,18 +1,10 @@
 import { describe, it, expect } from "vitest";
-import fs from "fs";
-import path from "path";
-import { parseInterviewMarkdownToMasterAnswers, findMatchingAnswer } from "../app/lib/interviewHelpers";
+import { findMatchingAnswer } from "../app/lib/interviewHelpers";
 import { getValentinaMasterAnswers } from "../app/lib/valentinaPreset";
 
 describe("Valentina Lopez Salinas (COMPANY86 / US Enterprise) Master Answers", () => {
-  it("parses all 28 questions correctly from docs/valentina_backend_interview_memory.md", () => {
-    const filePath = path.join(process.cwd(), "docs", "valentina_backend_interview_memory.md");
-    const content = fs.readFileSync(filePath, "utf-8");
-    const answers = parseInterviewMarkdownToMasterAnswers(
-      content,
-      "COMPANY86 / US Enterprise Client",
-      "Senior Python Backend Engineer & Technical Lead"
-    );
+  it("matches all 28 questions correctly via getValentinaMasterAnswers()", () => {
+    const answers = getValentinaMasterAnswers();
 
     expect(answers.length).toBe(28);
     expect(answers[0].company).toBe("COMPANY86 / US Enterprise Client");

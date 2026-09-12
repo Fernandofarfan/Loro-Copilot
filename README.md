@@ -19,7 +19,7 @@
 - **📊 Speech Coach en Tiempo Real**: Telemetría de habla que mide palabras por minuto (WPM), proporción de escucha vs. habla (*Talk-to-Listen Ratio*) y conteo de muletillas (*fillers*).
 - **🤖 Simulador de Entrevistas Interactivo**: Práctica con entrevistador virtual por IA, voz natural (TTS/STT), turnos conversacionales y reporte de desempeño con feedback estructurado.
 - **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **DeepSeek Chat / MiMo**, **Gemini Flash**, **GPT-4o Mini**, **Claude Haiku**, con conmutación automática por error en Edge Runtime.
-- **🧠 Banco de Memoria Inteligente (<50ms)**: Caché local con sinónimos canónicos (`CANONICAL_SYNONYMS`), aislamiento por empresa y rol (`matchesRole`), preset especializado de 85 respuestas para EPAM Python Tech Lead y enciclopedia universal de 107 respuestas maestras (`docs/master_answers_all_roles.md`).
+- **🧠 Banco de Memoria Inteligente (<50ms)**: Caché local con sinónimos canónicos (`CANONICAL_SYNONYMS`), aislamiento por empresa y rol (`matchesRole`), presets especializados de respuestas maestras y enciclopedia universal de 107 respuestas (`docs/master_answers_all_roles.md`).
 - **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste.
 
 ---
@@ -40,10 +40,7 @@
 Toda la documentación técnica y operativa se encuentra organizada en el directorio [`docs/`](./docs/README.md):
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — Diagramas de secuencia Mermaid, pipeline de audio dual y diseño de sistemas.
-- [docs/epam_python_tech_lead_interview.md](./docs/epam_python_tech_lead_interview.md) — Banco maestro de 85 respuestas para Technical Lead Python con invariantes técnicos de Python y Unix.
-- [docs/epam_live_interview_audit_2026_09_11.md](./docs/epam_live_interview_audit_2026_09_11.md) — Transcripción cronológica completa de 20 turnos y auditoría forense post-mortem de la entrevista técnica real en EPAM Systems.
 - [docs/master_answers_all_roles.md](./docs/master_answers_all_roles.md) — Banco maestro universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
-- [docs/valentina_backend_interview_memory.md](./docs/valentina_backend_interview_memory.md) — Memoria bilingüe completa para la entrevista con Valentina Lopez Salinas (Python, GCP, GenAI).
 - [docs/EXTENSION.md](./docs/EXTENSION.md) — Extensión de Chrome Manifest V3 para captura local en desarrollo.
 - [docs/LAUNCH.md](./docs/LAUNCH.md) — Estrategia y checklist pre-lanzamiento, límites y antimarketing.
 - [docs/BRANCH_PROTECTION.md](./docs/BRANCH_PROTECTION.md) — Reglas recomendadas de protección de ramas en GitHub.
