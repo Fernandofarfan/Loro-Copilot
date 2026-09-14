@@ -1292,4 +1292,195 @@ export function extractTriggerCards(
   return [];
 }
 
+// -------------------------------------------------------------
+// Radar Instantáneo de Preguntas Trampa (<30ms) & Why-Not Heurístico
+// -------------------------------------------------------------
+
+export interface InstantTrapResult {
+  isTrap: boolean;
+  trapKey: string;
+  reason: string;
+  suggestedPivot: string;
+}
+
+/**
+ * Escanea de forma determinista y en <1ms si la pregunta contiene una trampa conceptual clásica
+ * de Python, Linux/Unix, Bases de Datos o Concurrencia, para alertar al candidato antes de que empiece a hablar.
+ */
+export function detectInstantTrap(question: string): InstantTrapResult | null {
+  if (!question) return null;
+  const q = question.toLowerCase();
+
+  // 1. Python: Mutable types (list, set, dict) as dictionary key or set element
+  if (
+    (/\b(list|set|dict|dictionary)\b/i.test(q) && /\b(key|keys|clave|claves|en un set|as a key|in a dictionary|como llave)\b/i.test(q)) ||
+    /\b(can a list be a key|can we use a list as a dict|podemos usar una lista como clave|usar un set como clave)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "python_mutable_dict_key",
+      reason: "Las listas y sets son mutables y no implementan __hash__ (lanzan TypeError: unhashable type).",
+      suggestedPivot: "Aclarar que las keys DEBEN ser inmutables y hashables; la alternativa para sets es frozenset, y para listas es tuple.",
+    };
+  }
+
+  // 2. Python: Tupla con elementos mutables adentro como key
+  if (
+    /\btuple\b/i.test(q) &&
+    /\b(list|mutable|lista|mutables)\b/i.test(q) &&
+    /\b(key|keys|hash|dict|dictionary|clave)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "python_tuple_with_mutable_key",
+      reason: "Una tupla que contiene un objeto mutable (como una lista) NO es hashable y falla al usarse como key.",
+      suggestedPivot: "Explicar que la inmutabilidad de la tupla debe ser profunda: todos sus elementos internos deben ser hashables.",
+    };
+  }
+
+  // 3. Python: Modificar lista o diccionario durante la iteración
+  if (
+    (/\b(modify|delete|remove|alterar|eliminar|borrar|modificar)\b/i.test(q) &&
+      /\b(iterat|loop|bucle|recorrer|while iterating)\b/i.test(q) &&
+      /\b(list|dict|dictionary|lista|diccionario)\b/i.test(q)) ||
+    /\bdictionary changed size during iteration\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "python_modify_during_iteration",
+      reason: "Modificar una colección mientras se itera saltea elementos o lanza RuntimeError: dictionary changed size during iteration.",
+      suggestedPivot: "Explicar que se debe iterar sobre una copia (list(d.keys())) o usar list/dict comprehension para filtrar.",
+    };
+  }
+
+  // 4. Python: Parámetro mutable por defecto (def func(x=[]))
+  if (
+    /\b(default|defecto)\b/i.test(q) &&
+    /\b(argument|parameter|parametro|argumento|list|dict|\[\]|\{\})\b/i.test(q) &&
+    /\b(mutable|def |function|funcion)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "python_mutable_default_arg",
+      reason: "Los argumentos por defecto se evalúan UNA sola vez al definir la función; múltiples llamadas comparten la misma instancia mutable.",
+      suggestedPivot: "Usar sentinel value 'None' por defecto (x: list | None = None) e instanciar 'x = []' adentro de la función.",
+    };
+  }
+
+  // 5. Python: 'is' vs '==' y el internado de enteros/strings
+  if (
+    (/\bis\b/i.test(q) && /\b==\b/i.test(q)) ||
+    /\b(difference between is and ==|diferencia entre is y ==|when to use is|cuando usar is)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "python_is_vs_equals",
+      reason: "'is' compara identidad de memoria (id), '==' compara igualdad de valor (__eq__). CPython interna enteros de -5 a 256.",
+      suggestedPivot: "Remarcar que 'is' NUNCA debe usarse para comparar números o strings (solo para None / singletons).",
+    };
+  }
+
+  // 6. Python: GIL y multithreading para tareas CPU-bound
+  if (
+    /\bgil\b/i.test(q) &&
+    /\b(thread|threading|multithreading|cpu|cpu-bound|speed up|acelerar)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "python_gil_cpu_threads",
+      reason: "El GIL en CPython serializa la ejecución de bytecode: multithreading NO acelera tareas CPU-bound en múltiples núcleos.",
+      suggestedPivot: "Aclarar que threading solo sirve para I/O-bound (red/disco); para CPU-bound se debe usar multiprocessing o ProcessPoolExecutor.",
+    };
+  }
+
+  // 7. Linux/Unix: Matar un proceso Zombie
+  if (
+    /\b(zombie|zombies|defunct)\b/i.test(q) &&
+    /\b(kill|matar|kill -9|terminar|eliminar)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "unix_kill_zombie",
+      reason: "Un proceso zombie YA ESTÁ MUERTO: kill -9 no le hace nada porque no consume CPU ni memoria, solo una entrada en la tabla de procesos.",
+      suggestedPivot: "Explicar que se debe enviar SIGCHLD al proceso padre (PPID) para que haga waitpid(), o matar al proceso padre para que init (PID 1) lo adopte y limpie.",
+    };
+  }
+
+  // 8. Linux: Archivo borrado pero disco lleno (rm no libera espacio)
+  if (
+    (/\b(rm|delete|borr|elimin)\b/i.test(q) && /\b(disk full|disco lleno|no libera espacio|space not freed|lsof)\b/i.test(q)) ||
+    /\bfile deleted but disk still full\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "unix_deleted_file_descriptor",
+      reason: "En POSIX 'rm' solo desvincula el nombre (unlink); si un proceso activo mantiene abierto el File Descriptor, los bloques siguen ocupados.",
+      suggestedPivot: "Usar 'lsof +L1' o 'lsof | grep deleted' para identificar el PID y reiniciar el proceso o truncar el archivo con '> /proc/<pid>/fd/<fd>'.",
+    };
+  }
+
+  // 9. Linux: chmod 777 para solucionar 'permission denied'
+  if (
+    /\b(chmod 777|777)\b/i.test(q) &&
+    /\b(permission|permiso|fix|solucion|seguridad|security)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "unix_chmod_777_trap",
+      reason: "chmod 777 es un antipatrón de seguridad crítico que da permisos de escritura/ejecución a cualquier usuario del sistema.",
+      suggestedPivot: "Aplicar principio de menor privilegio: chmod +x (o 755 para scripts / 644 para archivos) y verificar ownership con chown.",
+    };
+  }
+
+  // 10. Cache Stampede / Thundering Herd al expirar llaves
+  if (
+    /\b(cache stampede|thundering herd|cache expiration|expiracion masiva|hot key)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "system_design_cache_stampede",
+      reason: "Cuando una llave muy solicitada expira en caché, cientos de peticiones concurrentes golpean la base de datos al mismo tiempo.",
+      suggestedPivot: "Proponer locks distribuidos (mutex en Redis) para que un solo worker recalcule, o expiración probabilística temprana (algoritmo XFetch).",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Obtiene de forma determinista e instantánea una micro-cápsula de justificación "Why NOT X"
+ * para responder preventivamente a la repregunta del entrevistador.
+ */
+export function getInstantWhyNot(question: string): string | null {
+  if (!question) return null;
+  const q = question.toLowerCase();
+
+  if (/\b(dict|dictionary|frozenset|set as key|list as key)\b/i.test(q)) {
+    return "Why NOT set/list: Son mutables y no tienen __hash__, lanzando TypeError inmediato al usarse como keys.";
+  }
+
+  if (/\b(redis|cache|caching|memcached)\b/i.test(q)) {
+    return "Why NOT Memcached: Carece de tipos de datos ricos en memoria (hashes, sorted sets, streams) y opciones de persistencia a disco.";
+  }
+
+  if (/\b(index|indexing|indice|indices|postgres|mysql|query)\b/i.test(q)) {
+    return "Why NOT indexar todo: Cada índice penaliza el throughput de INSERT/UPDATE/DELETE y consume memoria RAM crítica del buffer pool.";
+  }
+
+  if (/\b(gil|threading|threads|multithreading|cpu-bound)\b/i.test(q)) {
+    return "Why NOT threading para CPU: El GIL de CPython serializa la ejecución de bytecode impidiendo aprovechar múltiples núcleos.";
+  }
+
+  if (/\b(kubernetes|k8s|gke|container|docker)\b/i.test(q)) {
+    return "Why NOT VMs tradicionales: Carecen de auto-reparación declarativa de pods a nivel milisegundo, HPA nativo y densidad eficiente de recursos.";
+  }
+
+  if (/\b(kafka|rabbitmq|pubsub|event-driven|sqs)\b/i.test(q)) {
+    return "Why NOT RabbitMQ para eventos masivos: Kafka ofrece log inmutable particionado con re-lectura histórica y throughput de millones de ops/seg.";
+  }
+
+  return null;
+}
+
+
 

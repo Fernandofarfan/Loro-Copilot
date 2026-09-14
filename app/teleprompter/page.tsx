@@ -38,6 +38,12 @@ interface TeleprompterData {
     phonetic: string;
     tip?: string;
   }>;
+  instantTrap?: {
+    isTrap: boolean;
+    reason: string;
+    suggestedPivot?: string;
+  } | null;
+  instantWhyNot?: string | null;
 }
 
 // Valida que el payload tiene la forma TeleprompterData antes de usarlo
@@ -59,7 +65,9 @@ function isValidTeleprompterData(data: unknown): data is TeleprompterData {
     (typeof d.firmnessAlert === "object" && d.firmnessAlert !== null) ||
     (typeof d.bridge === "object" && d.bridge !== null) ||
     Array.isArray(d.triggerCards) ||
-    Array.isArray(d.surgicalPhonetics)
+    Array.isArray(d.surgicalPhonetics) ||
+    (typeof d.instantTrap === "object" && d.instantTrap !== null) ||
+    typeof d.instantWhyNot === "string"
   );
 }
 
@@ -123,6 +131,18 @@ export default function TeleprompterPage() {
   const [showNumbersSheet, setShowNumbersSheet] = useState(false);
   const [silenceBridgeVisible, setSilenceBridgeVisible] = useState(false);
   const [camouMode, setCamouMode] = useState<"normal" | "ide" | "terminal">("normal");
+  const [telegraphicMode, setTelegraphicMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("loro_teleprompter_telegraphic") === "true";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("loro_teleprompter_telegraphic", String(telegraphicMode));
+    } catch {}
+  }, [telegraphicMode]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "documentPictureInPicture" in window) {

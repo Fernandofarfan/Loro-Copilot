@@ -8,9 +8,12 @@ import {
   getInstantBridge,
   getSurgicalPhonetics,
   extractTriggerCards,
+  detectInstantTrap,
+  getInstantWhyNot,
   type MasterAnswer,
   type InstantBridge,
   type SurgicalPhonetic,
+  type InstantTrapResult,
 } from "../lib/interviewHelpers";
 import { parseModelJson } from "../lib/llm";
 import { track } from "../lib/track";
@@ -53,6 +56,8 @@ export interface Answer {
     result: string;
     score: number;
   } | null;
+  instantTrap?: InstantTrapResult | null;
+  instantWhyNot?: string | null;
 }
 
 interface RequestAnswerParams {
@@ -293,6 +298,8 @@ export function useAnswerStream() {
       // Generar instantáneamente el Puente Apertura (<1ms) para evitar silencios incómodos
       const instantBridge = getInstantBridge(question, detectedLang === "es" ? "es" : "en");
       const initialTriggerCards = extractTriggerCards([], "", question);
+      const instantTrap = detectInstantTrap(question);
+      const instantWhyNot = getInstantWhyNot(question);
 
       // 3. Streaming desde el Backend LLM
       const initialAnswer: Answer = {
@@ -304,7 +311,7 @@ export function useAnswerStream() {
         phoText: "",
         cleanText: "",
         bilingual: false,
-        alert: "",
+        alert: instantTrap ? `⚠️ TRAMPA: ${instantTrap.reason}` : "",
         cheats: [],
         snippet: "",
         done: false,
@@ -315,6 +322,8 @@ export function useAnswerStream() {
         bridge: instantBridge,
         triggerCards: initialTriggerCards,
         surgicalPhonetics: [],
+        instantTrap,
+        instantWhyNot,
       };
 
       setAnswers((prev) => [initialAnswer, ...prev].slice(0, MAX_ANSWERS));
@@ -329,6 +338,8 @@ export function useAnswerStream() {
         modelName: modelLabel,
         bridge: instantBridge,
         triggerCards: initialTriggerCards,
+        instantTrap,
+        instantWhyNot,
       });
 
       const controller = new AbortController();
@@ -540,6 +551,8 @@ export function useAnswerStream() {
                   bridge: instantBridge,
                   triggerCards: currentTriggerCards,
                   surgicalPhonetics: currentSurgicalPho,
+                  instantTrap,
+                  instantWhyNot,
                 },
                 false
               );
@@ -604,6 +617,8 @@ export function useAnswerStream() {
                   bridge: instantBridge,
                   triggerCards: finalTriggerCards,
                   surgicalPhonetics: finalSurgicalPho,
+                  instantTrap,
+                  instantWhyNot,
                 }
               : a
           )
@@ -625,6 +640,8 @@ export function useAnswerStream() {
           bridge: instantBridge,
           triggerCards: finalTriggerCards,
           surgicalPhonetics: finalSurgicalPho,
+          instantTrap,
+          instantWhyNot,
         });
       } catch (err: unknown) {
         if (

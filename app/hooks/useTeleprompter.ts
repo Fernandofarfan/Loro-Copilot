@@ -38,6 +38,12 @@ export interface TeleprompterPayload {
     phonetic: string;
     tip?: string;
   }>;
+  instantTrap?: {
+    isTrap: boolean;
+    reason: string;
+    suggestedPivot?: string;
+  } | null;
+  instantWhyNot?: string | null;
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";

@@ -10,6 +10,7 @@ import {
   fmtTime,
   type InstantBridge,
   type SurgicalPhonetic,
+  type InstantTrapResult,
 } from "../lib/interviewHelpers";
 import { extractAndEvaluateCode } from "../lib/codeEvaluator";
 import ArchitectureCanvas from "./ArchitectureCanvas";
@@ -43,6 +44,8 @@ export interface AnswerItem {
   bridge?: InstantBridge | null;
   triggerCards?: string[];
   surgicalPhonetics?: SurgicalPhonetic[];
+  instantTrap?: InstantTrapResult | null;
+  instantWhyNot?: string | null;
 }
 
 interface AnswerCardProps {
@@ -237,6 +240,23 @@ export const AnswerCard = React.memo(function AnswerCard({
         </div>
       )}
 
+      {/* ⚠️ Radar Instantáneo de Preguntas Trampa (<30ms) */}
+      {a.instantTrap && (
+        <div className="mt-2.5 p-2.5 rounded-xl bg-red-950/80 border-2 border-red-500/80 shadow-lg text-red-100">
+          <div className="text-red-400 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 mb-1">
+            <span>🚨</span> TRAMPA DETECTADA EN LA PREGUNTA (RADAR INSTANTÁNEO &lt;30ms)
+          </div>
+          <p className="text-[12.5px] font-bold text-red-200 leading-snug">
+            {a.instantTrap.reason}
+          </p>
+          {a.instantTrap.suggestedPivot && (
+            <p className="text-[11px] text-red-300/90 mt-1.5 bg-red-900/40 p-1.5 rounded border border-red-800/40">
+              💡 <span className="font-semibold text-red-200">Pivote Seguro:</span> {a.instantTrap.suggestedPivot}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Alerta de Pregunta Trampa / Delicada */}
       {warning && (
         <div className="bg-amber-500/10 text-amber-500 p-2 rounded-lg text-[0.85em] mt-2 border border-amber-500/30">
@@ -414,13 +434,13 @@ export const AnswerCard = React.memo(function AnswerCard({
       )}
 
       {/* Matriz de Trade-offs: Why NOT X? */}
-      {a.whyNot && (
+      {(a.whyNot || a.instantWhyNot) && (
         <div className="my-2 p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/30 text-xs">
           <div className="font-bold text-indigo-400 flex items-center gap-1.5 mb-0.5">
             <span>⚖️</span> Why NOT X? (Alternativa Descartada):
           </div>
           <p className="text-indigo-200/90 text-[11px] leading-relaxed">
-            {a.whyNot}
+            {a.whyNot || a.instantWhyNot}
           </p>
         </div>
       )}
