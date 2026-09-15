@@ -97,6 +97,8 @@ export function useAnswerStream() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [sessionFacts, setSessionFacts] = useState<SessionFact[]>([]);
+  // M7: Estimación de tokens usados en la sesión (~4 chars = 1 token)
+  const [sessionTokens, setSessionTokens] = useState(0);
 
   const answersRef = useRef(answers);
   answersRef.current = answers;
@@ -112,6 +114,8 @@ export function useAnswerStream() {
   const idCounterRef = useRef(1);
   const punchlineTriggeredRef = useRef(false);
   const generationStartTimeRef = useRef(0);
+  // M4: Rastreo de historias STAR usadas en la sesión para deprioritización
+  const usedStoryIndicesRef = useRef<Set<number>>(new Set());
 
   const stopGenerating = useCallback(() => {
     if (abortControllerRef.current) {
@@ -582,6 +586,10 @@ export function useAnswerStream() {
         const finalParsed = parseBlocks(accumulatedText);
         const latencyMs = Date.now() - startTime;
 
+        // M7: Acumular estimación de tokens (chars/4) al completar cada respuesta
+        const tokensThisAnswer = Math.round((accumulatedText.length + question.length) / 4);
+        setSessionTokens((prev) => prev + tokensThisAnswer);
+
         // 1. Extraer y consolidar hechos en el Fact Ledger de la sesión
         const newFacts = extractFactsFromAnswer(accumulatedText);
         if (newFacts.length > 0) {
@@ -823,6 +831,10 @@ export function useAnswerStream() {
     generationError,
     sessionFacts,
     clearSessionFacts: () => setSessionFacts([]),
+    sessionTokens,
+    resetSessionTokens: () => setSessionTokens(0),
+    usedStoryIndicesRef,
+    resetUsedStories: () => { usedStoryIndicesRef.current = new Set(); },
     requestAnswer,
     startSpeculativePreFetch,
     stopGenerating,

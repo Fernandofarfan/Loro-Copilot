@@ -212,6 +212,11 @@ export default function CopilotPage() {
     generationStartTimeRef,
     generationError,
     sessionFacts,
+    clearSessionFacts,
+    sessionTokens,
+    resetSessionTokens,
+    usedStoryIndicesRef,
+    resetUsedStories,
     requestAnswer,
     startSpeculativePreFetch,
     stopGenerating,
@@ -326,8 +331,15 @@ export default function CopilotPage() {
             : profile;
 
         // Auto-match STAR y Detector de test de firmeza
-        const matchedStory = matchSTARStory(recentText, starStoriesRef.current);
+        // M4: pasar historias ya usadas en la sesión para deprioritizarlas
+        const excludedStories = Array.from(usedStoryIndicesRef.current);
+        const matchedStory = matchSTARStory(recentText, starStoriesRef.current, 0.35, excludedStories);
         const firmnessAlert = detectFirmnessChallenge(recentText);
+
+        // M4: registrar la historia usada
+        if (matchedStory) {
+          usedStoryIndicesRef.current.add(matchedStory.storyIndex);
+        }
 
         if (matchedStory || firmnessAlert.isChallenge) {
           syncTeleprompter({
@@ -400,8 +412,11 @@ export default function CopilotPage() {
     onTranscript: handleTranscript,
     onUtteranceEnd: handleUtteranceEnd,
     onBargeIn: () => {
+      // M2: umbral de barge-in reducido a 1500ms cuando el audio viene de pestaña o dual
+      // (el VAD de audio de tab es más lento, la señal llega tarde con el umbral estándar de 3000ms)
+      const bargeInThresholdMs = (audioMode === "tab" || audioMode === "dual") ? 1500 : 3000;
       // Auto-cancelación por Barge-in: si el candidato arranca a hablar tras recibir la sugerencia
-      if (isGeneratingRef.current && Date.now() - generationStartTimeRef.current > 3000) {
+      if (isGeneratingRef.current && Date.now() - generationStartTimeRef.current > bargeInThresholdMs) {
         stopGenerating();
         syncTeleprompter?.({ isGenerating: false });
       }
@@ -634,8 +649,15 @@ export default function CopilotPage() {
     const lang = detectQuestionLanguage(q);
 
     // Auto-match STAR y Detector de test de firmeza en submit manual
-    const matchedStory = matchSTARStory(q, starStoriesRef.current);
+    // M4: pasar historias ya usadas en la sesión para deprioritizarlas
+    const excludedStories = Array.from(usedStoryIndicesRef.current);
+    const matchedStory = matchSTARStory(q, starStoriesRef.current, 0.35, excludedStories);
     const firmnessAlert = detectFirmnessChallenge(q);
+
+    // M4: registrar la historia usada
+    if (matchedStory) {
+      usedStoryIndicesRef.current.add(matchedStory.storyIndex);
+    }
 
     if (matchedStory || firmnessAlert.isChallenge) {
       syncTeleprompter({
@@ -896,6 +918,34 @@ export default function CopilotPage() {
     () => transcriptLines.map((l) => l.text).join(" ").slice(-150),
     [transcriptLines]
   );
+
+  // M5: Estado del Wizard del Dossier del Entrevistador
+  const [showDossierWizard, setShowDossierWizard] = useState(false);
+  const [wizardProfile, setWizardProfile] = useState<"technical" | "business" | "">("technical");
+  const [wizardCompany, setWizardCompany] = useState("");
+  const [wizardTone, setWizardTone] = useState<"warm" | "neutral" | "cold" | "aggressive">("neutral");
+
+  const generateDossierText = () => {
+    const profileLabel = wizardProfile === "technical"
+      ? "Perfil Técnico (Engineer / Architect / Staff)"
+      : "Perfil de Negocio (HR / Recruiter / Product / VP)";
+    const toneMap = {
+      warm: "Tono cálido y colaborativo. Espera rapport antes de profundidad técnica. Priorizar conexión humana y pasaj de cultural fit.",
+      neutral: "Tono neutral y profesional. Evaluación directa. Equilibrar técnica con comunicación clara.",
+      cold: "Tono frío y evaluativo. Alto umbral de prueba. Respuestas ultra-concretas con datos y trade-offs; evitar contenido fluff.",
+      aggressive: "Tono desafiante (Have Backbone style). Pone a prueba la firmeza. Mantener posición técnica bajo presión, datos sobre opinión.",
+    };
+    const companyCtx = wizardCompany.trim()
+      ? `Empresa: ${wizardCompany.trim()}. `
+      : "";
+    return `${profileLabel}. ${companyCtx}${toneMap[wizardTone]}`;
+  };
+
+  const applyDossierWizard = () => {
+    const text = generateDossierText();
+    setInterviewerBio(text);
+    setShowDossierWizard(false);
+  };
 
   return (
     <div className="copilot-container min-h-screen bg-[#09090b] text-[#f4f4f5] flex flex-col font-sans">
@@ -1178,6 +1228,17 @@ export default function CopilotPage() {
                   </span>
                 )}
 
+                {/* M7: Badge de tokens estimados en la sesión (~4 chars = 1 token) */}
+                {sessionTokens > 0 && (
+                  <span
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-violet-500/30 bg-violet-950/30 text-violet-300 text-[10px] font-mono"
+                    title={`Tokens estimados consumidos en esta sesión: ~${sessionTokens.toLocaleString()}. Estimación local (chars/4), sin llamadas extra.`}
+                  >
+                    <span>🪙</span>
+                    <span>~{sessionTokens > 1000 ? `${(sessionTokens / 1000).toFixed(1)}k` : sessionTokens} tok</span>
+                  </span>
+                )}
+
                 <button
                   type="button"
                   onClick={handleIcebreaker}
@@ -1440,10 +1501,103 @@ export default function CopilotPage() {
                 <label className="block text-xs font-semibold text-zinc-300">
                   👤 Dossier & Perfil Psicológico del Entrevistador (Pre-Interview Intel)
                 </label>
-                <span className="text-[10px] text-zinc-400">
-                  LinkedIn / Bio para calibrar sesgo y tono (Infra / Producto / Startup)
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-zinc-400">
+                    LinkedIn / Bio para calibrar sesgo y tono (Infra / Producto / Startup)
+                  </span>
+                  {/* M5: Botón del Wizard del Dossier */}
+                  <button
+                    type="button"
+                    onClick={() => setShowDossierWizard(!showDossierWizard)}
+                    className="px-2 py-0.5 rounded bg-indigo-900/60 border border-indigo-500/50 hover:bg-indigo-800/70 text-indigo-300 text-[10px] font-bold transition-all"
+                    title="Generar dossier con 3 preguntas rápidas"
+                  >
+                    🧙 Wizard
+                  </button>
+                </div>
               </div>
+
+              {/* M5: Wizard del Dossier (3 preguntas) */}
+              {showDossierWizard && (
+                <div className="mb-2 p-3 rounded-xl bg-indigo-950/80 border border-indigo-500/40 flex flex-col gap-3">
+                  <div className="text-[11px] text-indigo-300 font-semibold">
+                    Respondé 3 preguntas rápidas y generamos el dossier automáticamente:
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">1. ¿Perfil del entrevistador?</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWizardProfile("technical")}
+                        className={`px-2.5 py-1 rounded text-[10px] font-semibold border transition-all ${
+                          wizardProfile === "technical"
+                            ? "bg-sky-500 text-black border-sky-400"
+                            : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                        }`}
+                      >
+                        🔧 Técnico (Engineer / Architect)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWizardProfile("business")}
+                        className={`px-2.5 py-1 rounded text-[10px] font-semibold border transition-all ${
+                          wizardProfile === "business"
+                            ? "bg-emerald-500 text-black border-emerald-400"
+                            : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                        }`}
+                      >
+                        💼 Negocio (HR / Recruiter / Product)
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">2. ¿Empresa / Stack? (opcional)</label>
+                    <input
+                      type="text"
+                      value={wizardCompany}
+                      onChange={(e) => setWizardCompany(e.target.value)}
+                      placeholder="Ej: Google, Rappi (Go + GCP), startup B2B SaaS..."
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-200 text-xs focus:outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">3. ¿Cómo arranó la charla?</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {(["warm", "neutral", "cold", "aggressive"] as const).map((tone) => (
+                        <button
+                          key={tone}
+                          type="button"
+                          onClick={() => setWizardTone(tone)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-all ${
+                            wizardTone === tone
+                              ? "bg-indigo-500 text-white border-indigo-400"
+                              : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {{ warm: "😊 Cálida", neutral: "😐 Neutral", cold: "🥶 Fría", aggressive: "🔥 Desafiante" }[tone]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1 border-t border-indigo-800/40">
+                    <button
+                      type="button"
+                      onClick={applyDossierWizard}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-[10px] font-bold transition-all"
+                    >
+                      ✅ Aplicar Dossier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDossierWizard(false)}
+                      className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-semibold transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <textarea
                 value={interviewerBio}
                 onChange={(e) => setInterviewerBio(e.target.value)}

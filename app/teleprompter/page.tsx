@@ -583,20 +583,33 @@ export default function TeleprompterPage() {
           {/* 1. Puente Inmediato (<200ms) Anti-Silencio */}
           {data.bridge && (
             <section className="mb-2.5 animate-fadeIn">
-              <div className="bg-sky-950/80 border-2 border-sky-400 rounded-xl p-2.5 text-xs shadow-lg">
-                <div className="flex items-center justify-between font-bold text-sky-300 text-[11px] mb-1">
+              <div className={`rounded-xl p-2.5 text-xs shadow-lg border-2 ${
+                data.isGenerating
+                  ? "bg-indigo-950/90 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse"
+                  : "bg-sky-950/80 border-sky-400"
+              }`}>
+                <div className={`flex items-center justify-between font-bold text-[11px] mb-1 ${
+                  data.isGenerating ? "text-indigo-300" : "text-sky-300"
+                }`}>
                   <span className="flex items-center gap-1.5">
-                    <span>🎙️</span> PUENTE INMEDIATO (ARRANCÁ A HABLAR YA):
+                    <span>{data.isGenerating ? "⚡" : "🎙️"}</span>
+                    {data.isGenerating ? "⚡ PUENTE INMEDIATO (ARRANCÁ YA MIENTRAS GENERA):" : "PUENTE INMEDIATO (ARRANCÁ A HABLAR YA):"}
                   </span>
-                  <span className="bg-sky-500 text-black px-1.5 py-0.2 rounded text-[9px] font-black uppercase">
-                    &lt;200ms
+                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                    data.isGenerating ? "bg-indigo-500 text-white" : "bg-sky-500 text-black"
+                  }`}>
+                    {data.isGenerating ? "GENERANDO..." : "<200ms"}
                   </span>
                 </div>
-                <div className="text-sky-100 font-bold text-[13.5px] leading-snug italic">
+                <div className={`font-bold text-[13.5px] leading-snug italic ${
+                  data.isGenerating ? "text-indigo-100" : "text-sky-100"
+                }`}>
                   &ldquo;{data.bridge.bridgeEn}&rdquo;
                 </div>
                 {data.bridge.bridgeEs && (
-                  <div className="text-sky-300/80 text-[10.5px] mt-0.5">
+                  <div className={`text-[10.5px] mt-0.5 ${
+                    data.isGenerating ? "text-indigo-300/80" : "text-sky-300/80"
+                  }`}>
                     {data.bridge.bridgeEs}
                   </div>
                 )}

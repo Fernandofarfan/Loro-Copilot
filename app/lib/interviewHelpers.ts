@@ -1004,7 +1004,8 @@ export interface STARMatchResult {
 export function matchSTARStory(
   question: string,
   stories: STARStory[],
-  threshold = 0.35
+  threshold = 0.35,
+  excludeIndices?: number[]
 ): STARMatchResult | null {
   if (!stories || stories.length === 0 || !question.trim()) return null;
 
@@ -1075,12 +1076,17 @@ export function matchSTARStory(
     // Normalizar score
     const normalizedScore = score / (qWords.length + 2);
 
-    if (normalizedScore > maxScore && normalizedScore >= threshold) {
-      maxScore = normalizedScore;
+    // Penalizar historias ya usadas en la sesión actual (50% score)
+    // para preferir historias frescas sin eliminarlas completamente
+    const penalty = excludeIndices && excludeIndices.includes(i) ? 0.5 : 1;
+    const adjustedScore = normalizedScore * penalty;
+
+    if (adjustedScore > maxScore && adjustedScore >= threshold) {
+      maxScore = adjustedScore;
       bestMatch = {
         story,
         storyIndex: i,
-        score: Math.min(1, Math.round(normalizedScore * 100) / 100),
+        score: Math.min(1, Math.round(adjustedScore * 100) / 100),
         reason: matchedTerms.length > 0
           ? `Tema clave: ${Array.from(new Set(matchedTerms)).slice(0, 3).join(", ")}`
           : "Coincidencia temática con tu experiencia",

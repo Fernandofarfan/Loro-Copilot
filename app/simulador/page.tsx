@@ -294,7 +294,12 @@ export default function SimuladorPage() {
   const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityItem[] | null>(null);
   const [showVulnModal, setShowVulnModal] = useState(false);
   const [pushbackMode, setPushbackMode] = useState(false);
+  // M3: Modo de Pausa Silenciosa — simula el silencio de evaluación del entrevistador real
+  const [silentPause, setSilentPause] = useState(false);
+  const silentPauseRef = useRef(false);
   const [answerDurationSec, setAnswerDurationSec] = useState(0);
+  // M6: Outcome post-simulador (¿Avancaste a la siguiente ronda?)
+  const [interviewOutcome, setInterviewOutcome] = useState<"passed" | "rejected" | "waiting" | null>(null);
   // Largo fijo de la entrevista (el selector se quitó del setup a pedido).
   const questionsCount = 5;
 
@@ -418,6 +423,11 @@ export default function SimuladorPage() {
       localStorage.setItem("loro_simulador_job_desc", jobDescription);
     } catch {}
   }, [company, role, jobDescription, profile, modelId, lang, interviewType, pushbackMode]);
+
+  // M3: Sincronizar silentPauseRef con el state
+  useEffect(() => {
+    silentPauseRef.current = silentPause;
+  }, [silentPause]);
 
   // ---------- Timers del turno ----------
 
@@ -702,7 +712,11 @@ export default function SimuladorPage() {
 
     // En el turno de cierre (despedida del entrevistador), al terminar de hablar
     // vamos al informe en vez de reabrir el mic.
-    const onDone = closing ? () => finishToFeedback(currentHistory) : enterListening;
+    // M3: Pausa Silenciosa — añadir un silencio de evaluación de 5-7s si está activado
+    const baseOnDone = closing ? () => finishToFeedback(currentHistory) : enterListening;
+    const onDone = silentPauseRef.current && !closing
+      ? () => setTimeout(baseOnDone, 5000 + Math.random() * 2000)
+      : baseOnDone;
 
     ttsRef.current?.stop();
     const queue = new TtsQueue(ctx, sessionLangRef.current);
@@ -1380,7 +1394,7 @@ export default function SimuladorPage() {
                 <span>🛡️</span> Modo Pushback (Have Backbone)
               </span>
               <span className="text-[11.5px] text-zinc-400 mt-0.5">
-                El entrevistador cuestionará tus decisiones técnicas para evaluar si sostenés tu postura con trade-offs y métricas.
+                El entrevistador cuestioná tus decisiones técnicas para evaluar si sosténés tu postura con trade-offs y métricas.
               </span>
             </div>
             <button
@@ -1393,6 +1407,29 @@ export default function SimuladorPage() {
               onClick={() => setPushbackMode((prev) => !prev)}
             >
               {pushbackMode ? "ACTIVADO ⚡" : "DESACTIVADO"}
+            </button>
+          </div>
+
+          {/* M3: Toggle de Pausa Silenciosa */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-700/50 bg-zinc-900/40 mt-2 shadow-sm">
+            <div className="flex flex-col pr-3">
+              <span className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                <span>🤫</span> Modo Pausa Silenciosa
+              </span>
+              <span className="text-[11px] text-zinc-500 mt-0.5">
+                Después de que respondés, el entrevistador espera 5-7s en silencio — simula la presión real de evaluación que paraliza.
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                silentPause
+                  ? "bg-zinc-600 text-white font-extrabold shadow-sm"
+                  : "bg-zinc-800 text-zinc-500 border border-zinc-700 hover:text-white"
+              }`}
+              onClick={() => setSilentPause((prev) => !prev)}
+            >
+              {silentPause ? "ACTIVADO 🤫" : "DESACTIVADO"}
             </button>
           </div>
 
@@ -1810,22 +1847,77 @@ export default function SimuladorPage() {
               </button>
             </div>
           ) : (
-            <FeedbackReportView
-              feedbackReport={feedbackReport}
-              history={history}
-              emailGatePassed={emailGatePassed}
-              email={email}
-              setEmail={setEmail}
-              emailError={emailError}
-              setEmailError={setEmailError}
-              emailSending={emailSending}
-              submitEmail={submitEmail}
-              copiedIndex={copiedIndex}
-              copyOptimalAnswer={copyOptimalAnswer}
-              goToCopilot={goToCopilot}
-              shareSimulator={shareSimulator}
-              onRestart={() => setPhaseBoth("setup")}
-            />
+            <>
+              <FeedbackReportView
+                feedbackReport={feedbackReport}
+                history={history}
+                emailGatePassed={emailGatePassed}
+                email={email}
+                setEmail={setEmail}
+                emailError={emailError}
+                setEmailError={setEmailError}
+                emailSending={emailSending}
+                submitEmail={submitEmail}
+                copiedIndex={copiedIndex}
+                copyOptimalAnswer={copyOptimalAnswer}
+                goToCopilot={goToCopilot}
+                shareSimulator={shareSimulator}
+                onRestart={() => setPhaseBoth("setup")}
+              />
+
+              {/* M6: Outcome post-entrevista — ¿Avancé a la siguiente ronda? */}
+              <div className="mt-4 mb-6 mx-auto max-w-lg p-4 rounded-xl border border-zinc-700/60 bg-zinc-900/60 shadow-sm">
+                <div className="text-xs font-bold text-zinc-300 mb-2.5 flex items-center gap-1.5">
+                  <span>📊</span>
+                  <span>¿Avancé a la siguiente ronda? (Feedback Loop)</span>
+                </div>
+                {interviewOutcome ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">
+                      {{ passed: "✅ Registrado: Avancaste a la siguiente ronda.", rejected: "❌ Registrado: No avanzaste en esta oportunidad. ¡Reinténtalo!", waiting: "⏳ Registrado: Esperando respuesta."}[interviewOutcome]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setInterviewOutcome(null)}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 underline"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 flex-wrap">
+                    {([
+                      { id: "passed" as const, label: "✅ Sí, pasé", cls: "bg-emerald-950/60 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/70" },
+                      { id: "rejected" as const, label: "❌ No, me rechazaron", cls: "bg-red-950/60 border-red-500/50 text-red-300 hover:bg-red-900/70" },
+                      { id: "waiting" as const, label: "⏳ Esperando respuesta", cls: "bg-zinc-800/80 border-zinc-600/50 text-zinc-300 hover:bg-zinc-700/80" },
+                    ]).map(({ id, label, cls }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => {
+                          setInterviewOutcome(id);
+                          // Guardar junto al reporte existente en localStorage
+                          try {
+                            const raw = localStorage.getItem(LS_KEY_REPORT);
+                            if (raw) {
+                              const existing = JSON.parse(raw);
+                              localStorage.setItem(LS_KEY_REPORT, JSON.stringify({ ...existing, outcome: id, outcomeAt: Date.now() }));
+                            }
+                          } catch {}
+                          // M6: Track analytics
+                          import("../lib/track").then(({ track }) => {
+                            track("sim_interview_outcome", { outcome: id, score: feedbackReport?.score ?? 0, company, role });
+                          }).catch(() => {});
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${cls}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       )}
