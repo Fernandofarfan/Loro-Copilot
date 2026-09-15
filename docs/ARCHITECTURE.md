@@ -357,26 +357,29 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 | Módulo / Componente | Archivo | Responsabilidad Principal |
 |---|---|---|
-| **Página Principal Copiloto** | `app/app/page.tsx` | Orquestación general, switches de audio dual, vúmetro estéreo, Screen Vision (`Ctrl+Shift+S`), Susurro al Oído, Cierre de Oro (`Ctrl+Shift+Q`), render de transcripción, respuestas y atajos globales. |
-| **Hook Audio / STT** | `app/hooks/useDeepgram.ts` | Captura dual (Mic + Pestaña), `ChannelMergerNode`, ciclo de vida WebSocket Deepgram, VAD local, barge-in, reconexión y pre-fetching especulativo en turnos largos. |
-| **Hook Respuestas LLM** | `app/hooks/useAnswerStream.ts` | Saludo instantáneo (<10ms), matching en memoria (<50ms), RAG de CV, streaming SSE principal, pre-fetch especulativo, callback `onPunchline`, Dual Stream de trampas en background y soporte multimodal. |
+| Módulo / Componente | Archivo | Responsabilidad Principal |
+|---|---|---|
+| **Página Principal Copiloto** | `app/app/page.tsx` | Orquestación general, switches de audio dual con selector de hardware (VB-CABLE), cancelación inmediata por interrupción (<50ms Barge-in Inverso) con flush en teleprompter, vúmetro estéreo, Screen Vision (`Ctrl+Shift+S`), Susurro al Oído, Cierre de Oro (`Ctrl+Shift+Q`), render de transcripción, respuestas y atajos globales. |
+| **Hook Audio / STT** | `app/hooks/useDeepgram.ts` | Captura dual (Mic + Pestaña / Dispositivo Físico o Virtual), `ChannelMergerNode`, ciclo de vida WebSocket Deepgram, VAD local, barge-in, reconexión y pre-fetching especulativo en turnos largos. |
+| **Hook Respuestas LLM** | `app/hooks/useAnswerStream.ts` | Saludo instantáneo (<10ms), cálculo de Puente Inmediato (<1ms), matching en memoria (<50ms), RAG de CV, streaming SSE principal, pre-fetch especulativo, callback `onPunchline`, Dual Stream de trampas en background, extracción en tiempo real de `[YAGNI]`, `[EDGE_CASES]`, `[WHY_NOT]` y `[DRY_RUN]`, y soporte multimodal. |
 | **Hook Screen Vision** | `app/hooks/useScreenVision.ts` | Captura en vivo de pantalla vía `getDisplayMedia`, renderizado en `HTMLCanvasElement`, compresión WebP base64 ultraliviana para Vision Coding. |
 | **Hook Susurro al Oído** | `app/hooks/useEarbudWhisper.ts` | Sintetizador de voz Web Speech API acelerado (1.5x) para dictado privado del punchline `[KEY]` al auricular del candidato. |
-| **Hook Teleprompter** | `app/hooks/useTeleprompter.ts` | Apertura de ventana emergente y sincronización bidireccional en tiempo real vía `BroadcastChannel` y `localStorage`. |
-| **Hook Contexto Entrevista** | `app/hooks/useInterviewContext.ts` | Gestión de perfiles de entrevista, CVs, empresa, rol, modelo seleccionado y persistencia del banco maestro. |
-| **Worklet de Audio PCM16** | `public/pcm-worklet.js` | AudioWorklet en hilo de audio: downsampling lineal a 16kHz, conversión Float32 a Int16 estéreo, RMS dual y VAD local. |
+| **Hook Teleprompter** | `app/hooks/useTeleprompter.ts` | Apertura de ventana emergente y sincronización bidireccional en tiempo real vía `BroadcastChannel` y `localStorage` con soporte de `scalePills`, `yagni`, `bridge`, `triggerCards`, `surgicalPhonetics` y `dryRun`. |
+| **Hook Contexto Entrevista** | `app/hooks/useInterviewContext.ts` | Gestión de perfiles de entrevista, CVs, empresa, rol, modelo seleccionado, Dossier Psicológico (`interviewerBio`) y persistencia del banco maestro. |
+| **Worklet de Audio PCM16** | `public/pcm-worklet.js` | AudioWorklet en hilo de audio: downsampling lineal a 16kHz, conversión Float32 a Int16 estéreo, RMS dual, filtro de voz paso-alto, noise gate adaptativo y VAD local. |
 | **Segmentación RAG & Grafo Temporal** | `app/lib/cvChunker.ts` | Chunking semántico del CV, inferencia de seniority (`Architect`, `Lead`, `Senior`), extracción de impacto cuantitativo ($ / % / QPS) y recuperación ordenada por recencia temporal. |
 | **Sandbox de Código & Big-O** | `app/lib/codeEvaluator.ts` | Validador estático client-side de sintaxis (JS/TS/Python), balanceo de delimitadores, sangría en Python y extracción de complejidades Big-O temporal y espacial. |
-| **Speech Coach** | `app/lib/speechCoach.ts` | Telemetría en vivo: cálculo de WPM, ratio de conversación (Talk-to-Listen) y detección de muletillas. |
-| **Helpers de Entrevista** | `app/lib/interviewHelpers.ts` | Sinónimos canónicos, clasificación temprana de preguntas, detector de preguntas trampa, buscador en memoria y parser de 4 bloques. |
+| **Speech Coach & Detección de Muletillas** | `app/lib/speechCoach.ts` | Telemetría en vivo: cálculo de WPM, ratio de conversación (Talk-to-Listen), catálogo `COMMON_FILLERS` y función `countFillers` para análisis de aplomo acústico. |
+| **Helpers de Entrevista** | `app/lib/interviewHelpers.ts` | Puente Inmediato (`getInstantBridge`), Fonética Quirúrgica (`getSurgicalPhonetics`), Tarjetas Disparadoras (`extractTriggerCards`), Píldoras de Escala y Latencia (`getScaleLatencyPills`), Tip Senior YAGNI (`getInstantYagniTip`), clasificación temprana, detector de trampas, búsqueda en memoria y parser de bloques. |
 | **Clientes y Parsers LLM** | `app/lib/llm.ts` | Clientes HTTP y parsers SSE para OpenCode, Google Gemini, OpenAI y Anthropic con soporte multimodal (`options.image`), timeouts y fallback. |
 | **Seguridad y Rate Limiting** | `app/lib/security.ts` | Verificación de `Origin`/`Referer`, rate limiter en memoria (35 req/min) y comprobación de capacidad del servidor. |
-| **HUD Teleprompter** | `app/teleprompter/page.tsx` | Ventana pop-out flotante stealth con Always-on-Top nativo (`documentPictureInPicture`), control de opacidad, Lectura Biónica, chips `[KEY]`, alerta de trampas y botón Panic (`Escape`). |
-| **Página Simulador** | `app/simulador/page.tsx` | Interfaz de entrenamiento interactivo con voz TTS (Web Speech API) y reporte evaluativo post-entrevista. |
-| **API Generación Respuestas** | `app/api/answer/route.ts` | Runtime Edge, Prompt Caching (KV-Cache), Punchline First, Spanglish técnico, Vision Coding (`mode: "vision_coding"`), Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`). |
+| **HUD Teleprompter** | `app/teleprompter/page.tsx` | Ventana pop-out flotante stealth con Always-on-Top nativo (`documentPictureInPicture`), guía visual de webcam, Modo Telegráfico (`T`), Modo Camuflaje IDE/Terminal, Píldoras de Escala y Latencia, badge YAGNI, Lectura Biónica, chips `[KEY]` y botón Panic (`Escape`). |
+| **Página Simulador** | `app/simulador/page.tsx` | Interfaz interactiva de entrenamiento: **Espejo Acústico con grabación automática (`MediaRecorder`)**, **Inyección Dinámica de Job Description**, personalidades FAANG, Gimnasio de 25 Segundos, Modo Pushback y reporte evaluativo. |
+| **Reporte de Feedback & Audio Player** | `app/simulador/FeedbackReportView.tsx` | Visualizador de informe con gauge interactivo, desglose pregunta por pregunta y reproductor `AudioTurnPlayer` con selector de velocidad (1x/1.25x) y conteo de muletillas. |
+| **API Generación Respuestas** | `app/api/answer/route.ts` | Runtime Edge, Prompt Caching (KV-Cache), Punchline First, directiva YAGNI, Spanglish técnico, Vision Coding (`mode: "vision_coding"`), Cierre de Oro (`type: "reverse_questions"`) y detector de trampas en background (`mode: "trap_detector"`). |
 | **API Token Deepgram** | `app/api/deepgram-token/route.ts` | Emisión de tokens efímeros de 60 segundos para aislar la API key de Deepgram del frontend. |
-| **API Simulador** | `app/api/simulador/route.ts` | Generador de preguntas dinámicas y evaluación estructurada JSON de la entrevista simulada. |
-| **API Resumen Post-Entrevista** | `app/api/summary/route.ts` | Generador de minutas y resúmenes ejecutivos en Markdown de la entrevista completa. |
+| **API Simulador** | `app/api/simulador/route.ts` | Inyección obligatoria de `jobDescription`, generador de preguntas dinámicas y evaluación estructurada JSON de la entrevista simulada. |
+| **API Resumen Post-Entrevista** | `app/api/summary/route.ts` | Generador de Scorecard Predictor FAANG, Análisis Forense (Post-Mortem Técnico) y borrador de Follow-up Thank-You Note en Markdown. |
 
 ---
 
@@ -635,6 +638,37 @@ En el system prompt (`app/api/answer/route.ts`), se codificaron axiomas de ingen
 ### 3. Banco de Memoria & Purga Automática de Procesos Finalizados
 - **Aislamiento y Purga Automática:** En cada montaje de sesión, el sistema purga automáticamente del almacenamiento local (`localStorage`) cualquier perfil o respuesta asociada a procesos de selección concluidos, manteniendo la memoria limpia y relevante.
 - **Búsqueda Semántica de Baja Latencia:** Respuestas en `<50ms` mediante matching semántico ponderado por sinónimos canónicos (`CANONICAL_SYNONYMS`) y enciclopedia de respuestas maestras (`docs/master_answers_all_roles.md`), sin consumir tokens de LLM.
+
+---
+
+## 🛡️ 15. Los 5 Pilares Estratégicos Post-Entrevista (Live Reliability & Deliberate Practice)
+
+Diseñados e integrados para dotar al candidato de máxima autoridad técnica, práctica deliberada acústica y cero fricción cognitiva durante llamadas reales de alta exigencia:
+
+### 1. "Espejo Acústico" en el Simulador (Grabación & Playback Inmediato)
+- **Captura nativa:** Integración de `MediaRecorder` nativo en `app/simulador/page.tsx` conectado al stream de audio (`streamRef.current`).
+- **Reproducción instantánea (`AudioTurnPlayer`):** Componente que renderiza en cada turno del chat y en el reporte final un reproductor de audio compacto con controles de reproducción/pausa (`▶️ Escuchar mi respuesta`) y selector de velocidad instantáneo (`1x` / `1.25x`).
+- **Telemetría de aplomo:** Análisis automatizado de muletillas (`countFillers` en `app/lib/speechCoach.ts`) en español e inglés que califica el aplomo acústico y previene vicios de comunicación bajo presión (`✨ Aplomo 100%` vs `⚠️ X muletillas`).
+
+### 2. Inyección Dinámica de Job Description (Simulacros a Medida)
+- **Contexto exacto:** Campo dedicado en el formulario de Setup (`localStorage` `loro_simulador_job_desc`) para pegar los requerimientos técnicos y stack de la oferta.
+- **Calibración obligatoria:** `/api/simulador` inyecta la Job Description en el system prompt del entrevistador para calibrar el 100% de las preguntas, casos prácticos y desafíos técnicos sobre el stack de la vacante.
+
+### 3. Cancelación Inmediata por Interrupción del Entrevistador (<50ms Barge-in Inverso)
+- **Respuesta instantánea:** En `app/app/page.tsx`, cuando el entrevistador (`speaker === 0`) interrumpe con una objeción sustancial (>=12 caracteres) mientras se genera una respuesta previa, se aborta inmediatamente el SSE (`abortController.abort()`) y se envía un flush síncrono al Teleprompter (`cleanText: "(Entrevistador interrumpió con nueva pregunta...)"`) en **<50ms**, evitando que el candidato lea respuestas desactualizadas.
+
+### 4. Sugerencia Preventiva "YAGNI / Anti-Overengineering"
+- **Directiva LLM & Helper determinista:** `getInstantYagniTip(question)` (<1ms) y directiva `[YAGNI]` en `app/api/answer/route.ts` que anticipa la solución simple de ingeniería de producción (monolito modular antes de microservicios, colas simples antes de Kafka, read replicas antes de sharding, Cloud Run antes de Kubernetes).
+- **Visualización en UI:** Renderizado destacado en `AnswerCard.tsx` y en el `teleprompter/page.tsx` con el badge `💡 YAGNI / PRAGMATISMO SENIOR`.
+
+### 5. Píldoras de Números de Escala y Latencia al Vuelo (Jeff Dean Numbers)
+- **Magnitudes cuantitativas:** `getScaleLatencyPills(question)` en `app/lib/interviewHelpers.ts` despliega métricas de hardware y red contextualizadas:
+  - *Caché:* RAM ~100ns vs NVMe SSD ~100µs (1000x), Redis ~0.5-1ms.
+  - *Almacenamiento:* NVMe SSD Read ~10-100µs vs HDD ~10ms, B-Tree Seek O(log N) ~1-3ms.
+  - *Red:* Mismo Datacenter ~0.5ms vs Cross-Region ~150ms.
+  - *Throughput:* Kafka secuencial 100k+ msg/s/core vs DB ACID ~5k-10k tx/s.
+- **Alineación con webcam & Modo Telegráfico:** Indicador visual `▼ 🎯 ALINEAR CON LENTE DE WEBCAM ▼` y atajo de teclado `T` en el HUD para simplificar la lectura a vista periférica.
+
 
 
 

@@ -7,20 +7,23 @@
 ## 🚀 Características Principales
 
 - **🎧 Audio Dual Simultáneo (Micrófono + Pestaña)**: Captura combinada de tu voz (Canal L) y la del entrevistador (Canal R) con remuestreo estéreo a 16kHz PCM16 en `AudioWorklet`, diarización multicanal exacta en Deepgram y liberación estricta de nodos Web Audio.
+- **⚡ Cancelación Inmediata por Interrupción (<50ms Barge-in Inverso)**: Si el entrevistador interrumpe con una objeción o nueva pregunta mientras el copiloto está generando, aborta inmediatamente el SSE (`AbortController`) y envía un flush instantáneo al Teleprompter sin mezclar contextos.
 - **⏱️ VAD Local y Barge-in Inteligente**: Detección de actividad vocal en `<80ms` con ventana de gracia anti-falsos positivos (4.5s) y umbral de discurso sustancial (>=15 caracteres) para no cortar respuestas involuntariamente.
 - **⚡ Prompt Caching (KV-Cache) y Respuestas Conversacionales "Punchline First"**: Prefijo estático inmutable para activar caché en DeepSeek/Gemini/Claude y entrega del bloque `[KEY]` junto con respuestas ultra-concisas habladas en **un solo párrafo corrido de exactamente 2 oraciones (25-35 palabras: Answer → Why/Solution)**, con **prohibición estricta de viñetas, guiones o enumeraciones** para sonar 100% natural sin leer listas.
+- **💡 Cápsula de Pragmatismo Senior YAGNI (Anti-Overengineering)**: Tip determinista (<1ms) y directiva LLM `[YAGNI]` que prioriza la solución simple de producción (monolito modular antes de microservicios, colas simples antes de Kafka, read replicas antes de sharding manual).
+- **🔢 Píldoras de Magnitudes de Escala y Latencia al Vuelo (Jeff Dean Numbers)**: Pastillas métricas de alto contraste en AnswerCard y Teleprompter (RAM ~100ns vs NVMe ~100µs, Datacenter ~0.5ms vs Cross-region ~150ms, B-Tree seek O(log N), Kafka throughput).
 - **🎯 Clasificador Temprano de Preguntas**: Categorización instantánea en `<5ms` (*System Design*, *Live Coding / LeetCode*, *Behavioral STAR*, *Fit Cultural*, *Técnico*) inyectando directivas de respuesta específicas.
 - **🛡️ Dual Stream Asíncrono de Trampas**: Modelo secundario en segundo plano que detecta preguntas trampa, supuestos ocultos o red flags (`⚠️ TIP TÁCTICO`).
 - **🗣️ Modo Bilingüe con Fonética en Vivo (`[EN]`, `[PHO]`, `[ES]`)**: Respuesta en inglés senior, pronunciación fonética simplificada en español con mayúsculas y resumen conceptual.
-- **🪟 Teleprompter Flotante con Lectura Biónica**: HUD emergente sincronizado en 0ms con `BroadcastChannel`, chips dorados `[KEY]`, ajuste tipográfico, lectura biónica periférica y botón de pánico (`Escape`) para ocultar la ventana de inmediato.
+- **🪟 Teleprompter Flotante con Lectura Biónica y Camuflaje**: HUD emergente sincronizado en 0ms vía `BroadcastChannel`, chips dorados `[KEY]`, ajuste tipográfico, lectura biónica periférica, guía de alineación visual con lente de webcam (`▼ 🎯 ALINEAR CON LENTE DE WEBCAM ▼`), modo telegráfico ultra-resumido con hotkey `T`, modos de camuflaje "IDE (VS Code) / Terminal (Bash)" y botón de pánico (`Escape`).
 - **🧠 RAG Dinámico del CV por Proyectos (`cvChunker`)**: Segmenta el perfil y recupera de forma quirúrgica los proyectos relevantes donde usaste las tecnologías de la pregunta.
 - **⚖️ Matriz de Trade-offs y Bloque `[WHY_NOT]` en Streaming**: Extracción en tiempo real de alternativas descartadas sin mezclarse con la respuesta principal.
 - **🛡️ Filtro Anti-Slop de Grado de Producción**: Eliminación de muletillas de IA formuláicas con protección estricta contra bucles infinitos (`MAX_ITERATIONS = 10`).
 - **📊 Speech Coach en Tiempo Real**: Telemetría de habla que mide palabras por minuto (WPM), proporción de escucha vs. habla (*Talk-to-Listen Ratio*) y conteo de muletillas (*fillers*).
-- **🤖 Simulador de Entrevistas Interactivo**: Práctica con entrevistador virtual por IA, voz natural (TTS/STT), turnos conversacionales y reporte de desempeño con feedback estructurado.
+- **🤖 Simulador de Entrevistas Interactivo con Espejo Acústico**: Práctica con entrevistador virtual por IA, personalidades FAANG, Gimnasio de 25 Segundos, Modo Pushback / Have Backbone, **Espejo Acústico con grabación automática (`MediaRecorder`) y reproductor de playback con selector 1x/1.25x y conteo de muletillas**, e **Inyección Dinámica de Job Description** para calibrar el 100% de las preguntas a la vacante real.
 - **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **DeepSeek Chat / MiMo**, **Gemini Flash**, **GPT-4o Mini**, **Claude Haiku**, con conmutación automática por error en Edge Runtime.
 - **🧠 Banco de Memoria Inteligente (<50ms)**: Caché local con sinónimos canónicos (`CANONICAL_SYNONYMS`), aislamiento por empresa y rol (`matchesRole`), presets especializados de respuestas maestras y enciclopedia universal de 107 respuestas (`docs/master_answers_all_roles.md`).
-- **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste.
+- **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste en servidores externos.
 
 ---
 
@@ -28,9 +31,9 @@
 
 - **Framework**: [Next.js 14](https://nextjs.org/) (App Router, Edge Runtime)
 - **Frontend**: React 18, TypeScript, CSS nativo de alto rendimiento
-- **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16 estéreo), [Deepgram Nova-2](https://deepgram.com/)
+- **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16 estéreo), `MediaRecorder` (Espejo Acústico local), [Deepgram Nova-2](https://deepgram.com/)
 - **Modelos de IA**: OpenCode / OpenRouter (DeepSeek, MiMo), Google Gemini, Anthropic Claude, OpenAI GPT
-- **Testing**: [Vitest](https://vitest.dev/) (173 tests automatizados en 26 suites)
+- **Testing**: [Vitest](https://vitest.dev/) (185 tests automatizados en 26 suites)
 - **Analytics**: PostHog (fail-safe) + Vercel Analytics
 
 ---
@@ -84,7 +87,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador (recomendado
 
 ## 🧪 Tests y Validación
 
-Para ejecutar la suite completa de **173 pruebas unitarias automatizadas en 26 suites**:
+Para ejecutar la suite completa de **185 pruebas unitarias automatizadas en 26 suites**:
 ```bash
 npm test
 ```
@@ -136,7 +139,7 @@ loro/
 ├── pdf/                         # 12 CVs de referencia en PDF (EN/ES)
 ├── extension/                   # Extensión de Chrome para captura local
 ├── public/                      # AudioWorklet estéreo PCM16 (pcm-worklet.js)
-└── __tests__/                   # Suite de 173 tests con Vitest (26 suites)
+└── __tests__/                   # Suite de 185 tests con Vitest (26 suites)
 ```
 
 ---
