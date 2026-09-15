@@ -4,11 +4,15 @@ import {
   getSurgicalPhonetics,
   extractTriggerCards,
   SURGICAL_PHONETICS_DICT,
+  getScaleLatencyPills,
+  getInstantYagniTip,
+  parseBlocks,
 } from "../app/lib/interviewHelpers";
 import {
   buildInterviewerSystemPrompt,
   PUSHBACK_CHALLENGE_DIRECTIVE,
 } from "../app/lib/simuladorPersonas";
+import { countFillers } from "../app/lib/speechCoach";
 
 describe("Pilar 1: Zero-Silence Opening Bridge (<200ms)", () => {
   it("genera un puente inmediato para preguntas de Python Internals en <5ms", () => {
@@ -138,3 +142,100 @@ describe("Pilar 5: Modo Pushback / Have Backbone en Simulador", () => {
     expect(prompt).toContain("Have Backbone");
   });
 });
+
+describe("Pilar 6: Píldoras de Latencia y Magnitudes de Escala (Jeff Dean)", () => {
+  it("extrae magnitudes de memoria y Redis para preguntas de caching", () => {
+    const pills = getScaleLatencyPills("How do you design a distributed cache with Redis to prevent database bottlenecks?");
+    expect(pills.length).toBeGreaterThanOrEqual(2);
+    expect(pills.some((p) => p.label.includes("RAM") && p.val.includes("100 ns"))).toBe(true);
+    expect(pills.some((p) => p.label.includes("Redis") && p.val.includes("0.5-1 ms"))).toBe(true);
+  });
+
+  it("extrae métricas de NVMe vs HDD y B-Tree seek para preguntas de persistencia y base de datos", () => {
+    const pills = getScaleLatencyPills("How do you tune slow queries and storage on PostgreSQL with billions of rows?");
+    expect(pills.length).toBeGreaterThanOrEqual(2);
+    expect(pills.some((p) => p.label.includes("NVMe") && p.val.includes("µs"))).toBe(true);
+    expect(pills.some((p) => p.label.includes("B-Tree") && p.val.includes("O(log N)"))).toBe(true);
+  });
+
+  it("extrae latencias de red para preguntas de microservicios y sistemas distribuidos", () => {
+    const pills = getScaleLatencyPills("What are the network latency implications across regions in a microservice architecture?");
+    expect(pills.length).toBeGreaterThanOrEqual(2);
+    expect(pills.some((p) => p.label.includes("Datacenter") && p.val.includes("0.5 ms"))).toBe(true);
+    expect(pills.some((p) => p.label.includes("Region") && p.val.includes("150 ms"))).toBe(true);
+  });
+
+  it("extrae throughput de streaming para preguntas de Kafka y colas", () => {
+    const pills = getScaleLatencyPills("How many messages per second can Kafka handle under heavy write traffic?");
+    expect(pills.some((p) => p.label.includes("Kafka") && p.val.includes("100k+"))).toBe(true);
+  });
+
+  it("devuelve array vacío para preguntas no técnicas o sin mención de escala", () => {
+    const pills = getScaleLatencyPills("What is your favorite remote work setup?");
+    expect(pills).toEqual([]);
+  });
+});
+
+describe("Pilar 7: Pragmatismo Senior YAGNI (Anti-Overengineering)", () => {
+  it("proporciona tip de monolito modular para preguntas de microservicios prematuros", () => {
+    const tip = getInstantYagniTip("Should we split our startup backend into 20 microservices?");
+    expect(tip).toContain("Monolito Modular");
+    expect(tip).toContain("múltiples squads");
+  });
+
+  it("proporciona advertencia sobre Kafka para volumen moderado", () => {
+    const tip = getInstantYagniTip("Do we need Kafka for handling our user signup events?");
+    expect(tip).toContain("Redis Streams / Celery / SQS");
+    expect(tip).toContain("Kafka");
+  });
+
+  it("proporciona recomendación de Cloud Run/ECS antes de montar Kubernetes completo", () => {
+    const tip = getInstantYagniTip("Should we deploy our initial two containers on a full Kubernetes cluster?");
+    expect(tip).toContain("Cloud Run / ECS Fargate");
+    expect(tip).toContain("Kubernetes");
+  });
+
+  it("parseBlocks extrae correctamente el bloque [YAGNI]", () => {
+    const rawOutput = `[EN] We use PostgreSQL with read replicas. [/EN]
+[ES] Usamos PostgreSQL con réplicas de lectura. [/ES]
+[YAGNI] Iniciar con un único nodo y réplicas antes de intentar sharding manual. [/YAGNI]`;
+
+    const parsed = parseBlocks(rawOutput);
+    expect(parsed.yagni).toBe("Iniciar con un único nodo y réplicas antes de intentar sharding manual.");
+    expect(parsed.cleanText).not.toContain("[YAGNI]");
+    expect(parsed.cleanText).not.toContain("Iniciar con un único nodo");
+  });
+});
+
+describe("Pilar 8: Espejo Acústico (Detección de Muletillas)", () => {
+  it("detecta y contabiliza muletillas en español con precisión", () => {
+    const speech = "Bueno, este, la base de datos se cayó porque, tipo, no teníamos réplica y nada, fue grave.";
+    const result = countFillers(speech);
+
+    expect(result.total).toBeGreaterThanOrEqual(4);
+    expect(result.breakdown["este"]).toBe(1);
+    expect(result.breakdown["tipo"]).toBe(1);
+    expect(result.breakdown["nada"]).toBe(1);
+    expect(result.breakdown["bueno"]).toBe(1);
+  });
+
+  it("detecta muletillas en inglés para el modo bilingüe", () => {
+    const speech = "Basically, like, we scaled the service with Redis you know, and um it worked fine.";
+    const result = countFillers(speech);
+
+    expect(result.total).toBeGreaterThanOrEqual(4);
+    expect(result.breakdown["basically"]).toBe(1);
+    expect(result.breakdown["like"]).toBe(1);
+    expect(result.breakdown["you know"]).toBe(1);
+    expect(result.breakdown["um"]).toBe(1);
+  });
+
+  it("reporta 0 muletillas en discursos técnicos concisos y directos", () => {
+    const speech = "We deployed PostgreSQL on Google Cloud SQL with automated failover and read replicas.";
+    const result = countFillers(speech);
+
+    expect(result.total).toBe(0);
+    expect(Object.keys(result.breakdown).length).toBe(0);
+  });
+});
+

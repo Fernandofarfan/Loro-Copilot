@@ -242,6 +242,18 @@ export default function CopilotPage() {
       utteranceTimerRef.current = null;
     }
 
+    // Cancelación Inmediata por Interrupción del Entrevistador (Barge-in Inverso <50ms)
+    // Si el entrevistador empieza a repreguntar mientras aún se estaba generando la respuesta anterior,
+    // abortar de inmediato para no saturar al candidato con texto viejo ni mezclar contextos
+    if (line.speaker === 0 && line.text.trim().length >= 12 && isGeneratingRef.current) {
+      stopGenerating();
+      syncTeleprompter?.({
+        question: `(Repregunta): "${line.text.trim()}"`,
+        cleanText: "(El entrevistador repreguntó. Escuchando...)",
+        isGenerating: false,
+      });
+    }
+
     setTranscriptLines((prev) => {
       const idx = prev.findIndex((l) => l.id === line.id);
       if (idx >= 0) {
@@ -251,7 +263,7 @@ export default function CopilotPage() {
       }
       return [...prev.slice(-25), line];
     });
-  }, []);
+  }, [stopGenerating, syncTeleprompter]);
 
   const transcriptLinesRef = useRef<TranscriptLine[]>(transcriptLines);
   transcriptLinesRef.current = transcriptLines;
@@ -388,10 +400,10 @@ export default function CopilotPage() {
     onTranscript: handleTranscript,
     onUtteranceEnd: handleUtteranceEnd,
     onBargeIn: () => {
-      // Auto-cancelación por Barge-in: solo si ya transcurrieron al menos 4.5 segundos de generación
-      // para evitar que ecos de la pregunta, ruido inicial o paquetes tardíos de Deepgram la cancelen
-      if (isGeneratingRef.current && Date.now() - generationStartTimeRef.current > 4500) {
+      // Auto-cancelación por Barge-in: si el candidato arranca a hablar tras recibir la sugerencia
+      if (isGeneratingRef.current && Date.now() - generationStartTimeRef.current > 3000) {
         stopGenerating();
+        syncTeleprompter?.({ isGenerating: false });
       }
     },
     onSpeculativeTurn: (interimText) => {

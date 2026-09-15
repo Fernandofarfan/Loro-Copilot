@@ -13,12 +13,26 @@ export interface SpeechMetrics {
   ratioFeedback: string;
 }
 
-const COMMON_FILLERS = [
+export const COMMON_FILLERS = [
   // Español
   "eh", "ehh", "este", "o sea", "tipo", "nada", "viste", "bueno", "digamos",
   // Inglés
   "um", "uh", "you know", "like", "basically", "actually", "sort of", "kind of", "i mean"
 ];
+
+export function countFillers(text: string): { total: number; breakdown: Record<string, number> } {
+  const fillerCounts: Record<string, number> = {};
+  const lowerText = text.toLowerCase();
+  for (const filler of COMMON_FILLERS) {
+    const regex = new RegExp(`\\b${filler}\\b`, "gi");
+    const matches = lowerText.match(regex);
+    if (matches && matches.length > 0) {
+      fillerCounts[filler] = (fillerCounts[filler] || 0) + matches.length;
+    }
+  }
+  const total = Object.values(fillerCounts).reduce((acc, c) => acc + c, 0);
+  return { total, breakdown: fillerCounts };
+}
 
 export function analyzeSpeech(
   lines: Array<{ text: string; speaker: number }>,

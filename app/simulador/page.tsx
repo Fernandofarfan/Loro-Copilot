@@ -18,6 +18,7 @@ import {
 } from "../components/Icons";
 import {
   FeedbackReportView,
+  AudioTurnPlayer,
   type FeedbackReport,
   type FeedbackQuestion,
   type FeedbackIndicator,
@@ -28,6 +29,7 @@ import {
 import { Dropdown } from "../components/Dropdown";
 import { useDeepgram, type TranscriptLine } from "../hooks/useDeepgram";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
+import { countFillers } from "../lib/speechCoach";
 
 type Line = { id: number; text: string; final: boolean };
 type Lang = "es" | "en";
@@ -52,6 +54,8 @@ type Phase =
 type HistoryItem = {
   question: string;
   answer: string;
+  audioUrl?: string;
+  fillersCount?: number;
 };
 
 // El modelo puede devolver un JSON válido pero incompleto; normalizamos para
@@ -281,6 +285,7 @@ export default function SimuladorPage() {
   // Setup form states
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [profile, setProfile] = useState("");
   const [lang, setLang] = useState<Lang>("es");
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
@@ -343,6 +348,8 @@ export default function SimuladorPage() {
 
   // Refs de audio / sesión
   const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   const ttsRef = useRef<TtsQueue | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sessionLangRef = useRef<Lang>("es");
@@ -375,11 +382,16 @@ export default function SimuladorPage() {
       const saved = JSON.parse(raw);
       if (saved.company) setCompany(saved.company);
       if (saved.role) setRole(saved.role);
+      if (saved.jobDescription) setJobDescription(saved.jobDescription);
       if (saved.profile) setProfile(saved.profile);
       if (saved.modelId && MODELS.some((m) => m.id === saved.modelId)) setModelId(saved.modelId);
       if (saved.lang === "es" || saved.lang === "en") setLang(saved.lang);
       if (saved.interviewType) setInterviewType(saved.interviewType);
       if (saved.pushbackMode !== undefined) setPushbackMode(!!saved.pushbackMode);
+    } catch {}
+    try {
+      const savedJob = localStorage.getItem("loro_simulador_job_desc");
+      if (savedJob) setJobDescription(savedJob);
     } catch {}
   }, []);
 
@@ -401,10 +413,11 @@ export default function SimuladorPage() {
     try {
       localStorage.setItem(
         LS_KEY_CONTEXT,
-        JSON.stringify({ company, role, profile, modelId, lang, interviewType, pushbackMode })
+        JSON.stringify({ company, role, jobDescription, profile, modelId, lang, interviewType, pushbackMode })
       );
+      localStorage.setItem("loro_simulador_job_desc", jobDescription);
     } catch {}
-  }, [company, role, profile, modelId, lang, interviewType, pushbackMode]);
+  }, [company, role, jobDescription, profile, modelId, lang, interviewType, pushbackMode]);
 
   // ---------- Timers del turno ----------
 
@@ -553,6 +566,51 @@ export default function SimuladorPage() {
     setStuck(false);
     setPhaseBoth("listening");
     startWatchdog();
+
+    // Iniciar grabación del candidato para "Espejo Acústico"
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      const audioTracks = streamRef.current?.getAudioTracks() || [];
+      if (typeof MediaRecorder !== "undefined" && audioTracks.length > 0) {
+        const streamToRecord = new MediaStream([audioTracks[0]]);
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "";
+        const rec = mimeType ? new MediaRecorder(streamToRecord, { mimeType }) : new MediaRecorder(streamToRecord);
+        recordedChunksRef.current = [];
+        rec.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+        };
+        rec.onstop = () => {
+          try {
+            if (recordedChunksRef.current.length > 0) {
+              const blob = new Blob(recordedChunksRef.current, { type: mimeType || "audio/webm" });
+              if (blob.size > 300) {
+                const url = URL.createObjectURL(blob);
+                setHistory((prev) => {
+                  if (prev.length === 0) return prev;
+                  const next = [...prev];
+                  const last = next.length - 1;
+                  if (!next[last].audioUrl) {
+                    next[last] = { ...next[last], audioUrl: url };
+                    historyRef.current = next;
+                  }
+                  return next;
+                });
+              }
+            }
+          } catch {}
+        };
+        rec.start(250);
+        mediaRecorderRef.current = rec;
+      }
+    } catch (err) {
+      console.warn("Could not start MediaRecorder in simulator:", err);
+    }
   };
 
   // Avanza sin exigir respuesta mínima (candidato trabado o mudo). Registra lo
@@ -563,8 +621,27 @@ export default function SimuladorPage() {
     clearTurnTimers();
     stuckRef.current = false;
     setStuck(false);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+
     const answer = currentAnswerRef.current.trim() || "(No respondí a esta pregunta)";
-    const updated = [...historyRef.current, { question: questionRef.current, answer }];
+    let audioUrl: string | undefined = undefined;
+    if (recordedChunksRef.current.length > 0) {
+      try {
+        const mimeType = typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm";
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        if (blob.size > 300) audioUrl = URL.createObjectURL(blob);
+      } catch {}
+    }
+    const { total: fillersCount } = countFillers(answer);
+
+    const updated = [...historyRef.current, { question: questionRef.current, answer, audioUrl, fillersCount }];
     historyRef.current = updated;
     setHistory(updated);
     currentAnswerRef.current = "";
@@ -694,6 +771,7 @@ export default function SimuladorPage() {
           profile,
           company,
           role,
+          jobDescription,
           interviewType,
           answerLang: sessionLangRef.current,
           provider: selectedModel.provider,
@@ -779,6 +857,12 @@ export default function SimuladorPage() {
     // ¿La respuesta quedó cortada? Solo si la cerró el silencio (auto) y terminó
     // en palabra colgada (conjunción/preposición/muletilla) → casi seguro seguía.
     // Anti-loop: si el turno anterior ya ofreció completar, no volvemos a ofrecer.
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+
     const lastWord = answer
       .toLowerCase()
       .replace(/[.,!?…"”'’)\]]+$/g, "")
@@ -789,7 +873,19 @@ export default function SimuladorPage() {
     lastCutRef.current = offerRecovery;
     recoveryOfferedRef.current = offerRecovery;
 
-    const updated = [...historyRef.current, { question: questionRef.current, answer }];
+    let audioUrl: string | undefined = undefined;
+    if (recordedChunksRef.current.length > 0) {
+      try {
+        const mimeType = typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm";
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        if (blob.size > 300) audioUrl = URL.createObjectURL(blob);
+      } catch {}
+    }
+    const { total: fillersCount } = countFillers(answer);
+
+    const updated = [...historyRef.current, { question: questionRef.current, answer, audioUrl, fillersCount }];
     historyRef.current = updated;
     setHistory(updated);
     currentAnswerRef.current = "";
@@ -819,6 +915,13 @@ export default function SimuladorPage() {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+    mediaRecorderRef.current = null;
+    recordedChunksRef.current = [];
     ttsRef.current?.stop();
     ttsRef.current = null;
     setAnalyser(null);
@@ -900,6 +1003,7 @@ export default function SimuladorPage() {
             profile,
             company,
             role,
+            jobDescription,
             interviewType,
             answerLang: sessionLangRef.current,
             provider: selectedModel.provider,
@@ -955,11 +1059,23 @@ export default function SimuladorPage() {
       let camDenied = false;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
           video: { facingMode: "user", width: { ideal: 640 } },
         });
       } catch {
-        camDenied = true;
-        track("sim_camera_denied");
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          camDenied = true;
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "user", width: { ideal: 640 } },
+            });
+          } catch {
+            camDenied = true;
+            track("sim_camera_denied");
+          }
+        }
       }
       streamRef.current = stream;
       const hasCam = !camDenied && stream !== null && stream.getVideoTracks().length > 0;
@@ -1360,6 +1476,27 @@ export default function SimuladorPage() {
               />
             </div>
 
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+              <label className="mono form-mini-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  📋 Pegar Job Description / Requisitos de la Vacante (Opcional)
+                  <InfoTip text="Pegá los requerimientos exactos de la oferta. El entrevistador calibrará el 100% de las preguntas, casos prácticos y pushbacks sobre estas tecnologías." />
+                </span>
+                {jobDescription && (
+                  <span style={{ fontSize: 10, color: "var(--loro-green-bright)", fontWeight: 700, backgroundColor: "rgba(16, 185, 129, 0.15)", padding: "1px 6px", borderRadius: 4 }}>
+                    JD Vinculada ✓
+                  </span>
+                )}
+              </label>
+              <textarea
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Pegá los requerimientos exactos de la vacante, responsabilidades y stack tecnológico requerido..."
+                className="form-textarea form-textarea-sm"
+                style={{ minHeight: 68 }}
+              />
+            </div>
+
             <label className="mono form-mini-label" style={{ marginTop: 4 }}>
               <UserIcon /> Tu perfil / CV
               <InfoTip text="Tu experiencia y habilidades. La IA las usará para hacer preguntas más específicas a tu caso o evaluar si aprovechás tu background." />
@@ -1541,7 +1678,12 @@ export default function SimuladorPage() {
                 {history.map((h, i) => (
                   <div key={i} className="sim-turn">
                     <div className="sim-bubble sim-bubble-q">{h.question}</div>
-                    <div className="sim-bubble sim-bubble-a">{h.answer}</div>
+                    <div className="sim-bubble sim-bubble-a">
+                      {h.answer}
+                      {h.audioUrl && (
+                        <AudioTurnPlayer audioUrl={h.audioUrl} fillersCount={h.fillersCount} />
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -1670,6 +1812,7 @@ export default function SimuladorPage() {
           ) : (
             <FeedbackReportView
               feedbackReport={feedbackReport}
+              history={history}
               emailGatePassed={emailGatePassed}
               email={email}
               setEmail={setEmail}

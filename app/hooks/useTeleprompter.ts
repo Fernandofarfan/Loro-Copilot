@@ -44,6 +44,12 @@ export interface TeleprompterPayload {
     suggestedPivot?: string;
   } | null;
   instantWhyNot?: string | null;
+  scalePills?: Array<{
+    label: string;
+    val: string;
+    compare?: string;
+  }>;
+  yagni?: string | null;
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";

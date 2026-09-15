@@ -10,10 +10,13 @@ import {
   extractTriggerCards,
   detectInstantTrap,
   getInstantWhyNot,
+  getScaleLatencyPills,
+  getInstantYagniTip,
   type MasterAnswer,
   type InstantBridge,
   type SurgicalPhonetic,
   type InstantTrapResult,
+  type ScaleLatencyPill,
 } from "../lib/interviewHelpers";
 import { parseModelJson } from "../lib/llm";
 import { track } from "../lib/track";
@@ -58,6 +61,8 @@ export interface Answer {
   } | null;
   instantTrap?: InstantTrapResult | null;
   instantWhyNot?: string | null;
+  scalePills?: ScaleLatencyPill[];
+  yagni?: string;
 }
 
 interface RequestAnswerParams {
@@ -300,6 +305,8 @@ export function useAnswerStream() {
       const initialTriggerCards = extractTriggerCards([], "", question);
       const instantTrap = detectInstantTrap(question);
       const instantWhyNot = getInstantWhyNot(question);
+      const scalePills = getScaleLatencyPills(question);
+      const instantYagni = getInstantYagniTip(question);
 
       // 3. Streaming desde el Backend LLM
       const initialAnswer: Answer = {
@@ -324,6 +331,8 @@ export function useAnswerStream() {
         surgicalPhonetics: [],
         instantTrap,
         instantWhyNot,
+        scalePills,
+        yagni: instantYagni || undefined,
       };
 
       setAnswers((prev) => [initialAnswer, ...prev].slice(0, MAX_ANSWERS));
@@ -340,6 +349,8 @@ export function useAnswerStream() {
         triggerCards: initialTriggerCards,
         instantTrap,
         instantWhyNot,
+        scalePills,
+        yagni: instantYagni || undefined,
       });
 
       const controller = new AbortController();
@@ -526,6 +537,8 @@ export function useAnswerStream() {
                       bridge: instantBridge,
                       triggerCards: currentTriggerCards,
                       surgicalPhonetics: currentSurgicalPho,
+                      scalePills,
+                      yagni: parsed.yagni || instantYagni || undefined,
                     }
                   : a
               )
@@ -553,6 +566,8 @@ export function useAnswerStream() {
                   surgicalPhonetics: currentSurgicalPho,
                   instantTrap,
                   instantWhyNot,
+                  scalePills,
+                  yagni: parsed.yagni || instantYagni || undefined,
                 },
                 false
               );
@@ -619,6 +634,8 @@ export function useAnswerStream() {
                   surgicalPhonetics: finalSurgicalPho,
                   instantTrap,
                   instantWhyNot,
+                  scalePills,
+                  yagni: finalParsed.yagni || instantYagni || undefined,
                 }
               : a
           )
@@ -642,6 +659,8 @@ export function useAnswerStream() {
           surgicalPhonetics: finalSurgicalPho,
           instantTrap,
           instantWhyNot,
+          scalePills,
+          yagni: finalParsed.yagni || instantYagni || undefined,
         });
       } catch (err: unknown) {
         if (

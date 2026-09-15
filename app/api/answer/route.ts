@@ -63,6 +63,8 @@ Tu tarea: Responder con máxima señal técnica, fit con el puesto y comunicaci�
 [KEY] palabra1 | palabra2 | palabra3 [/KEY]
 - En preguntas técnicas, de arquitectura o diseño de sistemas, incluí OBLIGATORIAMENTE al final el bloque [WHY_NOT] con una alternativa popular descartada y el por qué métrico:
 [WHY_NOT] Descarté [Alternativa popular] porque [Métrica concreta de latencia, costo, consistencia o throughput] [/WHY_NOT]
+- En decisiones de arquitectura y escalabilidad, demostrá pragmatismo senior recomendando primero la solución más simple y económica (YAGNI):
+[YAGNI] Solución simple inicial recomendada y condición cuantitativa para recién migrar a la compleja [/YAGNI]
 - El texto hablado en [EN] debe ser un ÚNICO PÁRRAFO CONTINUO DE 2 ORACIONES FLUIDAS, SIN VIÑETAS, SIN GUIONES ("-") Y SIN PUNTOS DE LISTA.
 - Sin introducciones tipo "Buena pregunta" ni preámbulos innecesarios.`;
 

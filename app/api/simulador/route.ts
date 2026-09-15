@@ -235,6 +235,7 @@ export async function POST(req: Request) {
     questionIndex?: number;
     questionsCount?: number;
     pushbackMode?: boolean;
+    jobDescription?: string;
   };
   try {
     body = await req.json();
@@ -246,6 +247,7 @@ export async function POST(req: Request) {
   const profile = sanitizeForPrompt((body.profile || "").slice(0, 6000));
   const company = sanitizeForPrompt((body.company || "").slice(0, 200));
   const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
+  const jobDescription = sanitizeForPrompt((body.jobDescription || "").slice(0, 4000));
 
   // Manejo de escaneo de radar de vulnerabilidades previo a la entrevista
   if (action === "vulnerability-radar") {
@@ -284,7 +286,11 @@ export async function POST(req: Request) {
       ? "Inglés (English). Formula tus preguntas en inglés."
       : "Español rioplatense (Argentina). Formulá tus preguntas con voseo porteño.";
 
-  const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## DESCRIPCIÓN DEL PUESTO\n${role || "(sin especificar)"}\n\n## PERFIL DEL CANDIDATO\n${profile || "(sin perfil)"}\n\n## TIPO DE ENTREVISTA\n${interviewType}\n\n## PROGRESO\n${progressText}\n\n## ${isFeedback ? "IDIOMA DEL REPORTE" : "IDIOMA DE LA RESPUESTA"}\n${answerLangLabel}\n${isClosing ? "\n## CIERRE\nLa entrevista TERMINÓ. Despedite amablemente.\n" : ""}\n## HISTORIAL\n${historyText}`;
+  let userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## DESCRIPCIÓN DEL PUESTO\n${role || "(sin especificar)"}\n\n## PERFIL DEL CANDIDATO\n${profile || "(sin perfil)"}\n\n## TIPO DE ENTREVISTA\n${interviewType}\n\n## PROGRESO\n${progressText}\n\n## ${isFeedback ? "IDIOMA DEL REPORTE" : "IDIOMA DE LA RESPUESTA"}\n${answerLangLabel}\n${isClosing ? "\n## CIERRE\nLa entrevista TERMINÓ. Despedite amablemente.\n" : ""}\n## HISTORIAL\n${historyText}`;
+
+  if (jobDescription) {
+    userContent += `\n\n## JOB DESCRIPTION / VACANTE ESPECÍFICA (OBLIGATORIO)\n${jobDescription}\nINSTRUCCIÓN CRÍTICA: Enfoca todas tus preguntas técnicas, desafíos y pushbacks EXCLUSIVAMENTE en las tecnologías, responsabilidades y stack real de esta Job Description.`;
+  }
   const systemPrompt = isFeedback
     ? SYSTEM_PROMPT_FEEDBACK
     : buildInterviewerSystemPrompt(body.persona || "standard", !!body.pushbackMode);

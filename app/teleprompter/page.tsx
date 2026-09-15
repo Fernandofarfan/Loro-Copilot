@@ -44,6 +44,12 @@ interface TeleprompterData {
     suggestedPivot?: string;
   } | null;
   instantWhyNot?: string | null;
+  scalePills?: Array<{
+    label: string;
+    val: string;
+    compare?: string;
+  }>;
+  yagni?: string | null;
 }
 
 // Valida que el payload tiene la forma TeleprompterData antes de usarlo
@@ -67,7 +73,9 @@ function isValidTeleprompterData(data: unknown): data is TeleprompterData {
     Array.isArray(d.triggerCards) ||
     Array.isArray(d.surgicalPhonetics) ||
     (typeof d.instantTrap === "object" && d.instantTrap !== null) ||
-    typeof d.instantWhyNot === "string"
+    typeof d.instantWhyNot === "string" ||
+    Array.isArray(d.scalePills) ||
+    typeof d.yagni === "string"
   );
 }
 
@@ -302,6 +310,15 @@ export default function TeleprompterPage() {
       }`}
       style={{ opacity, fontSize: `${fontSize}px`, lineHeight: 1.45 }}
     >
+      {/* Guía de Calibración de Contacto Visual (Webcam Crosshair) */}
+      <div className="flex items-center justify-center pt-0 pb-1.5 select-none">
+        <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-zinc-900/90 border border-zinc-700/60 text-[9.5px] font-mono text-zinc-400 tracking-wider shadow-sm">
+          <span className="text-emerald-400 animate-pulse">▼</span>
+          <span>🎯 ALINEAR CON LENTE DE WEBCAM</span>
+          <span className="text-emerald-400 animate-pulse">▼</span>
+        </div>
+      </div>
+
       {/* Header flotante */}
       <header className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-2">
         <div className="flex items-center gap-2">
@@ -404,6 +421,16 @@ export default function TeleprompterPage() {
                   {"// [PHONETICS]: "} {data.surgicalPhonetics.map(p => `${p.word} -> [${p.phonetic}]`).join(" | ")}
                 </div>
               )}
+              {data.scalePills && data.scalePills.length > 0 && (
+                <div className="text-[#4fc1ff] font-mono text-[11px]">
+                  {"// [SCALE_NUMBERS]: "} {data.scalePills.map(p => `${p.label} = ${p.val}`).join(" | ")}
+                </div>
+              )}
+              {data.yagni && (
+                <div className="text-[#4ec9b0] font-mono text-[11px]">
+                  {"// [YAGNI_PRAGMATISM]: "} {data.yagni}
+                </div>
+              )}
               {data.firmnessAlert?.isChallenge && (
                 <div className="text-[#f43f5e] font-bold">{"// [BACKBONE_DEFENSE]: "} {data.firmnessAlert.tip}</div>
               )}
@@ -455,6 +482,16 @@ export default function TeleprompterPage() {
             {((data.triggerCards && data.triggerCards.length > 0) || (data.keyWords && data.keyWords.length > 0)) && (
               <div className="text-amber-300 font-mono font-bold bg-amber-950/40 p-1 rounded border border-amber-800/50">
                 [TRIGGERS] - EXEC_KEYS: {(data.triggerCards || data.keyWords || []).join(" ➔ ")}
+              </div>
+            )}
+            {data.scalePills && data.scalePills.length > 0 && (
+              <div className="text-cyan-300 text-[11px] font-mono">
+                [SCALE] - LATENCY_METRICS: {data.scalePills.map(p => `${p.label}=${p.val}`).join(" | ")}
+              </div>
+            )}
+            {data.yagni && (
+              <div className="text-teal-300 text-[11px] font-mono bg-teal-950/30 p-1 rounded border border-teal-800/40">
+                [YAGNI] - ANTI_OVERENGINEERING: {data.yagni}
               </div>
             )}
             {data.surgicalPhonetics && data.surgicalPhonetics.length > 0 && (
@@ -594,6 +631,27 @@ export default function TeleprompterPage() {
             </section>
           )}
 
+          {/* Píldoras de Números de Escala y Latencia (Jeff Dean Numbers) */}
+          {data.scalePills && data.scalePills.length > 0 && (
+            <section className="mb-2">
+              <div className="flex items-center gap-1.5 flex-wrap p-2 rounded-lg bg-cyan-950/30 border border-cyan-500/40 text-xs">
+                <span className="text-cyan-400 font-extrabold text-[10.5px] flex items-center gap-1">
+                  <span>📏</span> NÚMEROS DE ESCALA:
+                </span>
+                {data.scalePills.map((sp, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 bg-cyan-900/40 border border-cyan-400/50 px-2 py-0.5 rounded text-[11px] font-mono text-cyan-200"
+                    title={sp.compare || ""}
+                  >
+                    <strong className="text-white">{sp.label}:</strong>
+                    <span className="text-cyan-300 font-bold">{sp.val}</span>
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Casos Borde a Clarificar antes de Codear */}
           {data.edgeCases && data.edgeCases.length > 0 && (
             <section className="mb-2.5">
@@ -612,13 +670,25 @@ export default function TeleprompterPage() {
           )}
 
           {/* Matriz de Trade-offs: Why NOT X? */}
-          {data.whyNot && (
+          {(data.whyNot || data.instantWhyNot) && (
             <section className="mb-2.5">
               <div className="text-indigo-400 text-[10px] font-bold uppercase tracking-wider mb-1">
                 ⚖️ Why NOT X? (Alternativa Descartada)
               </div>
               <div className="bg-indigo-950/30 border border-indigo-500/40 rounded-lg p-2 text-indigo-200 text-[0.85em]">
-                {data.whyNot}
+                {data.whyNot || data.instantWhyNot}
+              </div>
+            </section>
+          )}
+
+          {/* Pragmatismo Senior: YAGNI / Anti-Overengineering */}
+          {data.yagni && (
+            <section className="mb-2.5">
+              <div className="text-teal-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                💡 YAGNI / Pragmatismo Senior
+              </div>
+              <div className="bg-teal-950/30 border border-teal-500/40 rounded-lg p-2 text-teal-200 text-[0.85em]">
+                {data.yagni}
               </div>
             </section>
           )}
@@ -644,59 +714,73 @@ export default function TeleprompterPage() {
             </section>
           )}
 
-          {/* Respuesta principal en inglés */}
-          <section className="mb-2.5">
-            <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-0.5 flex items-center justify-between">
-              <span>⭐ Lo que decís (Inglés)</span>
-              {data.modelName && <span className="text-zinc-500 text-[9px] font-mono">{data.modelName}</span>}
-            </div>
-            <div className="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800 whitespace-pre-wrap leading-relaxed">
-              {mainText ? (
-                bionicReading ? (
-                  renderBionicText(mainText, pacerWordIdx, karaokePacer)
-                ) : (
-                  <span className="text-zinc-100 font-semibold">{mainText}</span>
-                )
-              ) : (
-                <span className="text-zinc-500 italic">(Las sugerencias aparecerán acá...)</span>
+          {/* Respuesta en Inglés / Modo Telegráfico */}
+          {telegraphicMode ? (
+            <section className="mb-8 p-3 rounded-xl bg-zinc-950/80 border-2 border-amber-500/50 text-center">
+              <div className="text-amber-400 text-xs font-mono font-bold uppercase mb-1 flex items-center justify-center gap-1.5">
+                <span>⚡</span> MODO TELEGRÁFICO ACTIVO (NO-READ MODE)
+              </div>
+              <p className="text-zinc-400 text-[11px] leading-relaxed">
+                Hablá con fluidez guiándote por los disparadores y números de arriba. Presioná <kbd className="bg-zinc-800 px-1 py-0.5 rounded text-amber-300 font-mono font-bold border border-zinc-700">T</kbd> o el botón abajo para alternar texto completo.
+              </p>
+            </section>
+          ) : (
+            <>
+              {/* Respuesta principal en inglés */}
+              <section className="mb-2.5">
+                <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-0.5 flex items-center justify-between">
+                  <span>⭐ Lo que decís (Inglés)</span>
+                  {data.modelName && <span className="text-zinc-500 text-[9px] font-mono">{data.modelName}</span>}
+                </div>
+                <div className="bg-zinc-900/40 p-2.5 rounded-lg border border-zinc-800 whitespace-pre-wrap leading-relaxed">
+                  {mainText ? (
+                    bionicReading ? (
+                      renderBionicText(mainText, pacerWordIdx, karaokePacer)
+                    ) : (
+                      <span className="text-zinc-100 font-semibold">{mainText}</span>
+                    )
+                  ) : (
+                    <span className="text-zinc-500 italic">(Las sugerencias aparecerán acá...)</span>
+                  )}
+                </div>
+              </section>
+
+              {/* Dry-Run Stepper para Live Coding (Trazado Paso a Paso de Estados) */}
+              {data.dryRun && (
+                <section className="mb-2.5">
+                  <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                    🔍 Dry-Run Stepper (Trazado Paso a Paso de Estados)
+                  </div>
+                  <div className="bg-black/60 p-2 rounded-lg border border-emerald-500/40 text-emerald-200 font-mono text-[11px] whitespace-pre-wrap leading-relaxed">
+                    {data.dryRun}
+                  </div>
+                </section>
               )}
-            </div>
-          </section>
 
-          {/* Dry-Run Stepper para Live Coding (Trazado Paso a Paso de Estados) */}
-          {data.dryRun && (
-            <section className="mb-2.5">
-              <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                🔍 Dry-Run Stepper (Trazado Paso a Paso de Estados)
-              </div>
-              <div className="bg-black/60 p-2 rounded-lg border border-emerald-500/40 text-emerald-200 font-mono text-[11px] whitespace-pre-wrap leading-relaxed">
-                {data.dryRun}
-              </div>
-            </section>
-          )}
+              {/* Guía fonética si está presente */}
+              {data.phoText && (
+                <section className="mb-2.5">
+                  <div className="text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                    🗣️ Guía Fonética (Lectura Fluida)
+                  </div>
+                  <div className="text-amber-300 font-mono text-[0.88em] bg-amber-950/20 p-2 rounded border border-amber-800/40">
+                    {data.phoText}
+                  </div>
+                </section>
+              )}
 
-          {/* Guía fonética si está presente */}
-          {data.phoText && (
-            <section className="mb-2.5">
-              <div className="text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                🗣️ Guía Fonética (Lectura Fluida)
-              </div>
-              <div className="text-amber-300 font-mono text-[0.88em] bg-amber-950/20 p-2 rounded border border-amber-800/40">
-                {data.phoText}
-              </div>
-            </section>
-          )}
-
-          {/* Resumen conceptual en español si está presente */}
-          {data.esText && (
-            <section className="mb-8">
-              <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                🇦🇷 Sentido en Español
-              </div>
-              <div className="text-zinc-400 text-[0.88em] bg-zinc-900/20 p-2 rounded border border-zinc-850">
-                {data.esText}
-              </div>
-            </section>
+              {/* Resumen conceptual en español si está presente */}
+              {data.esText && (
+                <section className="mb-8">
+                  <div className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                    🇦🇷 Sentido en Español
+                  </div>
+                  <div className="text-zinc-400 text-[0.88em] bg-zinc-900/20 p-2 rounded border border-zinc-850">
+                    {data.esText}
+                  </div>
+                </section>
+              )}
+            </>
           )}
         </>
       )}
@@ -718,6 +802,19 @@ export default function TeleprompterPage() {
           title="Modo Camuflaje para compartir pantalla o llamadas presenciales"
         >
           🎭 {camouMode === "normal" ? "Camuflaje" : camouMode === "ide" ? "IDE (VS Code)" : "Terminal"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTelegraphicMode((t) => !t)}
+          className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
+            telegraphicMode
+              ? "bg-amber-950 text-amber-300 border border-amber-500/50"
+              : "bg-zinc-800 text-zinc-400"
+          }`}
+          title="Modo Telegráfico (Atajo: tecla T): Muestra solo conceptos disparadores"
+        >
+          {telegraphicMode ? "⚡ Telegráfico ON" : "⚡ Telegráfico OFF"}
         </button>
 
         <button

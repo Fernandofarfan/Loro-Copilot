@@ -106,8 +106,99 @@ export function TrafficLight({ score }: { score: number }) {
   );
 }
 
+export type TurnAudioItem = {
+  audioUrl?: string;
+  fillersCount?: number;
+};
+
+export function AudioTurnPlayer({
+  audioUrl,
+  fillersCount,
+}: {
+  audioUrl?: string;
+  fillersCount?: number;
+}) {
+  const [playing, setPlaying] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
+  if (!audioUrl) return null;
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    }
+  };
+
+  const toggleSpeed = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextRate = playbackRate === 1 ? 1.25 : 1;
+    setPlaybackRate(nextRate);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = nextRate;
+    }
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="flex items-center gap-2">
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          onEnded={() => setPlaying(false)}
+          onPause={() => setPlaying(false)}
+          preload="auto"
+        />
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-semibold flex items-center gap-1.5 transition-all cursor-pointer text-[11px]"
+        >
+          <span>{playing ? "⏸️ Pausar" : "▶️ Escuchar mi respuesta"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={toggleSpeed}
+          className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono text-[10px] border border-zinc-700 transition-all cursor-pointer"
+          title="Cambiar velocidad de reproducción"
+        >
+          {playbackRate}x
+        </button>
+      </div>
+
+      {fillersCount !== undefined && (
+        <span
+          className={`px-2 py-0.5 rounded text-[10.5px] font-mono font-medium ${
+            fillersCount === 0
+              ? "text-emerald-300 bg-emerald-950/40 border border-emerald-500/30"
+              : fillersCount <= 2
+              ? "text-amber-300 bg-amber-950/40 border border-amber-500/30"
+              : "text-rose-300 bg-rose-950/40 border border-rose-500/30"
+          }`}
+        >
+          {fillersCount === 0
+            ? "✨ Aplomo 100% (0 muletillas)"
+            : `⚠️ ${fillersCount} muletilla${fillersCount > 1 ? "s" : ""}`}
+        </span>
+      )}
+    </div>
+  );
+}
+
 interface FeedbackReportViewProps {
   feedbackReport: FeedbackReport | null;
+  history?: TurnAudioItem[];
   emailGatePassed: boolean;
   email: string;
   setEmail: (email: string) => void;
@@ -124,6 +215,7 @@ interface FeedbackReportViewProps {
 
 export function FeedbackReportView({
   feedbackReport,
+  history,
   emailGatePassed,
   email,
   setEmail,
@@ -282,6 +374,12 @@ export function FeedbackReportView({
             <div className="sim-report-row">
               <span className="sim-report-label">Tu Respuesta</span>
               <p className="sim-report-val" style={{ color: "var(--ink-dim)" }}>{q.answer}</p>
+              {history?.[i]?.audioUrl && (
+                <AudioTurnPlayer
+                  audioUrl={history[i].audioUrl}
+                  fillersCount={history[i].fillersCount}
+                />
+              )}
             </div>
             <div className="sim-report-row">
               <span className="sim-report-label">Análisis del asistente</span>

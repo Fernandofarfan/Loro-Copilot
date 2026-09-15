@@ -11,6 +11,7 @@ import {
   type InstantBridge,
   type SurgicalPhonetic,
   type InstantTrapResult,
+  type ScaleLatencyPill,
 } from "../lib/interviewHelpers";
 import { extractAndEvaluateCode } from "../lib/codeEvaluator";
 import ArchitectureCanvas from "./ArchitectureCanvas";
@@ -46,6 +47,8 @@ export interface AnswerItem {
   surgicalPhonetics?: SurgicalPhonetic[];
   instantTrap?: InstantTrapResult | null;
   instantWhyNot?: string | null;
+  scalePills?: ScaleLatencyPill[];
+  yagni?: string;
 }
 
 interface AnswerCardProps {
@@ -235,6 +238,31 @@ export const AnswerCard = React.memo(function AnswerCard({
                   <span className="text-amber-400 font-bold text-sm select-none">➔</span>
                 )}
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 📊 Píldoras de Números de Escala y Latencia (Jeff Dean Numbers) */}
+      {a.scalePills && a.scalePills.length > 0 && (
+        <div className="mt-2.5 mb-1 p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/40 text-xs">
+          <div className="text-cyan-400 text-[10px] font-extrabold uppercase tracking-wider mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <span>📏</span> NÚMEROS DE ESCALA Y LATENCIA (PRODUCCIÓN):
+            </span>
+            <span className="text-[9px] text-zinc-400 font-mono">LATENCY CHEAT-SHEET</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {a.scalePills.map((pill, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 bg-cyan-900/40 border border-cyan-400/50 px-2 py-0.5 rounded text-[11px] font-mono text-cyan-200"
+                title={pill.compare || ""}
+              >
+                <strong className="text-white">{pill.label}:</strong>
+                <span className="text-cyan-300 font-bold">{pill.val}</span>
+                {pill.compare && <span className="text-zinc-400 text-[9.5px]">({pill.compare})</span>}
+              </span>
             ))}
           </div>
         </div>
@@ -441,6 +469,18 @@ export const AnswerCard = React.memo(function AnswerCard({
           </div>
           <p className="text-indigo-200/90 text-[11px] leading-relaxed">
             {a.whyNot || a.instantWhyNot}
+          </p>
+        </div>
+      )}
+
+      {/* Pragmatismo Senior: YAGNI / Anti-Overengineering */}
+      {a.yagni && (
+        <div className="my-2 p-2.5 rounded-lg bg-teal-950/40 border border-teal-500/40 text-xs">
+          <div className="font-bold text-teal-400 flex items-center gap-1.5 mb-0.5">
+            <span>💡</span> YAGNI / PRAGMATISMO SENIOR:
+          </div>
+          <p className="text-teal-200/90 text-[11px] leading-relaxed">
+            {a.yagni}
           </p>
         </div>
       )}

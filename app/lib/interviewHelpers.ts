@@ -326,6 +326,7 @@ export interface ParsedBlocks {
   edgeCases?: string[];
   whyNot?: string;
   dryRun?: string;
+  yagni?: string;
 }
 
 export function parseBlocks(raw: string): ParsedBlocks {
@@ -334,7 +335,7 @@ export function parseBlocks(raw: string): ParsedBlocks {
   const upperRaw = raw.toUpperCase();
 
   // Tags conocidos para detectar inicio de bloques
-  const BLOCK_TAGS = ["[EN]", "[ES]", "[PHO]", "[KEY]", "[ALERT]", "[TRAMPA]", "[CHEATS]", "[SNIPPET]", "[EDGE_CASES]", "[CASOS_BORDE]", "[WHY_NOT]", "[TRADE_OFFS]", "[DRY_RUN]", "[TRAZADO]"];
+  const BLOCK_TAGS = ["[EN]", "[ES]", "[PHO]", "[KEY]", "[ALERT]", "[TRAMPA]", "[CHEATS]", "[SNIPPET]", "[EDGE_CASES]", "[CASOS_BORDE]", "[WHY_NOT]", "[TRADE_OFFS]", "[DRY_RUN]", "[TRAZADO]", "[YAGNI]"];
 
   // Buscar texto hasta el siguiente bloque conocido o fin
   function extractUntilNextBlock(from: number): number {
@@ -416,6 +417,11 @@ export function parseBlocks(raw: string): ParsedBlocks {
   const whyNot = whyNotResult.content;
   cleanText = whyNotResult.cleaned;
 
+  // Extraer [YAGNI] o [ANTI_OVERENGINEERING]
+  const yagniResult = extractAndRemove(cleanText, "YAGNI", "ANTI_OVERENGINEERING");
+  const yagni = yagniResult.content;
+  cleanText = yagniResult.cleaned;
+
   // Extraer [DRY_RUN] o [TRAZADO]
   const dryRunResult = extractAndRemove(cleanText, "DRY_RUN", "TRAZADO");
   const dryRun = dryRunResult.content;
@@ -458,8 +464,8 @@ export function parseBlocks(raw: string): ParsedBlocks {
 
   // Remover marcas de bloques restantes
   cleanText = cleanText
-    .replace(/\[(?:EN|ES|PHO|KEY|EDGE_CASES|CASOS_BORDE|WHY_NOT|TRADE_OFFS|DRY_RUN|TRAZADO)\]/gi, "")
-    .replace(/\[\/(?:ALERT|CHEATS|SNIPPET|KEY|TRAMPA|EDGE_CASES|CASOS_BORDE|WHY_NOT|TRADE_OFFS|DRY_RUN|TRAZADO)\]/gi, "")
+    .replace(/\[(?:EN|ES|PHO|KEY|EDGE_CASES|CASOS_BORDE|WHY_NOT|TRADE_OFFS|DRY_RUN|TRAZADO|YAGNI|ANTI_OVERENGINEERING)\]/gi, "")
+    .replace(/\[\/(?:ALERT|CHEATS|SNIPPET|KEY|TRAMPA|EDGE_CASES|CASOS_BORDE|WHY_NOT|TRADE_OFFS|DRY_RUN|TRAZADO|YAGNI|ANTI_OVERENGINEERING)\]/gi, "")
     .trim();
 
   return {
@@ -475,6 +481,7 @@ export function parseBlocks(raw: string): ParsedBlocks {
     edgeCases,
     whyNot,
     dryRun,
+    yagni,
   };
 }
 
@@ -1481,6 +1488,84 @@ export function getInstantWhyNot(question: string): string | null {
 
   return null;
 }
+
+// -------------------------------------------------------------
+// Píldoras de Latencia y Números de Escala (Jeff Dean) & YAGNI
+// -------------------------------------------------------------
+
+export interface ScaleLatencyPill {
+  label: string;
+  val: string;
+  compare?: string;
+}
+
+/**
+ * Retorna de 1 a 3 magnitudes de hardware / latencia contextuales (Jeff Dean numbers)
+ * para respaldar argumentos técnicos cuantitativamente.
+ */
+export function getScaleLatencyPills(question: string): ScaleLatencyPill[] {
+  if (!question) return [];
+  const q = question.toLowerCase();
+  const pills: ScaleLatencyPill[] = [];
+
+  // 1. Caching & Memory (Redis, Memcached, RAM, CPU cache)
+  if (/\b(cache|caching|redis|memcached|ram|memory|l1|l2)\b/i.test(q)) {
+    pills.push({ label: "RAM Access", val: "~100 ns", compare: "vs SSD NVMe ~100 µs (1000x)" });
+    pills.push({ label: "Redis In-Memory", val: "~0.5-1 ms", compare: "vs SQL Disk Scan ~20-50 ms" });
+  }
+
+  // 2. Storage, Disks & Database Persistence (Postgres, MySQL, SSD, Disk)
+  if (/\b(database|postgres|postgresql|mysql|disk|ssd|nvme|hdd|storage|index|query|sql)\b/i.test(q)) {
+    pills.push({ label: "NVMe SSD Read", val: "~10-100 µs", compare: "vs HDD Rotacional ~10 ms (100x)" });
+    pills.push({ label: "B-Tree Index Seek", val: "O(log N) ~1-3 ms", compare: "vs Seq Scan 1M rows ~300-800 ms" });
+  }
+
+  // 3. Networking, Distributed Systems, Microservices & Latency
+  if (/\b(network|latency|datacenter|region|distributed|microservice|load balancer|http|grpc)\b/i.test(q)) {
+    pills.push({ label: "Same Datacenter", val: "~0.5 ms", compare: "Cross-AZ: ~1-2 ms" });
+    pills.push({ label: "Cross-Region / WAN", val: "~150 ms (US-EU)", compare: "Límite físico fibra óptica" });
+  }
+
+  // 4. Message Queues & Streaming Throughput (Kafka, RabbitMQ, SQS)
+  if (/\b(kafka|rabbitmq|queue|stream|streaming|event-driven|pubsub|throughput)\b/i.test(q)) {
+    pills.push({ label: "Kafka Sequential Write", val: "100k+ msg/s/core", compare: "Zero-copy sendfile syscall" });
+    pills.push({ label: "DB ACID Write Throughput", val: "~5k-10k tx/s", compare: "Limitado por fsync / WAL commit" });
+  }
+
+  return pills.slice(0, 3);
+}
+
+/**
+ * Genera de forma determinista e instantánea (<1ms) un tip de madurez senior
+ * YAGNI (You Aren't Gonna Need It) para evitar over-engineering en la respuesta.
+ */
+export function getInstantYagniTip(question: string): string | null {
+  if (!question) return null;
+  const q = question.toLowerCase();
+
+  if (/\b(microservice|microservicios|split|separar en servicios)\b/i.test(q)) {
+    return "Comenzar con Monolito Modular; dividir en microservicios solo cuando haya múltiples squads con fricción en el deploy.";
+  }
+
+  if (/\b(kafka|event-driven|event driven|stream processing)\b/i.test(q)) {
+    return "Arrancar con colas simples (Redis Streams / Celery / SQS); adoptar Kafka solo si se requiere re-lectura histórica y >50k msg/seg.";
+  }
+
+  if (/\b(sharding|shard|particionar base|horizontal partitioning)\b/i.test(q)) {
+    return "Optimizar con Read Replicas, índices compuestos y particionado vertical; el sharding manual introduce costo masivo en transacciones distribuidas.";
+  }
+
+  if (/\b(nosql|mongodb|dynamodb)\b/i.test(q)) {
+    return "PostgreSQL soporta JSONB con índices GIN y ACID estricto; no saltar a NoSQL salvo esquema verdaderamente dinámico sin joins relacionales.";
+  }
+
+  if (/\b(kubernetes|k8s|gke|cluster)\b/i.test(q)) {
+    return "Iniciar con contenedores gestionados (Cloud Run / ECS Fargate); montar Kubernetes completo solo con topologías de red custom o >30 microservicios.";
+  }
+
+  return null;
+}
+
 
 
 
