@@ -42,19 +42,36 @@ body {
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   color-scheme: dark;
-  background-color: #090a0f !important;
+  background-color: #08090e !important;
   color: #f8fafc !important;
 }
 
 body {
-  background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.07) 0%, transparent 45%),
-              radial-gradient(circle at 85% 90%, rgba(56, 189, 248, 0.05) 0%, transparent 40%),
-              #090a0f !important;
+  background: radial-gradient(1200px circle at 50% -120px, rgba(16, 185, 129, 0.09) 0%, transparent 60%),
+              radial-gradient(900px circle at 85% 15%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+              radial-gradient(800px circle at 15% 85%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
+              #08090e !important;
   color: var(--ink);
   font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   min-height: 100vh;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Mono solo para "telemetría": chip de estado, labels, barra de escucha. */
@@ -500,17 +517,24 @@ input, select {
 
 .answer-card {
   position: relative;
-  background: #111420;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 18px 20px;
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  background: rgba(14, 18, 30, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 20px 22px;
+  box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.answer-card:hover {
+  border-color: rgba(255, 255, 255, 0.13);
 }
 
 .card-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
   display: inline-flex;
   gap: 6px;
   z-index: 2;
@@ -520,32 +544,37 @@ input, select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
   height: 30px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: #161b2a;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--ink-dim);
+  font-size: 11.5px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  backdrop-filter: blur(8px);
 }
 
 .card-btn:hover {
   color: var(--ink);
-  border-color: var(--ink-dim);
-  background: #1f2538;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 .card-btn-done {
   color: var(--loro-green-bright);
-  border-color: var(--loro-green);
-  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
 }
 
 .answer-card-current {
-  border-color: rgba(16, 185, 129, 0.4) !important;
-  box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.25) !important;
-  animation: answerIn 0.3s ease-out;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  box-shadow: 0 0 35px -5px rgba(16, 185, 129, 0.22), inset 0 1px 0 0 rgba(16, 185, 129, 0.25) !important;
+  animation: answerIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes answerIn {

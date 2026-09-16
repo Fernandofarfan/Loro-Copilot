@@ -989,41 +989,56 @@ export default function CopilotPage() {
   };
 
   return (
-    <div className="copilot-container min-h-screen bg-[#09090b] text-[#f4f4f5] flex flex-col font-sans">
+    <div className="copilot-container min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Top Navbar */}
-      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur px-4 py-2.5 flex items-center justify-between sticky top-0 z-40">
+      <header className="border-b border-white/[0.07] bg-[#080a10]/80 backdrop-blur-xl px-4 sm:px-6 py-2.5 flex items-center justify-between sticky top-0 z-40 transition-all">
         <div className="flex items-center gap-3">
           <BrandLogo />
           <div className="hidden sm:flex items-center gap-2">
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium tracking-wide border transition-all ${
                 sttStatus === "live"
-                  ? "bg-emerald-950 text-emerald-400 border border-emerald-800/60 animate-pulse"
+                  ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
                   : sttStatus === "connecting"
-                  ? "bg-amber-950 text-amber-400 border border-amber-800/60"
+                  ? "bg-amber-500/10 text-amber-300 border-amber-500/30 animate-pulse"
                   : sttStatus === "error"
-                  ? "bg-red-950 text-red-400 border border-red-800/60"
-                  : "bg-zinc-800 text-zinc-400"
+                  ? "bg-rose-500/10 text-rose-300 border-rose-500/30"
+                  : "bg-white/[0.04] text-zinc-400 border-white/[0.06]"
               }`}
             >
-              {sttStatus === "live"
-                ? "● EN VIVO"
-                : sttStatus === "connecting"
-                ? "CONECTANDO..."
-                : sttStatus === "error"
-                ? "ERROR STT"
-                : "INACTIVO"}
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  sttStatus === "live"
+                    ? "bg-emerald-400 shadow-[0_0_6px_#34d399] animate-ping"
+                    : sttStatus === "connecting"
+                    ? "bg-amber-400"
+                    : sttStatus === "error"
+                    ? "bg-rose-400"
+                    : "bg-zinc-500"
+                }`}
+              />
+              <span>
+                {sttStatus === "live"
+                  ? "EN VIVO"
+                  : sttStatus === "connecting"
+                  ? "CONECTANDO..."
+                  : sttStatus === "error"
+                  ? "ERROR STT"
+                  : "INACTIVO"}
+              </span>
             </span>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 bg-zinc-900/90 p-1 rounded-lg border border-zinc-800">
+        <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.07] shadow-inner backdrop-blur-md">
           <button
             type="button"
             onClick={() => setActiveTab("live")}
-            className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-              activeTab === "live" ? "bg-emerald-500 text-black shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+              activeTab === "live"
+                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
             }`}
           >
             Copiloto
@@ -1031,8 +1046,10 @@ export default function CopilotPage() {
           <button
             type="button"
             onClick={() => setActiveTab("context")}
-            className={`px-3 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === "context" ? "bg-emerald-500 text-black shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 flex items-center gap-1.5 ${
+              activeTab === "context"
+                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
             }`}
           >
             <DocIcon />
@@ -1041,8 +1058,10 @@ export default function CopilotPage() {
           <button
             type="button"
             onClick={() => setActiveTab("memory")}
-            className={`px-3 py-1 rounded text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === "memory" ? "bg-emerald-500 text-black shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 flex items-center gap-1.5 ${
+              activeTab === "memory"
+                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
             }`}
           >
             <span>Memoria ({masterAnswers.length})</span>
@@ -1050,15 +1069,15 @@ export default function CopilotPage() {
         </div>
 
         {/* Top Right Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={openTeleprompter}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-600/40 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 text-xs font-medium transition-all shadow-sm"
+            className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium transition-all duration-150 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             title="Abrir Teleprompter flotante para ubicar bajo la cámara"
           >
             <ExternalLinkIcon />
-            <span className="hidden md:inline">HUD Teleprompter</span>
+            <span className="hidden md:inline font-semibold">HUD Teleprompter</span>
           </button>
 
           <Dropdown
@@ -1075,9 +1094,9 @@ export default function CopilotPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col p-4 max-w-6xl w-full mx-auto">
+      <main className="flex-1 flex flex-col p-3 sm:p-4 max-w-6xl w-full mx-auto gap-3">
         {generationError && (
-          <div className="mb-3 p-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center justify-between shadow-lg">
             <span>⚠️ {generationError}</span>
             <button type="button" onClick={() => stopGenerating()} className="underline hover:text-white">
               Cerrar
@@ -1086,118 +1105,138 @@ export default function CopilotPage() {
         )}
 
         {sttError && (
-          <div className="mb-3 p-3 rounded-lg bg-amber-950/80 border border-amber-800 text-amber-200 text-xs">
+          <div className="p-3 rounded-xl bg-amber-950/80 border border-amber-800 text-amber-200 text-xs shadow-lg">
             ⚠️ {sttError}
           </div>
         )}
 
         {activeTab === "live" && (
           <div className="flex flex-col flex-1 gap-3">
-            {/* Control Bar */}
-            <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/70 flex flex-wrap items-center justify-between gap-3 shadow-md">
-              <div className="flex items-center gap-2">
-                {sttStatus === "idle" || sttStatus === "error" ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => connectDeepgram("dual", selectedMicId || undefined, selectedInterviewerId || undefined)}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md shadow-emerald-950"
-                      title="Captura combinada: Micrófono (Vos) + Pestaña o Cable Virtual (Entrevistador)"
-                    >
-                      <span>Audio Dual 🎧</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => connectDeepgram("mic", selectedMicId || undefined)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-all"
-                      title="Solo micrófono"
-                    >
-                      <MicIcon />
-                      <span>Solo Mic</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => connectDeepgram("tab")}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-all"
-                      title="Capturar audio de Meet/Zoom compartiendo pestaña"
-                    >
-                      <span>Solo Pestaña</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs font-medium transition-all ${
-                        showDeviceSettings || selectedInterviewerId
-                          ? "border-emerald-500/60 bg-emerald-950/50 text-emerald-300 shadow-sm"
-                          : "border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
-                      }`}
-                      title="Configuración de entradas de audio (Micrófono y Cable Virtual / Zoom)"
-                    >
-                      <span>⚙️ {selectedInterviewerId ? "Entradas (Cable)" : "Entradas"}</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={disconnectDeepgram}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all"
-                    >
-                      <span>Detener Escucha</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={togglePauseStt}
-                      className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                        isSttPaused
-                          ? "bg-amber-500 text-black border-amber-400"
-                          : "border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                      }`}
-                    >
-                      {isSttPaused ? "Reanudar" : "Pausar"}
-                    </button>
+            {/* Control Bar: 2-Tier Cockpit Deck */}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0e121e]/75 backdrop-blur-xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.6)] p-3.5 sm:p-4 flex flex-col gap-3">
+              {/* Tier 1: Audio Engine & Real-Time Telemetry Monitor */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {sttStatus === "idle" || sttStatus === "error" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => connectDeepgram("dual", selectedMicId || undefined, selectedInterviewerId || undefined)}
+                        className="group relative flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.45)] active:scale-[0.98]"
+                        title="Captura combinada: Micrófono (Vos) + Pestaña o Cable Virtual (Entrevistador)"
+                      >
+                        <span>Audio Dual 🎧</span>
+                        <span className="px-1.5 py-0.5 rounded bg-black/20 text-black text-[9px] font-black uppercase tracking-wider hidden sm:inline">
+                          Auto-VAD
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => connectDeepgram("mic", selectedMicId || undefined)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.15] text-zinc-200 text-xs font-medium transition-all"
+                        title="Solo micrófono"
+                      >
+                        <MicIcon />
+                        <span>Solo Mic</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => connectDeepgram("tab")}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.15] text-zinc-200 text-xs font-medium transition-all"
+                        title="Capturar audio de Meet/Zoom compartiendo pestaña"
+                      >
+                        <span>Solo Pestaña</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                          showDeviceSettings || selectedInterviewerId
+                            ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                            : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] text-zinc-300"
+                        }`}
+                        title="Configuración de entradas de audio (Micrófono y Cable Virtual / Zoom)"
+                      >
+                        <span>⚙️ {selectedInterviewerId ? "Entradas (Cable)" : "Entradas"}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={disconnectDeepgram}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] active:scale-[0.98]"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        <span>Detener Escucha</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={togglePauseStt}
+                        className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                          isSttPaused
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                            : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:bg-white/[0.07]"
+                        }`}
+                      >
+                        {isSttPaused ? "▶️ Reanudar" : "⏸️ Pausar"}
+                      </button>
 
-                    {/* Vúmetro de Audio para todos los modos */}
-                    {audioMode === "dual" ? (
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
-                        <span className="flex items-center gap-1">
-                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.micRms > 0.008 ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`} />
-                          <span>Vos</span>
-                        </span>
-                        <span className="flex items-center gap-1 ml-1">
-                          <span className={`w-2 h-2 rounded-full transition-colors ${audioEnergy.tabRms > 0.008 ? "bg-sky-400 animate-pulse" : "bg-zinc-700"}`} />
-                          <span>Ellos</span>
-                        </span>
-                      </div>
-                    ) : audioMode === "tab" ? (
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
-                        <span className="flex items-center gap-1.5">
-                          <span className={`w-2.5 h-2.5 rounded-full transition-colors ${audioEnergy.tabRms > 0.008 ? "bg-sky-400 animate-pulse" : "bg-zinc-700"}`} />
-                          <span className="text-sky-300 font-semibold">🔊 Audio Pestaña</span>
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-mono text-zinc-400">
-                        <span className="flex items-center gap-1.5">
-                          <span className={`w-2.5 h-2.5 rounded-full transition-colors ${audioEnergy.micRms > 0.008 ? "bg-emerald-400 animate-pulse" : "bg-zinc-700"}`} />
-                          <span className="text-emerald-300 font-semibold">🎤 Micrófono</span>
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
+                      {/* Vúmetro de Audio */}
+                      {audioMode === "dual" ? (
+                        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.08] text-[11px] font-mono text-zinc-300 backdrop-blur-sm">
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full transition-all duration-100 ${audioEnergy.micRms > 0.008 ? "bg-emerald-400 shadow-[0_0_8px_#34d399] scale-125" : "bg-zinc-700"}`} />
+                            <span className="text-zinc-400">Vos</span>
+                          </span>
+                          <span className="w-px h-3 bg-white/10" />
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full transition-all duration-100 ${audioEnergy.tabRms > 0.008 ? "bg-sky-400 shadow-[0_0_8px_#38bdf8] scale-125" : "bg-zinc-700"}`} />
+                            <span className="text-sky-300">Ellos</span>
+                          </span>
+                        </div>
+                      ) : audioMode === "tab" ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.08] text-[11px] font-mono text-sky-300">
+                          <span className={`w-2 h-2 rounded-full transition-all duration-100 ${audioEnergy.tabRms > 0.008 ? "bg-sky-400 shadow-[0_0_8px_#38bdf8] scale-125" : "bg-zinc-700"}`} />
+                          <span className="font-semibold">Audio Pestaña</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.08] text-[11px] font-mono text-emerald-300">
+                          <span className={`w-2 h-2 rounded-full transition-all duration-100 ${audioEnergy.micRms > 0.008 ? "bg-emerald-400 shadow-[0_0_8px_#34d399] scale-125" : "bg-zinc-700"}`} />
+                          <span className="font-semibold">Micrófono</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
 
-                {/* Selector de Modo de Entrevista: Técnico vs Screening HR (Pilar 1) */}
-                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950 p-0.5 text-xs font-medium">
+                {/* Live Speech Monitor / Ticker */}
+                <div className="flex-1 min-w-[200px] flex items-center justify-end">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.06] text-zinc-400 text-xs max-w-md w-full justify-between backdrop-blur-sm">
+                    <span className="flex items-center gap-1.5 text-[10px] uppercase font-mono tracking-wider text-zinc-500 shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${sttStatus === "live" ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+                      Monitor
+                    </span>
+                    <div className="truncate text-zinc-300 text-right">
+                      <ListenText text={lastTranscriptText} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tier 2: Co-Pilot Tactical Arsenal & Assistance Tools */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
+                {/* Selector de Modo de Entrevista */}
+                <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] p-1 text-xs font-medium">
                   <button
                     type="button"
                     onClick={() => {
                       setInterviewMode("technical");
                       syncTeleprompter({ interviewMode: "technical" });
                     }}
-                    className={`px-2.5 py-1.5 rounded-md transition-colors ${
+                    className={`px-3 py-1 rounded-lg transition-all duration-150 ${
                       interviewMode === "technical"
-                        ? "bg-zinc-800 text-white font-semibold shadow-sm"
+                        ? "bg-zinc-800 text-white font-semibold shadow-sm border border-white/10"
                         : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
@@ -1209,9 +1248,9 @@ export default function CopilotPage() {
                       setInterviewMode("screening");
                       syncTeleprompter({ interviewMode: "screening" });
                     }}
-                    className={`px-2.5 py-1.5 rounded-md transition-colors ${
+                    className={`px-3 py-1 rounded-lg transition-all duration-150 ${
                       interviewMode === "screening"
-                        ? "bg-purple-950 text-purple-200 font-semibold border border-purple-500/50 shadow-sm"
+                        ? "bg-purple-950/80 text-purple-200 font-semibold border border-purple-500/40 shadow-sm shadow-purple-950/50"
                         : "text-zinc-400 hover:text-zinc-200"
                     }`}
                     title="Modo Screening HR: Directivas breves, pretensión salarial ($4,000 USD / $25-30/h) y fit cultural"
@@ -1220,147 +1259,143 @@ export default function CopilotPage() {
                   </button>
                 </div>
 
-                {/* Botón de Modo Pantalla Segura / Camuflaje (Pilar 6) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScreenSafeMode((prev) => {
-                      const next = !prev;
-                      syncTeleprompter({ camouMode: next ? "ide" : "normal" });
-                      return next;
-                    });
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                    screenSafeMode
-                      ? "bg-purple-950 border-purple-500/70 text-purple-200 animate-pulse"
-                      : "border-zinc-700/60 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300"
-                  }`}
-                  title="Alternar Pantalla Segura / Camuflaje IDE en el Teleprompter (Atajo: F8)"
-                >
-                  <span>{screenSafeMode ? "🛡️ Pantalla Segura ACTIVA (F8)" : "🛡️ Pantalla Segura (F8)"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCaptureScreen}
-                  disabled={isGenerating || isVisionCapturing}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-600/40 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 text-xs font-semibold transition-all disabled:opacity-50"
-                  title="Capturar pantalla y resolver ejercicio de LeetCode / diagrama (Ctrl+Shift+S)"
-                >
-                  <span>{isVisionCapturing ? "📷 Capturando..." : "📷 Analizar Pantalla"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleReverseQuestions}
-                  disabled={isGenerating}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-sky-600/40 bg-sky-950/40 hover:bg-sky-900/50 text-sky-300 text-xs font-semibold transition-all disabled:opacity-50"
-                  title="Generar preguntas estratégicas de cierre basadas en los dolores de la entrevista (Ctrl+Shift+Q)"
-                >
-                  <span>🎯 Cierre de Oro</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleGenerateSummary}
-                  disabled={isGenerating || isSummaryLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-purple-600/40 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 text-xs font-semibold transition-all disabled:opacity-50"
-                  title="Generar Scorecard Predictor FAANG y nota de agradecimiento hiper-personalizada"
-                >
-                  <span>📊 Scorecard & Follow-up</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const vulns = analyzeCvVulnerabilities(profile, role, company);
-                    setVulnerabilities(vulns);
-                    setVulnModalOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-600/40 bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 text-xs font-semibold transition-all"
-                  title="Auditar CV con Red Team y anticipar preguntas trampa"
-                >
-                  <span>🛡️ Radar CV</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => earbudWhisper.setIsEnabled(!earbudWhisper.isEnabled)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                    earbudWhisper.isEnabled
-                      ? "bg-amber-500 text-black border-amber-400 font-bold shadow-md shadow-amber-950"
-                      : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                  title="Susurro acelerado (1.5x) en auricular privado para las palabras clave de apertura"
-                >
-                  <span>{earbudWhisper.isEnabled ? "🎧 Susurro ON" : "🎧 Susurro OFF"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={gazeTracker.toggleTracking}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                    gazeTracker.isTracking
-                      ? gazeTracker.isLookingAway
-                        ? "bg-amber-950/90 border-amber-500 text-amber-300 animate-pulse font-bold"
-                        : "bg-emerald-950/80 border-emerald-500/60 text-emerald-300 font-bold"
-                      : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:text-zinc-200"
-                  }`}
-                  title="Entrenador de contacto visual con la cámara (100% privado en tu navegador)"
-                >
-                  <span>👁️</span>
-                  <span>{gazeTracker.isTracking ? (gazeTracker.isLookingAway ? "Mirá a la cámara" : "Contacto OK") : "Eye Coach"}</span>
-                </button>
-
-                {sessionFacts.length > 0 && (
-                  <span
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 text-cyan-300 text-xs font-mono"
-                    title={`${sessionFacts.length} hechos técnicos consolidados en esta sesión para garantizar coherencia`}
+                {/* Tactical Arsenal Group */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleCaptureScreen}
+                    disabled={isGenerating || isVisionCapturing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    title="Capturar pantalla y resolver ejercicio de LeetCode / diagrama (Ctrl+Shift+S)"
                   >
-                    <span>📜</span>
-                    <span>{sessionFacts.length} hechos</span>
-                  </span>
-                )}
+                    <span>📷 {isVisionCapturing ? "Capturando..." : "Analizar Pantalla"}</span>
+                  </button>
 
-                {/* M7: Badge de tokens estimados en la sesión (~4 chars = 1 token) */}
-                {sessionTokens > 0 && (
-                  <span
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-violet-500/30 bg-violet-950/30 text-violet-300 text-[10px] font-mono"
-                    title={`Tokens estimados consumidos en esta sesión: ~${sessionTokens.toLocaleString()}. Estimación local (chars/4), sin llamadas extra.`}
+                  <button
+                    type="button"
+                    onClick={handleReverseQuestions}
+                    disabled={isGenerating}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    title="Generar preguntas estratégicas de cierre basadas en los dolores de la entrevista (Ctrl+Shift+Q)"
                   >
-                    <span>🪙</span>
-                    <span>~{sessionTokens > 1000 ? `${(sessionTokens / 1000).toFixed(1)}k` : sessionTokens} tok</span>
-                  </span>
-                )}
+                    <span>🎯 Cierre de Oro</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleIcebreaker}
-                  disabled={isGenerating}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-600/40 bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-300 text-xs font-medium transition-all disabled:opacity-50"
-                >
-                  <SparkleIcon />
-                  <span className="hidden sm:inline">Preguntas para ellos</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateSummary}
+                    disabled={isGenerating || isSummaryLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    title="Generar Scorecard Predictor FAANG y nota de agradecimiento hiper-personalizada"
+                  >
+                    <span>📊 Scorecard & Follow-up</span>
+                  </button>
 
-              {/* Ticker de habla en vivo */}
-              <div className="flex-1 min-w-[200px] flex items-center justify-end">
-                <div className="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800/80 text-zinc-400 text-xs max-w-md truncate">
-                  <ListenText text={lastTranscriptText} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const vulns = analyzeCvVulnerabilities(profile, role, company);
+                      setVulnerabilities(vulns);
+                      setVulnModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-medium transition-all duration-150"
+                    title="Auditar CV con Red Team y anticipar preguntas trampa"
+                  >
+                    <span>🛡️ Radar CV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScreenSafeMode((prev) => {
+                        const next = !prev;
+                        syncTeleprompter({ camouMode: next ? "ide" : "normal" });
+                        return next;
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
+                      screenSafeMode
+                        ? "bg-purple-950/80 border-purple-500 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.3)] animate-pulse"
+                        : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] text-zinc-300"
+                    }`}
+                    title="Alternar Pantalla Segura / Camuflaje IDE en el Teleprompter (Atajo: F8)"
+                  >
+                    <span>{screenSafeMode ? "🛡️ Pantalla Segura ACTIVA (F8)" : "🛡️ Pantalla Segura (F8)"}</span>
+                  </button>
+                </div>
+
+                {/* Live Assistance & Badges */}
+                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => earbudWhisper.setIsEnabled(!earbudWhisper.isEnabled)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
+                      earbudWhisper.isEnabled
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-semibold"
+                        : "border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-zinc-200"
+                    }`}
+                    title="Susurro acelerado (1.5x) en auricular privado para las palabras clave de apertura"
+                  >
+                    <span>🎧 {earbudWhisper.isEnabled ? "Susurro ON" : "Susurro OFF"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={gazeTracker.toggleTracking}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
+                      gazeTracker.isTracking
+                        ? gazeTracker.isLookingAway
+                          ? "bg-rose-500/20 border-rose-500 text-rose-300 animate-pulse font-bold"
+                          : "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold"
+                        : "border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-zinc-200"
+                    }`}
+                    title="Entrenador de contacto visual con la cámara (100% privado en tu navegador)"
+                  >
+                    <span>👁️ {gazeTracker.isTracking ? (gazeTracker.isLookingAway ? "Mirá a la cámara" : "Contacto OK") : "Eye Coach"}</span>
+                  </button>
+
+                  {sessionFacts.length > 0 && (
+                    <span
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-mono"
+                      title={`${sessionFacts.length} hechos técnicos consolidados en esta sesión`}
+                    >
+                      <span>📜</span>
+                      <span>{sessionFacts.length}</span>
+                    </span>
+                  )}
+
+                  {sessionTokens > 0 && (
+                    <span
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 text-[11px] font-mono"
+                      title={`Tokens estimados consumidos en esta sesión: ~${sessionTokens.toLocaleString()}`}
+                    >
+                      <span>🪙</span>
+                      <span>~{sessionTokens > 1000 ? `${(sessionTokens / 1000).toFixed(1)}k` : sessionTokens}</span>
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleIcebreaker}
+                    disabled={isGenerating}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                  >
+                    <SparkleIcon />
+                    <span className="hidden sm:inline">Preguntas para ellos</span>
+                  </button>
                 </div>
               </div>
             </div>
 
             {/* Panel de Configuración de Entradas de Audio (Hardware & Cables Virtuales) */}
             {showDeviceSettings && (
-              <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950/95 flex flex-wrap items-center gap-4 text-xs shadow-xl">
-                <div className="flex flex-col gap-1 min-w-[240px]">
+              <div className="p-4 rounded-2xl border border-emerald-500/30 bg-[#0c101c]/95 backdrop-blur-2xl flex flex-wrap items-center gap-4 text-xs shadow-2xl animate-in fade-in">
+                <div className="flex flex-col gap-1.5 min-w-[240px]">
                   <label className="text-[11px] font-semibold text-emerald-400">🎤 Tu Micrófono (Canal Izquierdo):</label>
                   <select
                     value={selectedMicId}
                     onChange={(e) => setSelectedMicId(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
+                    className="px-3 py-2 rounded-xl bg-black/50 border border-white/[0.1] text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
                   >
                     <option value="">Predeterminado del sistema</option>
                     {audioInputDevices.map((d) => (
@@ -1371,14 +1406,14 @@ export default function CopilotPage() {
                   </select>
                 </div>
 
-                <div className="flex flex-col gap-1 min-w-[260px]">
+                <div className="flex flex-col gap-1.5 min-w-[260px]">
                   <label className="text-[11px] font-semibold text-sky-400">
                     🔊 Audio del Entrevistador (Zoom / Teams - Canal Derecho):
                   </label>
                   <select
                     value={selectedInterviewerId}
                     onChange={(e) => setSelectedInterviewerId(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs focus:outline-none focus:border-sky-500"
+                    className="px-3 py-2 rounded-xl bg-black/50 border border-white/[0.1] text-zinc-200 text-xs focus:outline-none focus:border-sky-500"
                   >
                     <option value="">Compartir Pestaña de Navegador (Por defecto)</option>
                     {audioInputDevices.map((d) => (
@@ -1397,13 +1432,13 @@ export default function CopilotPage() {
 
             {/* Ticker / Monitor de Transcripción en Vivo */}
             {sttStatus === "live" && (
-              <div className="px-3.5 py-2.5 rounded-xl bg-zinc-950/90 border border-zinc-800 flex items-center justify-between gap-3 text-xs shadow-sm animate-in fade-in">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="px-4 py-3 rounded-2xl bg-[#0a0e1a]/90 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs shadow-[0_0_20px_rgba(16,185,129,0.1)] animate-in fade-in">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                   </span>
-                  <span className="font-semibold text-zinc-400 shrink-0">
+                  <span className="font-semibold text-emerald-300 shrink-0">
                     {audioMode === "tab" ? "Escuchando Pestaña:" : audioMode === "dual" ? "Escuchando Entrevistador:" : "Escuchando Mic:"}
                   </span>
                   <span className="font-mono text-zinc-200 truncate">
@@ -1415,8 +1450,8 @@ export default function CopilotPage() {
                   </span>
                 </div>
                 {transcriptLines.length > 0 && (
-                  <span className="text-[10px] font-mono text-zinc-500 shrink-0">
-                    {transcriptLines.length} turnos detectados
+                  <span className="text-[11px] font-mono text-zinc-500 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.04]">
+                    {transcriptLines.length} turnos
                   </span>
                 )}
               </div>
@@ -1427,30 +1462,60 @@ export default function CopilotPage() {
 
             {/* Header de Respuestas con botón de Limpiar */}
             {answers.length > 0 && (
-              <div className="flex items-center justify-between px-1 text-xs text-zinc-500">
+              <div className="flex items-center justify-between px-1 text-xs text-zinc-400 font-medium">
                 <span>{answers.length} {answers.length === 1 ? "respuesta" : "respuestas"}</span>
                 <button
                   onClick={clearAnswers}
-                  className="hover:text-zinc-300 transition-colors flex items-center gap-1 text-[11px] text-zinc-400 hover:text-red-400"
+                  className="hover:text-zinc-200 transition-colors flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-red-400 px-2.5 py-1 rounded-lg hover:bg-red-500/10"
                   title="Limpiar respuestas de la pantalla"
                 >
-                  🗑️ Limpiar feed
+                  <span>🗑️</span>
+                  <span>Limpiar feed</span>
                 </button>
               </div>
             )}
 
             {/* Feed de Respuestas */}
-            <div className="flex-1 flex flex-col gap-3 overflow-y-auto min-h-[300px]">
+            <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto min-h-[320px]">
               {answers.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-zinc-800 rounded-xl p-8 text-center text-zinc-500">
-                  <span className="text-3xl mb-2">🦜</span>
-                  <p className="text-sm font-semibold text-zinc-300 mb-1">
-                    {company ? `Listo para responder preguntas de ${company}` : "Listo para tu entrevista"}
+                <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-[#0e121e]/60 to-[#080a12]/90 p-8 sm:p-12 text-center backdrop-blur-xl shadow-2xl">
+                  {/* Glowing background aura */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                  {/* Glowing Avatar */}
+                  <div className="relative mb-4">
+                    <div className="absolute inset-0 rounded-2xl bg-emerald-500/20 blur-xl animate-pulse" />
+                    <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-950 border border-emerald-500/40 flex items-center justify-center text-3xl shadow-xl shadow-emerald-950/40">
+                      🦜
+                    </div>
+                  </div>
+
+                  <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">
+                    {company ? `Listo para responder preguntas de ${company}` : "Copiloto Listo para tu Entrevista"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
+                    Iniciá la escucha en <span className="text-emerald-400 font-semibold">Audio Dual</span> o escribí una pregunta abajo para recibir respuestas inmediatas, estructuradas con <strong className="text-zinc-200">Punchline First</strong> y ancladas a tu CV.
                   </p>
-                  <p className="text-xs max-w-sm">
-                    Iniciá la escucha por micrófono o escribí una pregunta abajo para recibir respuestas en vivo
-                    fundamentadas en tu CV.
-                  </p>
+
+                  {/* Quick feature shortcuts */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 max-w-lg text-[11px]">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>Audio Dual (Vos + Entrevistador)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">F2</kbd>
+                      <span>Alternar Escucha</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">Ctrl+Shift+S</kbd>
+                      <span>Analizar Pantalla</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">Esc</kbd>
+                      <span>Botón Pánico</span>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 answers.map((a, idx) => (
@@ -1476,22 +1541,40 @@ export default function CopilotPage() {
               )}
             </div>
 
-            {/* Manual Input Bar */}
-            <form onSubmit={handleManualSubmit} className="flex gap-2 sticky bottom-2 pt-2 bg-[#09090b]">
-              <input
-                type="text"
-                value={manualQuestion}
-                onChange={(e) => setManualQuestion(e.target.value)}
-                placeholder="Preguntale al copiloto o pegá la pregunta del entrevistador..."
-                className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500 shadow-inner"
-              />
-              <button
-                type="submit"
-                disabled={isGenerating || !manualQuestion.trim()}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-black font-bold text-xs transition-all shadow-md"
-              >
-                {isGenerating ? "Generando..." : "Responder"}
-              </button>
+            {/* Floating Command Input Bar */}
+            <form
+              onSubmit={handleManualSubmit}
+              className="sticky bottom-3 pt-2 pb-1 bg-gradient-to-t from-[#08090e] via-[#08090e]/95 to-transparent z-30"
+            >
+              <div className="flex items-center gap-2 p-1.5 rounded-2xl border border-white/[0.1] bg-[#0e121e]/85 backdrop-blur-2xl shadow-[0_10px_35px_-5px_rgba(0,0,0,0.8)] focus-within:border-emerald-500/50 focus-within:shadow-[0_0_25px_rgba(16,185,129,0.2)] transition-all">
+                <div className="pl-3 text-zinc-500 flex items-center">
+                  <SparkleIcon />
+                </div>
+                <input
+                  type="text"
+                  value={manualQuestion}
+                  onChange={(e) => setManualQuestion(e.target.value)}
+                  placeholder="Preguntale al copiloto o pegá la pregunta del entrevistador..."
+                  className="flex-1 bg-transparent px-2 py-2 text-zinc-100 placeholder-zinc-500 text-xs sm:text-sm focus:outline-none font-normal"
+                />
+                <button
+                  type="submit"
+                  disabled={isGenerating || !manualQuestion.trim()}
+                  className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-30 disabled:hover:from-emerald-500 disabled:hover:to-teal-500 text-zinc-950 font-bold text-xs transition-all duration-150 shadow-[0_0_15px_rgba(16,185,129,0.25)] active:scale-[0.98] flex items-center gap-1.5 shrink-0"
+                >
+                  {isGenerating ? (
+                    <>
+                      <span className="w-3 h-3 rounded-full border-2 border-zinc-950 border-t-transparent animate-spin" />
+                      <span>Generando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Responder</span>
+                      <span className="text-[10px] opacity-70">↵</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         )}
