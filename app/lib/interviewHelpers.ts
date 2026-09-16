@@ -28,6 +28,7 @@ export type QuestionCategory =
   | "behavioral"
   | "fit"
   | "salary_negotiation"
+  | "recruiter_screening"
   | "technical";
 
 /**
@@ -79,6 +80,15 @@ export function classifyQuestionType(q: string): QuestionCategory {
     )
   ) {
     return "salary_negotiation";
+  }
+
+  // 6. Recruiter Screening Logístico & Disponibilidad
+  if (
+    /when can you start|cu[aá]ndo podr[ií]as empezar|notice period|periodo de preaviso|disponibilidad inmediata|immediate availability|are you open to contract|contractor or fte|contractor vs|where are you based|where are you located|d[oó]nde est[aá]s ubicado|salta|argentina|work remotely|trabajo remoto|english proficiency|nivel de ingl[eé]s|why are you looking to change|por qu[eé] busc[aá]s un cambio|mascotas|pets|perro|luna/i.test(
+      lower
+    )
+  ) {
+    return "recruiter_screening";
   }
 
   return "technical";
@@ -152,12 +162,53 @@ export function isIncompleteQuestion(text: string): boolean {
     return true;
   }
 
+  // Frases o muletillas compuestas de continuidad oral en entrevistas
+  const spokenContinuityRegex =
+    /\b(so basically|and then|which means|like for example|in terms of|such that|as well as|or rather|meaning that|you know what i mean|moving on to|in regards to|with respect to)\s*[:,\-\.]*$/i;
+
+  if (spokenContinuityRegex.test(clean)) {
+    return true;
+  }
+
   // Termina en signos de puntuación de continuación abierta (dos puntos, coma, puntos suspensivos, guion)
   if (/([,:\-–—]|\.\.\.)$/.test(clean.replace(/\s+$/, ""))) {
     return true;
   }
 
   return false;
+}
+
+/**
+ * Calcula dinámicamente el tiempo de debounce (ms) para UtteranceEnd según la estructura sintáctica:
+ * - 2800ms si la frase termina con conector de continuidad oral (da margen al entrevistador para pensar).
+ * - 900ms si es una pregunta completa y cerrada con '?' (respuesta ultra ágil).
+ * - 1300ms por defecto.
+ */
+export function getAdaptiveDebounceMs(text: string): number {
+  if (!text || text.trim().length === 0) return 1300;
+  const clean = text.trim();
+
+  if (isIncompleteQuestion(clean)) {
+    return 2800;
+  }
+
+  // Si tiene signo de cierre '?' o termina con puntuación definida y al menos 4 palabras sustantivas
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (/[?]$/.test(clean) && words.length >= 4) {
+    return 900;
+  }
+
+  return 1300;
+}
+
+/**
+ * Detecta si la pregunta del entrevistador inquiere sobre años de experiencia, trayectoria
+ * o tecnologías de infraestructura/cloud para activar el Guardrail Visual de Años de Experiencia.
+ */
+export function detectExperienceQuestion(question: string): boolean {
+  if (!question) return false;
+  const q = question.toLowerCase();
+  return /\b(years of experience|how many years|cu[aá]ntos a[ñn]os|a[ñn]os de experiencia|trayectoria|background|tu experiencia con|your experience with|how long have you been|how long did you work|time working with|tiempo trabajando con|seniority|devops|cloud|gcp|google cloud|kubernetes|gke|terraform)\b/i.test(q);
 }
 
 /**
@@ -1169,7 +1220,16 @@ export function getInstantBridge(question: string, lang: "en" | "es" = "en"): In
     };
   }
 
-  // 7. General / Technical Fallback
+  // 7. Recruiter Screening, Compensation & Availability
+  if (/\b(salary|sueldo|compensation|rate|hourly|pretensi[oó]n|cu[aá]nto cobr[aá]s|when can you start|disponibilidad|availability|contractor|remote|salta|relocate|notice period)\b/i.test(clean)) {
+    return {
+      category: "recruiter_screening",
+      bridgeEn: "Regarding compensation and availability, my target is $4,000 USD gross monthly or twenty-five to thirty per hour, with immediate availability.",
+      bridgeEs: "Respecto a remuneración y disponibilidad, mi pretensión de referencia es de $4.000 USD bruto mensual o $25-$30 por hora, con disponibilidad inmediata.",
+    };
+  }
+
+  // 8. General / Technical Fallback
   return {
     category: "general_technical",
     bridgeEn: "To break that down directly based on production experience, the core decision centers on...",
@@ -1454,6 +1514,45 @@ export function detectInstantTrap(question: string): InstantTrapResult | null {
       trapKey: "system_design_cache_stampede",
       reason: "Cuando una llave muy solicitada expira en caché, cientos de peticiones concurrentes golpean la base de datos al mismo tiempo.",
       suggestedPivot: "Proponer locks distribuidos (mutex en Redis) para que un solo worker recalcule, o expiración probabilística temprana (algoritmo XFetch).",
+    };
+  }
+
+  // 11. Trampa de Sobrediseño en baja escala (<1000 req/day, batch modesto, herramienta interna)
+  if (
+    /\b(500 requests|1000 requests|1000 users|1k users|low traffic|baja escala|poc|mvp|internal tool|herramienta interna|small team|batch nocturno|few requests|pocas peticiones)\b/i.test(q) &&
+    /\b(how would you design|architecture|diseño|diseñar|system design|arquitectura|scale|stack)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "system_design_low_scale_trap",
+      reason: "El entrevistador evalúa pragmatismo y costo operacional. Proponer Kubernetes, Kafka o microservicios para esta escala es una bandera roja de sobreingeniería.",
+      suggestedPivot: "Proponer Cloud Run / AWS Lambda o un monolito modular con SQLite/PostgreSQL y un cron simple; destacar costo $0 en reposo y cero mantenimiento operacional antes de escalar.",
+    };
+  }
+
+  // 12. Trampa de Arquitectura: ¿Cuándo NO usar microservicios o Kafka?
+  if (
+    (/\b(when would you not use|when not to use|why not use|cu[aá]ndo no usar|por qu[eé] no usar|desventajas de|drawbacks of)\b/i.test(q) &&
+      /\b(microservices|microservicios|kafka|kubernetes|k8s)\b/i.test(q)) ||
+    /\b(monolith vs microservices|monolito vs microservicios)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "when_not_microservices_or_kafka",
+      reason: "El entrevistador busca validar si conocés los costos operacionales reales (latencia de red, serialización, distributed tracing y sobrecarga mental del equipo).",
+      suggestedPivot: "Defender el monolito modular cuando el dominio no esté claro o el equipo sea <10 devs; preferir colas simples (RabbitMQ/Cloud Tasks) sobre Kafka si no se requiere replay de eventos.",
+    };
+  }
+
+  // 13. Trampa de Transacciones Distribuidas (2PC / Two-Phase Commit en microservicios)
+  if (
+    /\b(distributed transaction|transacci[oó]n distribuida|two phase commit|2pc|acid across microservices)\b/i.test(q)
+  ) {
+    return {
+      isTrap: true,
+      trapKey: "premature_distributed_tx_trap",
+      reason: "2PC es un antipatrón en la nube: bloquea recursos distribuidos, amplifica fallos en cascada y destruye la disponibilidad del sistema.",
+      suggestedPivot: "Proponer consistencia eventual mediante Outbox Pattern y eventos idempotentes, o diseñar un flujo compensatorio (Saga Pattern) si la atomicidad del negocio lo exige.",
     };
   }
 

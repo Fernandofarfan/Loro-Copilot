@@ -14,6 +14,8 @@ import {
   extractCurrentTurnQuestion,
   isIncompleteQuestion,
   isActionableQuestion,
+  getAdaptiveDebounceMs,
+  detectExperienceQuestion,
   matchSTARStory,
   detectFirmnessChallenge,
   type MasterAnswer,
@@ -193,8 +195,19 @@ export default function CopilotPage() {
     loadAudioDevices();
   }, [selectedMicId]);
 
-  // Hook de Teleprompter HUD Pop-out
-  const { isOpen: isTeleprompterOpen, openTeleprompter, syncTeleprompter } = useTeleprompter();
+  const [interviewMode, setInterviewMode] = useState<"technical" | "screening">("technical");
+  const [screenSafeMode, setScreenSafeMode] = useState(false);
+  const interviewModeRef = useRef<"technical" | "screening">("technical");
+  interviewModeRef.current = interviewMode;
+
+  // Hook de Teleprompter HUD Pop-out con soporte de mensajes bidireccionales
+  const { isOpen: isTeleprompterOpen, openTeleprompter, syncTeleprompter } = useTeleprompter({
+    onMessage: (msg: { type?: string }) => {
+      if (msg?.type === "TRIGGER_REVERSE_QUESTIONS") {
+        keyboardHandlersRef.current?.handleReverseQuestions?.();
+      }
+    },
+  });
 
   // Hook de Screen Vision (Live Coding & Diagramas en Pantalla)
   const { isCapturing: isVisionCapturing, captureScreenFrame } = useScreenVision();
@@ -293,6 +306,12 @@ export default function CopilotPage() {
       clearTimeout(utteranceTimerRef.current);
     }
 
+    // Determinar el debounce adaptativo según el texto pendiente del entrevistador
+    const currentLines = transcriptLinesRef.current;
+    const interviewerLines = currentLines.filter((l) => l.speaker === 0);
+    const pendingText = interviewerLines.slice(-3).map((l) => l.text).join(" ");
+    const debounceMs = getAdaptiveDebounceMs(pendingText);
+
     utteranceTimerRef.current = setTimeout(() => {
       if (isGeneratingRef.current) return;
       const currentLines = transcriptLinesRef.current;
@@ -335,26 +354,37 @@ export default function CopilotPage() {
         const excludedStories = Array.from(usedStoryIndicesRef.current);
         const matchedStory = matchSTARStory(recentText, starStoriesRef.current, 0.35, excludedStories);
         const firmnessAlert = detectFirmnessChallenge(recentText);
+        const experienceAlert = detectExperienceQuestion(recentText);
 
         // M4: registrar la historia usada
         if (matchedStory) {
           usedStoryIndicesRef.current.add(matchedStory.storyIndex);
         }
 
-        if (matchedStory || firmnessAlert.isChallenge) {
-          syncTeleprompter({
-            question: recentText,
-            matchedStory: matchedStory
-              ? {
+        syncTeleprompter({
+          question: recentText,
+          interviewMode: interviewModeRef.current,
+          experienceAlert,
+          ...(matchedStory
+            ? {
+                matchedStory: {
                   storyIndex: matchedStory.storyIndex,
                   title: matchedStory.story.title,
                   action: matchedStory.story.action,
                   result: matchedStory.story.result || "",
                   score: matchedStory.score,
-                }
-              : null,
-            firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
-          });
+                },
+              }
+            : {}),
+          firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
+        });
+
+        // Directivas especializadas según modo (Pilar 1)
+        let effectiveInstructions = extraInstructions;
+        if (interviewModeRef.current === "screening") {
+          effectiveInstructions =
+            (effectiveInstructions ? effectiveInstructions + "\n" : "") +
+            "[MODO RECRUITER SCREENING]: Respuestas directas, cordiales y concisas (máximo 2 oraciones). Enfocar en pretensión de $4,000 USD/mes o ~$25-$30/h contractor, disponibilidad inmediata, inglés B2 fluido, residencia remota en Salta (UTC-3), estabilidad laboral y fit cultural con Luna.";
         }
 
         requestAnswer({
@@ -366,7 +396,7 @@ export default function CopilotPage() {
           role,
           profile: focusedProfile,
           interviewerBio,
-          extraInstructions,
+          extraInstructions: effectiveInstructions,
           provider: selectedModel.provider,
           model: selectedModel.model,
           modelLabel: selectedModel.label,
@@ -381,7 +411,7 @@ export default function CopilotPage() {
           onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
         });
       }
-    }, 1300); // 1300ms de debounce para permitir pausas y respiración natural sin falsos cortes
+    }, debounceMs); // Debounce adaptativo: 900ms para preguntas cerradas, 2800ms tras conectores en inglés, 1300ms estándar
   }, [
     autoRespond,
     requestAnswer,
@@ -598,6 +628,17 @@ export default function CopilotPage() {
       if (e.key === "`") {
         e.preventDefault();
         keyboardHandlersRef.current.handleCaptureScreen();
+        return;
+      }
+
+      // F8: Alternar Modo Pantalla Segura / Camuflaje IDE en Teleprompter (Pilar 6)
+      if (e.key === "F8") {
+        e.preventDefault();
+        setScreenSafeMode((prev) => {
+          const next = !prev;
+          keyboardHandlersRef.current.syncTeleprompter({ camouMode: next ? "ide" : "normal" });
+          return next;
+        });
         return;
       }
 
@@ -1145,6 +1186,59 @@ export default function CopilotPage() {
                     )}
                   </>
                 )}
+
+                {/* Selector de Modo de Entrevista: Técnico vs Screening HR (Pilar 1) */}
+                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950 p-0.5 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInterviewMode("technical");
+                      syncTeleprompter({ interviewMode: "technical" });
+                    }}
+                    className={`px-2.5 py-1.5 rounded-md transition-colors ${
+                      interviewMode === "technical"
+                        ? "bg-zinc-800 text-white font-semibold shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    🎙️ Técnico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInterviewMode("screening");
+                      syncTeleprompter({ interviewMode: "screening" });
+                    }}
+                    className={`px-2.5 py-1.5 rounded-md transition-colors ${
+                      interviewMode === "screening"
+                        ? "bg-purple-950 text-purple-200 font-semibold border border-purple-500/50 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                    title="Modo Screening HR: Directivas breves, pretensión salarial ($4,000 USD / $25-30/h) y fit cultural"
+                  >
+                    🤝 Screening HR (15m)
+                  </button>
+                </div>
+
+                {/* Botón de Modo Pantalla Segura / Camuflaje (Pilar 6) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScreenSafeMode((prev) => {
+                      const next = !prev;
+                      syncTeleprompter({ camouMode: next ? "ide" : "normal" });
+                      return next;
+                    });
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                    screenSafeMode
+                      ? "bg-purple-950 border-purple-500/70 text-purple-200 animate-pulse"
+                      : "border-zinc-700/60 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300"
+                  }`}
+                  title="Alternar Pantalla Segura / Camuflaje IDE en el Teleprompter (Atajo: F8)"
+                >
+                  <span>{screenSafeMode ? "🛡️ Pantalla Segura ACTIVA (F8)" : "🛡️ Pantalla Segura (F8)"}</span>
+                </button>
 
                 <button
                   type="button"

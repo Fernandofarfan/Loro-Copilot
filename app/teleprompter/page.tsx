@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { detectExperienceQuestion } from "../lib/interviewHelpers";
 
 interface TeleprompterData {
   question?: string;
@@ -50,6 +51,9 @@ interface TeleprompterData {
     compare?: string;
   }>;
   yagni?: string | null;
+  interviewMode?: "technical" | "screening";
+  experienceAlert?: boolean;
+  camouMode?: "normal" | "ide" | "terminal";
 }
 
 // Valida que el payload tiene la forma TeleprompterData antes de usarlo
@@ -75,7 +79,10 @@ function isValidTeleprompterData(data: unknown): data is TeleprompterData {
     (typeof d.instantTrap === "object" && d.instantTrap !== null) ||
     typeof d.instantWhyNot === "string" ||
     Array.isArray(d.scalePills) ||
-    typeof d.yagni === "string"
+    typeof d.yagni === "string" ||
+    typeof d.interviewMode === "string" ||
+    typeof d.experienceAlert === "boolean" ||
+    typeof d.camouMode === "string"
   );
 }
 
@@ -139,6 +146,7 @@ export default function TeleprompterPage() {
   const [showNumbersSheet, setShowNumbersSheet] = useState(false);
   const [silenceBridgeVisible, setSilenceBridgeVisible] = useState(false);
   const [camouMode, setCamouMode] = useState<"normal" | "ide" | "terminal">("normal");
+  const bcRef = useRef<BroadcastChannel | null>(null);
   const [telegraphicMode, setTelegraphicMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("loro_teleprompter_telegraphic") === "true";
@@ -188,7 +196,11 @@ export default function TeleprompterPage() {
     let bc: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
       bc = new BroadcastChannel("loro_teleprompter_channel");
+      bcRef.current = bc;
       bc.onmessage = (event) => {
+        if (event.data?.camouMode) {
+          setCamouMode(event.data.camouMode);
+        }
         if (isValidTeleprompterData(event.data)) {
           setData(event.data);
           setIsPanicHidden(false); // restaurar ante nueva pregunta
@@ -210,17 +222,26 @@ export default function TeleprompterPage() {
     };
     window.addEventListener("storage", handleStorage);
 
-    // Atajo de pánico en teclado: Escape para ocultar / mostrar y cerrar alertas de silencio
+    // Atajos de teclado: Escape (Pánico), F8 / Alt+S (Camuflaje Seguro), F4 (Cierre de Oro)
     const handleKeyDown = (e: KeyboardEvent) => {
       setSilenceBridgeVisible(false);
       if (e.key === "Escape") {
         setIsPanicHidden((prev) => !prev);
+      }
+      if (e.key === "F8" || (e.altKey && e.key.toLowerCase() === "s")) {
+        e.preventDefault();
+        setCamouMode((curr) => (curr === "normal" ? "ide" : "normal"));
+      }
+      if (e.key === "F4") {
+        e.preventDefault();
+        bcRef.current?.postMessage({ type: "TRIGGER_REVERSE_QUESTIONS" });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       if (bc) bc.close();
+      bcRef.current = null;
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -341,6 +362,48 @@ export default function TeleprompterPage() {
           </span>
         </div>
       </header>
+
+      {/* Banner de Modo Screening Recruiter (Pilar 1) */}
+      {data.interviewMode === "screening" && (
+        <section className="mb-2 px-3 py-1.5 rounded-lg bg-purple-950/85 border border-purple-500/70 text-purple-200 text-[11px] font-mono flex flex-wrap items-center justify-between gap-1 shadow-md">
+          <span className="font-bold text-purple-300 flex items-center gap-1">🤝 RECRUITER SCREENING</span>
+          <span className="bg-purple-900/60 px-1.5 py-0.5 rounded text-purple-100">💰 $4,000 USD/m (~$25-30/h)</span>
+          <span className="text-zinc-300">🕒 Inmediata</span>
+          <span className="text-zinc-300">📍 Salta (UTC-3)</span>
+          <span className="text-purple-300 font-semibold">🐕 Luna</span>
+        </section>
+      )}
+
+      {/* Banner de Guardrail de Años de Experiencia (Pilar 3) */}
+      {(data.experienceAlert || (data.question && detectExperienceQuestion(data.question))) && (
+        <section className="mb-2 px-3 py-1.5 rounded-lg bg-indigo-950/90 border border-indigo-500/80 text-indigo-200 text-[11px] flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-indigo-400 font-bold tracking-wide">🎯 GUARDRAIL EXP:</span>
+            <span>Cloud / DevOps (GCP, GKE, Terraform): <strong className="text-indigo-100 font-bold">~4 años</strong> | Total Software / IT: <strong className="text-indigo-100 font-bold">+8 años</strong></span>
+          </div>
+          <span className="text-[9.5px] font-mono text-indigo-300 bg-indigo-900/50 px-1.5 py-0.5 rounded border border-indigo-700/50">NO MEZCLAR</span>
+        </section>
+      )}
+
+      {/* Banner Contextual de Cierre de Oro cuando el entrevistador pregunta (Pilar 5) */}
+      {Boolean(
+        data.question &&
+        /\b(any questions for (me|us)|do you have questions|preguntas para (nosotros|m[ií])|alguna pregunta antes de terminar|questions before we wrap up|any other questions)\b/i.test(data.question)
+      ) && (
+        <section
+          onClick={() => bcRef.current?.postMessage({ type: "TRIGGER_REVERSE_QUESTIONS" })}
+          className="mb-2 p-2 rounded-lg bg-emerald-950/90 border border-emerald-400 text-emerald-100 text-xs font-semibold flex items-center justify-between shadow-lg animate-pulse cursor-pointer hover:bg-emerald-900/90 transition-all"
+          title="Clic para disparar Cierre de Oro (F4)"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">🎯</span>
+            <span>¿El entrevistador preguntó si tenés preguntas? Clic aquí para Cierre de Oro</span>
+          </div>
+          <span className="bg-emerald-600 text-white font-mono text-[10px] font-bold px-2 py-0.5 rounded shadow">
+            Disparar F4 ⚡
+          </span>
+        </section>
+      )}
 
       {/* Frase Puente de Rescate ante Silencio Incómodo (>3.5s) */}
       {silenceBridgeVisible && (
@@ -802,6 +865,15 @@ export default function TeleprompterPage() {
       <footer className="fixed bottom-2 right-2 flex items-center gap-1.5 bg-zinc-900/90 backdrop-blur border border-zinc-800 p-1 rounded-lg shadow-lg">
         <button
           type="button"
+          onClick={() => bcRef.current?.postMessage({ type: "TRIGGER_REVERSE_QUESTIONS" })}
+          className="px-2 py-0.5 text-[10px] font-bold rounded transition-colors bg-emerald-950 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900 shadow-sm"
+          title="Disparar Cierre de Oro (Preguntas Inversas Estratégicas) (Atajo: F4)"
+        >
+          🎯 Cierre (F4)
+        </button>
+
+        <button
+          type="button"
           onClick={() =>
             setCamouMode((curr) =>
               curr === "normal" ? "ide" : curr === "ide" ? "terminal" : "normal"
@@ -809,12 +881,12 @@ export default function TeleprompterPage() {
           }
           className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
             camouMode !== "normal"
-              ? "bg-purple-950 text-purple-300 border border-purple-500/50"
-              : "bg-zinc-800 text-zinc-400"
+              ? "bg-purple-950 text-purple-300 border border-purple-500/50 animate-pulse"
+              : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
           }`}
-          title="Modo Camuflaje para compartir pantalla o llamadas presenciales"
+          title="Modo Pantalla Segura / Camuflaje IDE (Atajo: F8 o Alt+S)"
         >
-          🎭 {camouMode === "normal" ? "Camuflaje" : camouMode === "ide" ? "IDE (VS Code)" : "Terminal"}
+          🛡️ {camouMode === "normal" ? "Normal (F8)" : camouMode === "ide" ? "IDE Activo" : "Terminal"}
         </button>
 
         <button

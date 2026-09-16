@@ -50,16 +50,22 @@ export interface TeleprompterPayload {
     compare?: string;
   }>;
   yagni?: string | null;
+  interviewMode?: "technical" | "screening";
+  experienceAlert?: boolean;
+  camouMode?: "normal" | "ide" | "terminal";
+  command?: "TRIGGER_REVERSE_QUESTIONS" | "SET_CAMOUFLAGE" | "TOGGLE_SCREEN_SAFE_MODE";
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";
 const CHANNEL_NAME = "loro_teleprompter_channel";
 
-export function useTeleprompter() {
+export function useTeleprompter(options?: { onMessage?: (data: any) => void }) {
   const bcRef = useRef<BroadcastChannel | null>(null);
   const winRef = useRef<Window | null>(null);
   const checkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const onMessageRef = useRef(options?.onMessage);
+  onMessageRef.current = options?.onMessage;
 
   const clearCheckTimer = useCallback(() => {
     if (checkTimerRef.current) {
@@ -72,6 +78,9 @@ export function useTeleprompter() {
     if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
       try {
         bcRef.current = new BroadcastChannel(CHANNEL_NAME);
+        bcRef.current.onmessage = (event) => {
+          onMessageRef.current?.(event.data);
+        };
       } catch (e) {
         console.warn("BroadcastChannel no disponible en este entorno", e);
       }

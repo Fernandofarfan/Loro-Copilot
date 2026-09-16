@@ -8,6 +8,10 @@ import {
   getInstantYagniTip,
   parseBlocks,
   matchSTARStory,
+  detectInstantTrap,
+  getAdaptiveDebounceMs,
+  detectExperienceQuestion,
+  classifyQuestionType,
 } from "../app/lib/interviewHelpers";
 import type { STARStory } from "../app/lib/interviewHelpers";
 import {
@@ -60,7 +64,7 @@ describe("Pilar 1: Zero-Silence Opening Bridge (<200ms)", () => {
   });
 
   it("usa fallback técnico coherente para preguntas generales", () => {
-    const bridge = getInstantBridge("What are your salary expectations?");
+    const bridge = getInstantBridge("Can you describe your general development and debugging workflow?");
     expect(bridge.category).toBe("general_technical");
     expect(bridge.bridgeEn).toContain("based on production experience");
   });
@@ -366,3 +370,80 @@ describe("M5: Wizard del Dossier del Entrevistador (Template Local)", () => {
     expect(t1).toBe(t2);
   });
 });
+
+describe("Pilar 2: Detección de Trampas de Sobrediseño y Pragmatismo", () => {
+  it("detecta trampa de baja escala (<1000 req/day) y sugiere solución simple sin sobreingeniería", () => {
+    const res = detectInstantTrap("How would you design the architecture for an internal tool with 500 requests a day?");
+    expect(res).not.toBeNull();
+    expect(res?.isTrap).toBe(true);
+    expect(res?.trapKey).toBe("system_design_low_scale_trap");
+    expect(res?.reason).toContain("sobreingeniería");
+    expect(res?.suggestedPivot).toContain("Cloud Run");
+  });
+
+  it("detecta trampa de 'cuándo NO usar microservicios o Kafka' y destaca costos operacionales", () => {
+    const res = detectInstantTrap("When would you not use microservices in an engineering team?");
+    expect(res).not.toBeNull();
+    expect(res?.isTrap).toBe(true);
+    expect(res?.trapKey).toBe("when_not_microservices_or_kafka");
+    expect(res?.reason).toContain("costos operacionales");
+    expect(res?.suggestedPivot).toContain("monolito modular");
+  });
+
+  it("detecta trampa de transacciones distribuidas (2PC en microservicios)", () => {
+    const res = detectInstantTrap("How would you coordinate two phase commit for distributed transactions across microservices?");
+    expect(res).not.toBeNull();
+    expect(res?.isTrap).toBe(true);
+    expect(res?.trapKey).toBe("premature_distributed_tx_trap");
+    expect(res?.suggestedPivot).toContain("Outbox Pattern");
+  });
+});
+
+describe("Pilar 4: VAD Adaptativo a la Entonación y Conectores de Continuidad", () => {
+  it("retorna 2800ms cuando la frase termina en conectores orales en inglés", () => {
+    expect(getAdaptiveDebounceMs("We started migrating our database so basically")).toBe(2800);
+    expect(getAdaptiveDebounceMs("The system needs to scale and then")).toBe(2800);
+    expect(getAdaptiveDebounceMs("We have a primary replica which means")).toBe(2800);
+    expect(getAdaptiveDebounceMs("For our caching strategy, like for example")).toBe(2800);
+  });
+
+  it("retorna 900ms para preguntas completas cerradas con signo de interrogación", () => {
+    expect(getAdaptiveDebounceMs("How do you handle database failover in GCP?")).toBe(900);
+    expect(getAdaptiveDebounceMs("What is your experience with Kubernetes?")).toBe(900);
+  });
+
+  it("retorna 1300ms como valor estándar para texto neutral o vacío", () => {
+    expect(getAdaptiveDebounceMs("")).toBe(1300);
+    expect(getAdaptiveDebounceMs("PostgreSQL read replica replication lag")).toBe(1300);
+  });
+});
+
+describe("Pilar 3: Guardrail Visual de Años de Experiencia", () => {
+  it("detecta preguntas sobre años de experiencia o tecnologías de infraestructura", () => {
+    expect(detectExperienceQuestion("How many years of experience do you have with DevOps?")).toBe(true);
+    expect(detectExperienceQuestion("Tell me about your background with Google Cloud and Terraform")).toBe(true);
+    expect(detectExperienceQuestion("¿Cuántos años de experiencia tenés trabajando con GCP y Kubernetes?")).toBe(true);
+  });
+
+  it("retorna false para preguntas puramente teóricas o algorítmicas sin trayectoria", () => {
+    expect(detectExperienceQuestion("What is the time complexity of quicksort?")).toBe(false);
+    expect(detectExperienceQuestion("Can you explain how hash tables resolve collisions?")).toBe(false);
+  });
+});
+
+describe("Pilar 1: Modo Recruiter Screening y Puentes Inmediatos", () => {
+  it("clasifica correctamente preguntas de logística y HR como recruiter_screening", () => {
+    expect(classifyQuestionType("When can you start and what is your notice period?")).toBe("recruiter_screening");
+    expect(classifyQuestionType("Where are you located and how do you feel about working remotely from Salta?")).toBe("recruiter_screening");
+    expect(classifyQuestionType("Do you have pets or a dog at home?")).toBe("recruiter_screening");
+  });
+
+  it("genera un puente inmediato de screening con remuneración ($4,000 USD / $25-30/h) en <5ms", () => {
+    const bridge = getInstantBridge("What is your expected salary rate and availability?");
+    expect(bridge.category).toBe("recruiter_screening");
+    expect(bridge.bridgeEn).toContain("$4,000 USD");
+    expect(bridge.bridgeEn).toContain("twenty-five to thirty");
+    expect(bridge.bridgeEs).toContain("$4.000 USD");
+  });
+});
+
