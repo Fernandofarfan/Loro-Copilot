@@ -988,6 +988,93 @@ export default function CopilotPage() {
     setShowDossierWizard(false);
   };
 
+  // Preset 1-Click para la entrevista de Globant / Intermedia
+  const loadGlobantPreset = useCallback(() => {
+    setCompany("Globant");
+    setRole("GCP Cloud Engineer");
+    setInterviewerBio(
+      "Marian Francheska Escalona, Recruiting Analyst en Globant. Entrevista inicial de screening (45 min) para Globant / Intermedia. Salto espontáneo a inglés (small talk, hobbies, Luna la perrita en Salta) y validación técnica de background en GCP, GCVE y Terraform."
+    );
+    setProfile(
+      "Guillermo Fernando Farfán Romero. Ingeniero de Infraestructura Cloud y Software con +8 años de experiencia global en IT/desarrollo y ~4 años dedicados a Google Cloud Platform (GCP), Terraform, Linux, Docker y redes empresariales."
+    );
+    setExtraInstructions(
+      "Respuestas conversacionales ultra-concisas (máximo 2 oraciones, 25-35 palabras). Bilingüe: responder en inglés fluido si pregunta en inglés (con [KEY], [EN], [PHO], [ES]) o español profesional con Spanglish técnico si pregunta en español. Pretensión contractor USD: $25-$30/h (o ~$4,000 USD/mes bruto). Mascota: perrita rescatada y adoptada Luna en Salta. NUNCA mencionar gatos. Nunca decir 8 años en GCP (discriminar +8 años IT total vs ~4 años GCP/Cloud)."
+    );
+    setInterviewMode("screening");
+    syncTeleprompter({ interviewMode: "screening" });
+
+    const globantMasterAnswers: MasterAnswer[] = [
+      {
+        id: "ans_globant_pets",
+        question: "Do you have any pets or animals at home?",
+        enText: "Yes, I do! I have a rescued dog named Luna who was adopted from the street and is my daily remote work companion here in Salta. We go on walks to disconnect from the screen, and she brings great positive energy to my daily routine.",
+        esText: "¡Sí, totalmente! Tengo una perrita adoptada que se llama Luna en Salta; salimos a caminar para despejar la vista del monitor y resetear el foco mental.",
+        category: "Screening",
+        tags: ["pets", "dog", "luna", "small talk"],
+        company: "Globant",
+        role: "GCP Cloud Engineer",
+        createdAt: Date.now(),
+      },
+      {
+        id: "ans_globant_hobbies",
+        question: "What are your hobbies or what do you do in your free time?",
+        enText: "In my free time, I love cycling outdoors around the scenic hills of Salta and spending time with my family and dog Luna. I also enjoy tinkering with my home-lab infrastructure to experiment with new cloud tools.",
+        esText: "Me encanta salir a pedalear al aire libre por Salta, compartir tiempo con mi perrita Luna y experimentar en mi home-lab con herramientas cloud.",
+        category: "Screening",
+        tags: ["hobbies", "cycling", "free time"],
+        company: "Globant",
+        role: "GCP Cloud Engineer",
+        createdAt: Date.now(),
+      },
+      {
+        id: "ans_globant_pitch",
+        question: "Tell me about yourself and your background.",
+        enText: "Personally, I'm based in Salta living with my adopted rescue dog Luna, and professionally I bring over eight years of total IT experience. Over the last four years, I've specialized deeply in Google Cloud Platform, Terraform, Linux systems, and cloud architecture.",
+        esText: "Vivo en Salta con mi perrita Luna; sumo más de 8 años de trayectoria en sistemas y software, con los últimos ~4 años dedicados exclusivamente a GCP, Terraform y Linux.",
+        category: "Screening",
+        tags: ["tell me about yourself", "pitch", "experience"],
+        company: "Globant",
+        role: "GCP Cloud Engineer",
+        createdAt: Date.now(),
+      },
+      {
+        id: "ans_globant_salary",
+        question: "What are your salary expectations for this hourly contractor role?",
+        enText: "For this full-time contractor engagement, my target hourly rate is between twenty-five and thirty dollars per hour, which aligns with my four thousand dollar monthly benchmark. I am fully accustomed to the international contractor model and ready to start immediately.",
+        esText: "Para este esquema contractor full-time mi tarifa de referencia se sitúa entre 25 y 30 USD por hora, equivalente a unos 4,000 USD mensuales brutos.",
+        category: "Screening",
+        tags: ["salary", "rate", "contractor", "usd"],
+        company: "Globant",
+        role: "GCP Cloud Engineer",
+        createdAt: Date.now(),
+      },
+      {
+        id: "ans_globant_gcve",
+        question: "What is your experience with Google Cloud VMware Engine (GCVE) and VMware migrations?",
+        enText: "I approach GCVE by interconnecting the VMware private cloud environment with native GCP VPCs using Private Services Access and Cloud Interconnect. This allows running enterprise workloads seamlessly while automating routing, DNS, and cloud-native services through Terraform.",
+        esText: "Integro GCVE conectando la nube privada con las VPCs de GCP mediante Private Services Access y Cloud Interconnect, automatizando redes y servicios con Terraform.",
+        category: "Technical",
+        tags: ["gcve", "vmware", "gcp", "migration"],
+        company: "Globant",
+        role: "GCP Cloud Engineer",
+        createdAt: Date.now(),
+      },
+      {
+        id: "ans_globant_terraform",
+        question: "How do you structure infrastructure as code using Terraform on GCP?",
+        enText: "I build modular Terraform architectures following the Google Cloud Foundation Fabric blueprint, with separate state backends in versioned Cloud Storage buckets. This ensures dry, secure, and reproducible deployments with strict IAM least-privilege principles.",
+        esText: "Estructuro Terraform con módulos reutilizables y state remoto en Cloud Storage versionado, aplicando permisos mínimos y despliegues reproducibles.",
+        category: "Technical",
+        tags: ["terraform", "iac", "gcp"],
+        company: "Globant",
+        role: "GCP Cloud Engineer",
+        createdAt: Date.now(),
+      },
+    ];
+    importMasterAnswers(globantMasterAnswers);
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
   return (
     <div className="copilot-container min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Top Navbar */}
@@ -1112,6 +1199,72 @@ export default function CopilotPage() {
 
         {activeTab === "live" && (
           <div className="flex flex-col flex-1 gap-3">
+            {/* Mission & Target Intel Bar: Globant / Intermedia */}
+            {company === "Globant" ? (
+              <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-[#0e121e]/80 to-indigo-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🎯
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Activa</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        Lunes 21 Sep • 14:00 ART
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        Bilingüe (Auto-Switch)
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
+                      Globant / Intermedia — GCP Cloud Engineer
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Reclutadora: <strong className="text-zinc-300">Marian Francheska Escalona</strong> • Tarifa: <span className="text-emerald-400 font-semibold">$25-$30/h USD</span> • Small talk: <span className="text-purple-300">Luna en Salta</span> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Perfil & Stack
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-purple-500/40 bg-gradient-to-r from-purple-950/50 via-[#0e121e]/80 to-indigo-950/40 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(168,85,247,0.15)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    ⚡
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Próxima Agendada</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40 animate-pulse">
+                        Lunes 21 Sep • 14:00 ART
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-semibold text-zinc-100">
+                      Globant / Intermedia — GCP Cloud Engineer (Francheska Escalona)
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Cargar contexto bilingüe, GCVE, tarifa $25-$30/h y banco de preguntas de screening con Luna.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadGlobantPreset}
+                  className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-black font-bold text-xs transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                >
+                  🚀 Activar Entrevista Globant
+                </button>
+              </div>
+            )}
+
             {/* Control Bar: 2-Tier Cockpit Deck */}
             <div className="rounded-2xl border border-white/[0.08] bg-[#0e121e]/75 backdrop-blur-xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.6)] p-3.5 sm:p-4 flex flex-col gap-3">
               {/* Tier 1: Audio Engine & Real-Time Telemetry Monitor */}
@@ -1496,6 +1649,27 @@ export default function CopilotPage() {
                   <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">
                     {company ? `Listo para responder preguntas de ${company}` : "Copiloto Listo para tu Entrevista"}
                   </h3>
+                  {company === "Globant" && (
+                    <div className="mb-4 p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-left max-w-md w-full shadow-lg">
+                      <div className="flex items-center justify-between font-bold text-purple-300 mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <span>🎯</span>
+                          <span>Entrevista Globant / Intermedia</span>
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                          Screening HR
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
+                        <div>💼 Rol: <span className="text-zinc-100 font-medium">GCP Cloud Engineer</span></div>
+                        <div>💵 Tarifa: <span className="text-emerald-400 font-medium">$25-$30 USD/h</span></div>
+                        <div>👤 Reclutadora: <span className="text-zinc-100 font-medium">Francheska Escalona</span></div>
+                        <div>🌐 Idioma: <span className="text-purple-300 font-medium">Bilingüe (Auto-Switch)</span></div>
+                        <div>🐕 Mascota: <span className="text-purple-300 font-medium">Luna (Salta)</span></div>
+                        <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-xs sm:text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
                     Iniciá la escucha en <span className="text-emerald-400 font-semibold">Audio Dual</span> o escribí una pregunta abajo para recibir respuestas inmediatas, estructuradas con <strong className="text-zinc-200">Punchline First</strong> y ancladas a tu CV.
                   </p>
