@@ -22,6 +22,7 @@ import {
 } from "../lib/interviewHelpers";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
+import { GLOBANT_AND_GCP_MASTER_ANSWERS } from "../lib/globantMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
 import { useInterviewContext, type STARStory } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
@@ -1004,75 +1005,7 @@ export default function CopilotPage() {
     setInterviewMode("screening");
     syncTeleprompter({ interviewMode: "screening" });
 
-    const globantMasterAnswers: MasterAnswer[] = [
-      {
-        id: "ans_globant_pets",
-        question: "Do you have any pets or animals at home?",
-        enText: "Yes, I do! I have a rescued dog named Luna who was adopted from the street and is my daily remote work companion here in Salta. We go on walks to disconnect from the screen, and she brings great positive energy to my daily routine.",
-        esText: "¡Sí, totalmente! Tengo una perrita adoptada que se llama Luna en Salta; salimos a caminar para despejar la vista del monitor y resetear el foco mental.",
-        category: "Screening",
-        tags: ["pets", "dog", "luna", "small talk"],
-        company: "Globant",
-        role: "GCP Cloud Engineer",
-        createdAt: Date.now(),
-      },
-      {
-        id: "ans_globant_hobbies",
-        question: "What are your hobbies or what do you do in your free time?",
-        enText: "In my free time, I love cycling outdoors around the scenic hills of Salta and spending time with my family and dog Luna. I also enjoy tinkering with my home-lab infrastructure to experiment with new cloud tools.",
-        esText: "Me encanta salir a pedalear al aire libre por Salta, compartir tiempo con mi perrita Luna y experimentar en mi home-lab con herramientas cloud.",
-        category: "Screening",
-        tags: ["hobbies", "cycling", "free time"],
-        company: "Globant",
-        role: "GCP Cloud Engineer",
-        createdAt: Date.now(),
-      },
-      {
-        id: "ans_globant_pitch",
-        question: "Tell me about yourself and your background.",
-        enText: "Personally, I'm based in Salta living with my adopted rescue dog Luna, and professionally I bring over eight years of total IT experience. Over the last four years, I've specialized deeply in Google Cloud Platform, Terraform, Linux systems, and cloud architecture.",
-        esText: "Vivo en Salta con mi perrita Luna; sumo más de 8 años de trayectoria en sistemas y software, con los últimos ~4 años dedicados exclusivamente a GCP, Terraform y Linux.",
-        category: "Screening",
-        tags: ["tell me about yourself", "pitch", "experience"],
-        company: "Globant",
-        role: "GCP Cloud Engineer",
-        createdAt: Date.now(),
-      },
-      {
-        id: "ans_globant_salary",
-        question: "What are your salary expectations for this hourly contractor role?",
-        enText: "For this full-time contractor engagement, my target hourly rate is between twenty-five and thirty dollars per hour, which aligns with my four thousand dollar monthly benchmark. I am fully accustomed to the international contractor model and ready to start immediately.",
-        esText: "Para este esquema contractor full-time mi tarifa de referencia se sitúa entre 25 y 30 USD por hora, equivalente a unos 4,000 USD mensuales brutos.",
-        category: "Screening",
-        tags: ["salary", "rate", "contractor", "usd"],
-        company: "Globant",
-        role: "GCP Cloud Engineer",
-        createdAt: Date.now(),
-      },
-      {
-        id: "ans_globant_gcve",
-        question: "What is your experience with Google Cloud VMware Engine (GCVE) and VMware migrations?",
-        enText: "I approach GCVE by interconnecting the VMware private cloud environment with native GCP VPCs using Private Services Access and Cloud Interconnect. This allows running enterprise workloads seamlessly while automating routing, DNS, and cloud-native services through Terraform.",
-        esText: "Integro GCVE conectando la nube privada con las VPCs de GCP mediante Private Services Access y Cloud Interconnect, automatizando redes y servicios con Terraform.",
-        category: "Technical",
-        tags: ["gcve", "vmware", "gcp", "migration"],
-        company: "Globant",
-        role: "GCP Cloud Engineer",
-        createdAt: Date.now(),
-      },
-      {
-        id: "ans_globant_terraform",
-        question: "How do you structure infrastructure as code using Terraform on GCP?",
-        enText: "I build modular Terraform architectures following the Google Cloud Foundation Fabric blueprint, with separate state backends in versioned Cloud Storage buckets. This ensures dry, secure, and reproducible deployments with strict IAM least-privilege principles.",
-        esText: "Estructuro Terraform con módulos reutilizables y state remoto en Cloud Storage versionado, aplicando permisos mínimos y despliegues reproducibles.",
-        category: "Technical",
-        tags: ["terraform", "iac", "gcp"],
-        company: "Globant",
-        role: "GCP Cloud Engineer",
-        createdAt: Date.now(),
-      },
-    ];
-    importMasterAnswers(globantMasterAnswers);
+    importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
   return (
@@ -2174,6 +2107,15 @@ export default function CopilotPage() {
               </div>
 
               <div className="flex items-center gap-2">
+
+                <button
+                  type="button"
+                  onClick={() => importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS)}
+                  className="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 text-purple-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
+                  title="Cargar el banco maestro de 132 respuestas preparadas para Globant, Intermedia, GCP, GCVE y RRHH"
+                >
+                  <span>⚡ Cargar Banco Completo (132)</span>
+                </button>
 
                 <button
                   type="button"
