@@ -198,12 +198,12 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* 1. Puente Inmediato (<200ms) Anti-Silencio */}
       {a.bridge && (
-        <div className="bg-sky-950/40 border-2 border-sky-500/60 rounded-xl p-2.5 mt-2 text-xs shadow-md animate-fadeIn">
-          <div className="flex items-center justify-between text-sky-400 font-bold text-[11px] mb-1">
+        <div className="bg-sky-500/[0.08] border border-sky-500/30 rounded-xl p-3 mt-2 text-xs shadow-sm backdrop-blur-md animate-fadeIn">
+          <div className="flex items-center justify-between text-sky-300 font-bold text-[11px] mb-1">
             <span className="flex items-center gap-1.5">
               <span>🎙️</span> PUENTE INMEDIATO (ARRANCÁ A HABLAR YA):
             </span>
-            <span className="bg-sky-500/20 text-sky-300 border border-sky-500/40 px-1.5 py-0.2 rounded text-[9px] font-mono uppercase font-bold">
+            <span className="bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold">
               &lt;200ms
             </span>
           </div>
@@ -218,12 +218,12 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* 2. Tarjetas Disparadoras (Trigger Cards) - Visión Periférica 0.1s */}
       {((a.triggerCards && a.triggerCards.length > 0) || (a.keyWords && a.keyWords.length > 0)) && (
-        <div className="mt-2.5 mb-1 p-2.5 rounded-xl bg-zinc-950/90 border-2 border-amber-500/50 shadow-lg">
-          <div className="text-amber-400 text-[10px] font-extrabold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+        <div className="mt-2.5 mb-1 p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/30 shadow-sm backdrop-blur-md">
+          <div className="text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <span>⚡</span> CONCEPTOS DISPARADORES (VISIÓN PERIFÉRICA 0.1s):
             </span>
-            <span className="text-[9px] text-zinc-500 font-mono">PUNCHLINE FIRST</span>
+            <span className="text-[9px] text-zinc-400 font-mono">PUNCHLINE FIRST</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {(a.triggerCards && a.triggerCards.length > 0
@@ -231,11 +231,11 @@ export const AnswerCard = React.memo(function AnswerCard({
               : (a.keyWords || []).map((k, idx) => `${idx + 1}. ${k.toUpperCase()}`)
             ).map((card, idx, arr) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="bg-gradient-to-r from-amber-500/25 to-amber-600/15 text-amber-300 border-2 border-amber-400 px-3 py-1 rounded-lg font-mono font-black text-[13px] tracking-wide shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+                <span className="bg-amber-500/15 text-amber-200 border border-amber-500/40 px-3 py-1 rounded-lg font-mono font-bold text-[12.5px] tracking-wide shadow-[0_0_10px_rgba(245,158,11,0.15)]">
                   {card}
                 </span>
                 {idx < arr.length - 1 && (
-                  <span className="text-amber-400 font-bold text-sm select-none">➔</span>
+                  <span className="text-amber-400/80 font-bold text-sm select-none">➔</span>
                 )}
               </div>
             ))}
@@ -245,8 +245,8 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* 📊 Píldoras de Números de Escala y Latencia (Jeff Dean Numbers) */}
       {a.scalePills && a.scalePills.length > 0 && (
-        <div className="mt-2.5 mb-1 p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/40 text-xs">
-          <div className="text-cyan-400 text-[10px] font-extrabold uppercase tracking-wider mb-1 flex items-center justify-between">
+        <div className="mt-2.5 mb-1 p-2.5 rounded-xl bg-cyan-500/[0.06] border border-cyan-500/30 text-xs backdrop-blur-md">
+          <div className="text-cyan-300 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <span>📏</span> NÚMEROS DE ESCALA Y LATENCIA (PRODUCCIÓN):
             </span>
@@ -256,7 +256,7 @@ export const AnswerCard = React.memo(function AnswerCard({
             {a.scalePills.map((pill, idx) => (
               <span
                 key={idx}
-                className="inline-flex items-center gap-1 bg-cyan-900/40 border border-cyan-400/50 px-2 py-0.5 rounded text-[11px] font-mono text-cyan-200"
+                className="inline-flex items-center gap-1 bg-cyan-500/10 border border-cyan-400/30 px-2.5 py-0.5 rounded-lg text-[11px] font-mono text-cyan-200"
                 title={pill.compare || ""}
               >
                 <strong className="text-white">{pill.label}:</strong>
@@ -270,15 +270,15 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* ⚠️ Radar Instantáneo de Preguntas Trampa (<30ms) */}
       {a.instantTrap && (
-        <div className="mt-2.5 p-2.5 rounded-xl bg-red-950/80 border-2 border-red-500/80 shadow-lg text-red-100">
-          <div className="text-red-400 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 mb-1">
+        <div className="mt-2.5 p-3 rounded-xl bg-red-500/[0.08] border border-red-500/40 shadow-sm text-red-100 backdrop-blur-md">
+          <div className="text-red-400 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1">
             <span>🚨</span> TRAMPA DETECTADA EN LA PREGUNTA (RADAR INSTANTÁNEO &lt;30ms)
           </div>
           <p className="text-[12.5px] font-bold text-red-200 leading-snug">
             {a.instantTrap.reason}
           </p>
           {a.instantTrap.suggestedPivot && (
-            <p className="text-[11px] text-red-300/90 mt-1.5 bg-red-900/40 p-1.5 rounded border border-red-800/40">
+            <p className="text-[11px] text-red-300/90 mt-1.5 bg-red-950/40 p-2 rounded-lg border border-red-500/30">
               💡 <span className="font-semibold text-red-200">Pivote Seguro:</span> {a.instantTrap.suggestedPivot}
             </p>
           )}
@@ -449,8 +449,8 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* Casos Borde a Clarificar antes de Codear */}
       {a.edgeCases && a.edgeCases.length > 0 && (
-        <div className="my-2 p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-xs">
-          <div className="font-bold text-amber-400 flex items-center gap-1.5 mb-1">
+        <div className="my-2 p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/30 text-xs backdrop-blur-md">
+          <div className="font-bold text-amber-300 flex items-center gap-1.5 mb-1">
             <span>🎯</span> Casos Borde a Clarificar antes de Codear:
           </div>
           <ul className="list-disc list-inside space-y-0.5 text-amber-200/90 text-[11px]">
@@ -463,11 +463,11 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* Matriz de Trade-offs: Why NOT X? */}
       {(a.whyNot || a.instantWhyNot) && (
-        <div className="my-2 p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/30 text-xs">
-          <div className="font-bold text-indigo-400 flex items-center gap-1.5 mb-0.5">
+        <div className="my-2 p-3 rounded-xl bg-indigo-500/[0.08] border border-indigo-500/30 text-xs backdrop-blur-md">
+          <div className="font-bold text-indigo-300 flex items-center gap-1.5 mb-0.5">
             <span>⚖️</span> Why NOT X? (Alternativa Descartada):
           </div>
-          <p className="text-indigo-200/90 text-[11px] leading-relaxed">
+          <p className="text-indigo-100/90 text-[11px] leading-relaxed">
             {a.whyNot || a.instantWhyNot}
           </p>
         </div>
@@ -475,11 +475,11 @@ export const AnswerCard = React.memo(function AnswerCard({
 
       {/* Pragmatismo Senior: YAGNI / Anti-Overengineering */}
       {a.yagni && (
-        <div className="my-2 p-2.5 rounded-lg bg-teal-950/40 border border-teal-500/40 text-xs">
-          <div className="font-bold text-teal-400 flex items-center gap-1.5 mb-0.5">
+        <div className="my-2 p-3 rounded-xl bg-teal-500/[0.08] border border-teal-500/30 text-xs backdrop-blur-md">
+          <div className="font-bold text-teal-300 flex items-center gap-1.5 mb-0.5">
             <span>💡</span> YAGNI / PRAGMATISMO SENIOR:
           </div>
-          <p className="text-teal-200/90 text-[11px] leading-relaxed">
+          <p className="text-teal-100/90 text-[11px] leading-relaxed">
             {a.yagni}
           </p>
         </div>
@@ -489,7 +489,7 @@ export const AnswerCard = React.memo(function AnswerCard({
       {a.bilingual ? (
         <div className="flex flex-col gap-2.5 mt-2.5">
           {/* 1. Respuesta en Inglés */}
-          <div className="bg-emerald-500/5 border-2 border-emerald-500/30 rounded-xl p-3">
+          <div className="bg-emerald-500/[0.05] border border-emerald-500/30 rounded-xl p-3.5 backdrop-blur-md shadow-[0_0_20px_rgba(16,185,129,0.06)]">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
                 ⭐ 1. Lo que decís en la llamada (Inglés)
@@ -505,7 +505,7 @@ export const AnswerCard = React.memo(function AnswerCard({
                   </button>
                   <button
                     onClick={() => onCopy(a.id, a.enText)}
-                    className="border border-zinc-700/50 bg-zinc-800/80 text-zinc-200 px-2 py-0.5 text-xs rounded-md hover:bg-zinc-700 transition-colors flex items-center gap-1"
+                    className="border border-white/10 bg-white/[0.04] text-zinc-200 px-2 py-0.5 text-xs rounded-md hover:bg-white/[0.08] transition-colors flex items-center gap-1"
                     title="Copiar texto en inglés"
                   >
                     {copiedId === a.id ? (
@@ -522,18 +522,18 @@ export const AnswerCard = React.memo(function AnswerCard({
             </div>
             {/* Fonética Quirúrgica para Términos Complejos */}
             {a.surgicalPhonetics && a.surgicalPhonetics.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap mb-2.5 p-2 rounded-lg bg-black/50 border border-amber-500/40 text-xs">
-                <span className="text-amber-400 font-extrabold text-[11px] flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap mb-2.5 p-2 rounded-lg bg-black/40 border border-amber-500/30 text-xs">
+                <span className="text-amber-300 font-extrabold text-[11px] flex items-center gap-1">
                   <span>🗣️</span> FONÉTICA QUIRÚRGICA:
                 </span>
                 {a.surgicalPhonetics.map((sp, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1 bg-amber-950/80 border border-amber-400/60 px-2 py-0.5 rounded text-[11.5px] font-mono text-amber-200"
+                    className="inline-flex items-center gap-1 bg-amber-500/10 border border-amber-400/40 px-2 py-0.5 rounded text-[11.5px] font-mono text-amber-200"
                     title={sp.tip || `Pronunciar ${sp.word} como ${sp.phonetic}`}
                   >
                     <strong className="text-white">{sp.word}:</strong>
-                    <span className="text-amber-400 font-extrabold">[{sp.phonetic}]</span>
+                    <span className="text-amber-300 font-extrabold">[{sp.phonetic}]</span>
                   </span>
                 ))}
               </div>
@@ -553,30 +553,26 @@ export const AnswerCard = React.memo(function AnswerCard({
 
           {/* Guía fonética si está presente */}
           {a.phoText && (
-            <div className="bg-amber-950/20 border border-amber-800/40 rounded-lg p-2.5">
-              <div className="text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+            <div className="bg-amber-500/[0.06] border border-amber-500/30 rounded-xl p-3">
+              <div className="text-amber-300 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                 🗣️ Guía Fonética (Pronunciación Rápida)
               </div>
-              <div className="text-amber-300 font-mono text-[0.88em]">
+              <div className="text-amber-200 font-mono text-[0.88em]">
                 {a.phoText}
               </div>
             </div>
           )}
 
           {/* 2. Resumen en Español */}
-          <div
-            className="rounded-lg p-2.5 border"
-            style={{ background: "var(--bg)", borderColor: "var(--line-strong)" }}
-          >
+          <div className="rounded-xl p-3 border border-white/[0.08] bg-white/[0.02] backdrop-blur-md">
             <div className="flex items-center gap-1.5 mb-1">
               <span
-                className="text-[11px] font-bold tracking-wider uppercase"
-                style={{ color: "var(--loro-green-bright)" }}
+                className="text-[11px] font-bold tracking-wider uppercase text-emerald-400"
               >
                 🇦🇷 2. Idea Clave (Español)
               </span>
             </div>
-            <div className="answer-card-text text-[0.95em] leading-relaxed" style={{ color: "var(--ink-dim)" }}>
+            <div className="answer-card-text text-[0.95em] leading-relaxed text-zinc-300">
               {a.esText ? (
                 a.done ? <MarkdownText text={a.esText} /> : <span className="whitespace-pre-wrap">{a.esText}</span>
               ) : (

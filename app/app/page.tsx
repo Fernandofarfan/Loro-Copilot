@@ -1225,70 +1225,72 @@ export default function CopilotPage() {
               </div>
 
               {/* Tier 2: Co-Pilot Tactical Arsenal & Assistance Tools */}
-              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
-                {/* Selector de Modo de Entrevista */}
-                <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] p-1 text-xs font-medium">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInterviewMode("technical");
-                      syncTeleprompter({ interviewMode: "technical" });
-                    }}
-                    className={`px-3 py-1 rounded-lg transition-all duration-150 ${
-                      interviewMode === "technical"
-                        ? "bg-zinc-800 text-white font-semibold shadow-sm border border-white/10"
-                        : "text-zinc-400 hover:text-zinc-200"
-                    }`}
-                  >
-                    🎙️ Técnico
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInterviewMode("screening");
-                      syncTeleprompter({ interviewMode: "screening" });
-                    }}
-                    className={`px-3 py-1 rounded-lg transition-all duration-150 ${
-                      interviewMode === "screening"
-                        ? "bg-purple-950/80 text-purple-200 font-semibold border border-purple-500/40 shadow-sm shadow-purple-950/50"
-                        : "text-zinc-400 hover:text-zinc-200"
-                    }`}
-                    title="Modo Screening HR: Directivas breves, pretensión salarial ($4,000 USD / $25-30/h) y fit cultural"
-                  >
-                    🤝 Screening HR (15m)
-                  </button>
-                </div>
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 pt-2 border-t border-white/[0.05]">
+                {/* Tactical Arsenal: Mode + Intel Weapons */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Selector de Modo de Entrevista */}
+                  <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] p-1 text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInterviewMode("technical");
+                        syncTeleprompter({ interviewMode: "technical" });
+                      }}
+                      className={`px-2.5 py-1 rounded-lg transition-all duration-150 ${
+                        interviewMode === "technical"
+                          ? "bg-zinc-800 text-white font-semibold shadow-sm border border-white/10"
+                          : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      🎙️ Técnico
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInterviewMode("screening");
+                        syncTeleprompter({ interviewMode: "screening" });
+                      }}
+                      className={`px-2.5 py-1 rounded-lg transition-all duration-150 ${
+                        interviewMode === "screening"
+                          ? "bg-purple-950/80 text-purple-200 font-semibold border border-purple-500/40 shadow-sm shadow-purple-950/50"
+                          : "text-zinc-400 hover:text-zinc-200"
+                      }`}
+                      title="Modo Screening HR: Directivas breves, pretensión salarial ($4,000 USD / $25-30/h) y fit cultural"
+                    >
+                      🤝 Screening HR
+                    </button>
+                  </div>
 
-                {/* Tactical Arsenal Group */}
-                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-px h-4 bg-white/10 mx-0.5 hidden sm:inline" />
+
                   <button
                     type="button"
                     onClick={handleCaptureScreen}
                     disabled={isGenerating || isVisionCapturing}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
                     title="Capturar pantalla y resolver ejercicio de LeetCode / diagrama (Ctrl+Shift+S)"
                   >
-                    <span>📷 {isVisionCapturing ? "Capturando..." : "Analizar Pantalla"}</span>
+                    <span>📷 {isVisionCapturing ? "Capturando..." : "Pantalla"}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleReverseQuestions}
                     disabled={isGenerating}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
                     title="Generar preguntas estratégicas de cierre basadas en los dolores de la entrevista (Ctrl+Shift+Q)"
                   >
-                    <span>🎯 Cierre de Oro</span>
+                    <span>🎯 Cierre</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleGenerateSummary}
                     disabled={isGenerating || isSummaryLoading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
                     title="Generar Scorecard Predictor FAANG y nota de agradecimiento hiper-personalizada"
                   >
-                    <span>📊 Scorecard & Follow-up</span>
+                    <span>📊 Scorecard</span>
                   </button>
 
                   <button
@@ -1298,7 +1300,7 @@ export default function CopilotPage() {
                       setVulnerabilities(vulns);
                       setVulnModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-medium transition-all duration-150"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-medium transition-all duration-150"
                     title="Auditar CV con Red Team y anticipar preguntas trampa"
                   >
                     <span>🛡️ Radar CV</span>
@@ -1313,19 +1315,19 @@ export default function CopilotPage() {
                         return next;
                       });
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
                       screenSafeMode
                         ? "bg-purple-950/80 border-purple-500 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.3)] animate-pulse"
                         : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] text-zinc-300"
                     }`}
                     title="Alternar Pantalla Segura / Camuflaje IDE en el Teleprompter (Atajo: F8)"
                   >
-                    <span>{screenSafeMode ? "🛡️ Pantalla Segura ACTIVA (F8)" : "🛡️ Pantalla Segura (F8)"}</span>
+                    <span>{screenSafeMode ? "🛡️ Camuflaje (F8) ON" : "🛡️ Camuflaje (F8)"}</span>
                   </button>
                 </div>
 
-                {/* Live Assistance & Badges */}
-                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                {/* Live Assistance & Telemetry Station */}
+                <div className="flex items-center gap-1.5 flex-wrap lg:justify-end">
                   <button
                     type="button"
                     onClick={() => earbudWhisper.setIsEnabled(!earbudWhisper.isEnabled)}
@@ -1336,7 +1338,7 @@ export default function CopilotPage() {
                     }`}
                     title="Susurro acelerado (1.5x) en auricular privado para las palabras clave de apertura"
                   >
-                    <span>🎧 {earbudWhisper.isEnabled ? "Susurro ON" : "Susurro OFF"}</span>
+                    <span>🎧 {earbudWhisper.isEnabled ? "Susurro ON" : "Susurro"}</span>
                   </button>
 
                   <button
@@ -1351,7 +1353,7 @@ export default function CopilotPage() {
                     }`}
                     title="Entrenador de contacto visual con la cámara (100% privado en tu navegador)"
                   >
-                    <span>👁️ {gazeTracker.isTracking ? (gazeTracker.isLookingAway ? "Mirá a la cámara" : "Contacto OK") : "Eye Coach"}</span>
+                    <span>👁️ {gazeTracker.isTracking ? (gazeTracker.isLookingAway ? "Mirá acá" : "Contacto OK") : "Eye Coach"}</span>
                   </button>
 
                   {sessionFacts.length > 0 && (
@@ -1379,9 +1381,10 @@ export default function CopilotPage() {
                     onClick={handleIcebreaker}
                     disabled={isGenerating}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
+                    title="Preguntas estratégicas para hacerle a ellos"
                   >
                     <SparkleIcon />
-                    <span className="hidden sm:inline">Preguntas para ellos</span>
+                    <span className="hidden sm:inline">Preguntas</span>
                   </button>
                 </div>
               </div>

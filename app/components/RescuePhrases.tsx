@@ -45,6 +45,7 @@ interface RescuePhrasesProps {
 
 export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: RescuePhrasesProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleCopy = (phrase: RescuePhrase, index: number) => {
     navigator.clipboard.writeText(phrase.en);
@@ -54,7 +55,7 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
   };
 
   return (
-    <div className="flex flex-col gap-1.5 w-full my-1">
+    <div className="flex flex-col gap-1.5 w-full my-1 transition-all">
       <div className="flex items-center justify-between px-1 text-[11px]">
         <span className="flex items-center gap-1.5 tracking-wider uppercase text-[10px] text-zinc-400 font-mono">
           <span className="text-amber-400">⚡</span>
@@ -62,8 +63,17 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
           <span className="text-zinc-600 hidden sm:inline">•</span>
           <span className="text-zinc-500 lowercase hidden sm:inline">clic para copiar en inglés</span>
         </span>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="flex items-center gap-1 text-[10.5px] text-zinc-400 hover:text-zinc-200 transition-colors px-2 py-0.5 rounded-lg hover:bg-white/[0.05]"
+          title={isCollapsed ? "Expandir frases de auxilio" : "Colapsar para ganar espacio en el feed"}
+        >
+          <span>{isCollapsed ? "▼ Mostrar frases" : "▲ Ocultar frases"}</span>
+        </button>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+      {!isCollapsed && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full animate-in fade-in duration-200">
         {phrases.map((phrase, idx) => {
           const isCopied = copiedIndex === idx;
           return (
@@ -100,6 +110,7 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
           );
         })}
       </div>
+      )}
     </div>
   );
 }
