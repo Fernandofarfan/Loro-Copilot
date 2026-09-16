@@ -1,34 +1,29 @@
-# 🧩 Extensión de Chrome — Loro Copilot (Modo Captura Local)
+# Extensión de Chrome — captura local (no integrada)
 
-La extensión de Chrome permite capturar audio de pestañas (Google Meet, Zoom Web, Teams) sin depender exclusivamente de `getDisplayMedia` en la ventana principal.
+La carpeta `extension/` es un companion Manifest V3 para capturar audio de pestañas (Meet / Zoom Web / Teams) en **desarrollo** (`http://localhost:3000`), sin depender solo de `getDisplayMedia` en la ventana del copiloto.
 
----
-
-## 🔒 Política de Seguridad y Origen (Entorno Local)
-
-- **Entorno Soportado:** Desarrollo y pruebas locales (`http://localhost:3000`). La app web en producción utiliza `getDisplayMedia` de forma nativa para captura de pestañas sin requerir extensiones instaladas.
-- **Producción:** En producción (`NODE_ENV === "production"`), el backend de `loro-copilot.vercel.app` aplica una estricta política de `verifyOrigin` que bloquea solicitudes sin origen autorizado para evitar abusos o uso no autorizado de tokens STT.
-- **Comunicación Segura:** La mensajería interna entre `offscreen.js` y la pestaña web (`content.js`) restringe el `postMessage` al origen exacto de la pestaña (`window.location.origin`) eliminando el uso de `*`.
+**Estado:** el código existe. La app Next **no escucha** `LORO_EXT_DG_MESSAGE`. En producción el copiloto usa `getDisplayMedia` / VB-CABLE vía `useDeepgram.ts`. No instalar esto para la entrevista Globant salvo que se cablee el listener.
 
 ---
 
-## 🛠️ Estructura de la Extensión
+## Seguridad
 
-- `manifest.json` — Manifiesto Manifest V3 con permisos de `tabCapture`, `offscreen` y `storage`.
-- `background.js` — Service worker que gestiona la creación del documento offscreen y el ciclo de captura de pestaña.
-- `offscreen.js` — Contexto aislado de audio que:
-  1. Solicita el token temporal efímero a `/api/deepgram-token`.
-  2. Conecta el stream PCM16 a `wss://api.deepgram.com/v1/listen`.
-  3. Mantiene una ganancia nula (`GainNode` gain 0) para procesar el audio sin generar sidetone ni eco en los altavoces.
-  4. Envía los mensajes de transcripción a `content.js`.
-- `content.js` — Inyecta los eventos en la sesión web activa.
+- Pensada para localhost. En prod, `verifyOrigin` bloquea orígenes no allowlisteados.
+- `content.js` hace `postMessage` al origen de la pestaña (`window.location.origin`), no a `*`.
 
 ---
 
-## 📦 Cómo Cargar la Extensión en Chrome (Desarrollo)
+## Archivos
 
-1. Abrir Google Chrome e ingresar a `chrome://extensions/`.
-2. Activar el **Modo de desarrollador** (esquina superior derecha).
-3. Hacer clic en **Cargar descomprimida** (*Load unpacked*).
-4. Seleccionar la carpeta `extension/` de este repositorio.
-5. Iniciar la app local con `npm run dev` en `http://localhost:3000`.
+- `manifest.json` — MV3: `tabCapture`, `offscreen`, `storage`.
+- `background.js` — service worker, documento offscreen, ciclo de captura.
+- `offscreen.js` — pide grant a `/api/deepgram-token` (TTL 120 s), WS PCM16 a Deepgram, `GainNode` en 0 (sin sidetone).
+- `content.js` — reenvía transcripciones a la página con `type: "LORO_EXT_DG_MESSAGE"`. **Ningún hook de Next las consume.**
+
+---
+
+## Cargar en Chrome (solo si se va a integrar)
+
+1. `chrome://extensions/` → Modo desarrollador → Cargar descomprimida → carpeta `extension/`.
+2. `npm run dev` en `http://localhost:3000`.
+3. Hasta que `/app` escuche el mensaje, la transcripción de la extensión no llega al copiloto.

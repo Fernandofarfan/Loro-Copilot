@@ -307,6 +307,14 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     });
   }, []);
 
+  const replaceMasterAnswers = useCallback((newAnswers: MasterAnswer[]) => {
+    if (!newAnswers || newAnswers.length === 0) return;
+    setMasterAnswers(newAnswers);
+    try {
+      localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(newAnswers));
+    } catch {}
+  }, []);
+
   const deleteMasterAnswer = useCallback((id: string) => {
     setMasterAnswers((prev) => {
       const updated = prev.filter((a) => a.id !== id);
@@ -401,6 +409,7 @@ export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash"
     setMasterAnswers,
     saveMasterAnswer,
     importMasterAnswers,
+    replaceMasterAnswers,
     deleteMasterAnswer,
     clearAllMasterAnswers,
     toggleFavoriteMasterAnswer,

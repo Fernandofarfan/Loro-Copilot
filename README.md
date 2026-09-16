@@ -1,149 +1,120 @@
 # 🦜 Loro Copilot
 
-**Loro Copilot** es un asistente profesional de entrevistas de trabajo potenciado por IA en tiempo real. Combina captura de audio estéreo de ultra-baja latencia (Deepgram), detección de silencios local (VAD <80ms), anclaje contextual al CV/puesto del candidato mediante RAG dinámico, optimización de Prompt Caching en Edge y sugerencia de respuestas estructuradas ("Punchline First") con modelos de lenguaje de última generación.
+Herramienta **personal** de Guillermo Fernando Farfán Romero para preparar y acompañar entrevistas en vivo. El foco actual es el screening de **Globant / Intermedia** (GCP Cloud Engineer, reclutadora Marian Francheska Escalona): audio dual, transcripción Deepgram, banco de respuestas anclado a su CV y HUD teleprompter.
+
+No es un SaaS multi-usuario. El perfil (Salta, Luna, +8 años IT / ~4 años cloud GCP, $4.000 USD / $25–30/h) está **hardcodeado a propósito** en prompts y presets.
+
+Deploy: Next.js 14 (App Router) en Vercel → `https://loro-copilot.vercel.app`.
 
 ---
 
-## 🚀 Características Principales
+## Qué hace de verdad
 
-- **🎧 Audio Dual Simultáneo (Micrófono + Pestaña)**: Captura combinada de tu voz (Canal L) y la del entrevistador (Canal R) con remuestreo estéreo a 16kHz PCM16 en `AudioWorklet`, diarización multicanal exacta en Deepgram y liberación estricta de nodos Web Audio.
-- **⚡ Cancelación Inmediata por Interrupción (<50ms Barge-in Inverso)**: Si el entrevistador interrumpe con una objeción o nueva pregunta mientras el copiloto está generando, aborta inmediatamente el SSE (`AbortController`) y envía un flush instantáneo al Teleprompter sin mezclar contextos.
-- **⏱️ VAD Local y Barge-in Inteligente**: Detección de actividad vocal en `<80ms` con ventana de gracia anti-falsos positivos (4.5s) y umbral de discurso sustancial (>=15 caracteres) para no cortar respuestas involuntariamente.
-- **⚡ Prompt Caching (KV-Cache) y Respuestas Conversacionales "Punchline First"**: Prefijo estático inmutable para activar caché en DeepSeek/Gemini/Claude y entrega del bloque `[KEY]` junto con respuestas ultra-concisas habladas en **un solo párrafo corrido de exactamente 2 oraciones (25-35 palabras: Answer → Why/Solution)**, con **prohibición estricta de viñetas, guiones o enumeraciones** para sonar 100% natural sin leer listas.
-- **💡 Cápsula de Pragmatismo Senior YAGNI (Anti-Overengineering)**: Tip determinista (<1ms) y directiva LLM `[YAGNI]` que prioriza la solución simple de producción (monolito modular antes de microservicios, colas simples antes de Kafka, read replicas antes de sharding manual).
-- **🔢 Píldoras de Magnitudes de Escala y Latencia al Vuelo (Jeff Dean Numbers)**: Pastillas métricas de alto contraste en AnswerCard y Teleprompter (RAM ~100ns vs NVMe ~100µs, Datacenter ~0.5ms vs Cross-region ~150ms, B-Tree seek O(log N), Kafka throughput).
-- **🎯 Clasificador Temprano de Preguntas**: Categorización instantánea en `<5ms` (*System Design*, *Live Coding / LeetCode*, *Behavioral STAR*, *Fit Cultural*, *Técnico*) inyectando directivas de respuesta específicas.
-- **🛡️ Dual Stream Asíncrono de Trampas**: Modelo secundario en segundo plano que detecta preguntas trampa, supuestos ocultos o red flags (`⚠️ TIP TÁCTICO`).
-- **🗣️ Modo Bilingüe con Fonética en Vivo (`[EN]`, `[PHO]`, `[ES]`)**: Respuesta en inglés senior, pronunciación fonética simplificada en español con mayúsculas y resumen conceptual.
-- **🪟 Teleprompter Flotante con Lectura Biónica y Camuflaje**: HUD emergente sincronizado en 0ms vía `BroadcastChannel`, chips dorados `[KEY]`, ajuste tipográfico, lectura biónica periférica, guía de alineación visual con lente de webcam (`▼ 🎯 ALINEAR CON LENTE DE WEBCAM ▼`), modo telegráfico ultra-resumido con hotkey `T`, modos de camuflaje "IDE (VS Code) / Terminal (Bash)" y botón de pánico (`Escape`).
-- **🧠 RAG Dinámico del CV por Proyectos (`cvChunker`)**: Segmenta el perfil y recupera de forma quirúrgica los proyectos relevantes donde usaste las tecnologías de la pregunta.
-- **⚖️ Matriz de Trade-offs y Bloque `[WHY_NOT]` en Streaming**: Extracción en tiempo real de alternativas descartadas sin mezclarse con la respuesta principal.
-- **🛡️ Filtro Anti-Slop de Grado de Producción**: Eliminación de muletillas de IA formuláicas con protección estricta contra bucles infinitos (`MAX_ITERATIONS = 10`).
-- **📊 Speech Coach en Tiempo Real**: Telemetría de habla que mide palabras por minuto (WPM), proporción de escucha vs. habla (*Talk-to-Listen Ratio*) y conteo de muletillas (*fillers*).
-- **🤖 Simulador de Entrevistas Interactivo con Espejo Acústico**: Práctica con entrevistador virtual por IA, personalidades FAANG, Gimnasio de 25 Segundos, Modo Pushback / Have Backbone, **Espejo Acústico con grabación automática (`MediaRecorder`) y reproductor de playback con selector 1x/1.25x y conteo de muletillas**, e **Inyección Dinámica de Job Description** para calibrar el 100% de las preguntas a la vacante real.
-- **⚡ Múltiples Proveedores de IA y Fallbacks**: Soporte para **DeepSeek Chat / MiMo**, **Gemini Flash**, **GPT-4o Mini**, **Claude Haiku**, con conmutación automática por error en Edge Runtime.
-- **🧠 Banco de Memoria Inteligente (<50ms)**: Caché local con sinónimos canónicos (`CANONICAL_SYNONYMS`), aislamiento por empresa y rol (`matchesRole`), presets especializados de respuestas maestras y enciclopedia universal de 107 respuestas (`docs/master_answers_all_roles.md`).
-- **🛡️ Máxima Privacidad**: Sin base de datos ni registros obligatorios. El CV y las notas se almacenan en el `localStorage` del usuario y el audio no se graba ni persiste en servidores externos.
+- **Audio dual** (micrófono + pestaña o VB-CABLE): PCM16 16 kHz estéreo en `AudioWorklet`, diarización por canal en Deepgram Nova-2.
+- **Turn-taking**: VAD local, `UtteranceEnd`, debounce, barge-in con gracia ~4.5 s y umbral de discurso sustancial.
+- **Respuestas Punchline First**: bloques `[KEY]` / `[EN]` / `[PHO]` / `[ES]` en un párrafo de 2 oraciones (25–35 palabras), sin viñetas.
+- **Memoria local &lt;50 ms**: matching léxico (Jaccard / Dice / cobertura + sinónimos canónicos), no embeddings.
+- **RAG del CV**: `cvChunker` segmenta y rankea por tokens, recencia y seniority. No hay vector DB.
+- **HUD teleprompter**: pop-out + `BroadcastChannel`, lectura biónica, Panic (`Escape`), camuflaje IDE/Terminal, pacer ~135 WPM.
+- **Simulador**: personalidades FAANG, pushback, gimnasio 25 s, espejo acústico (`MediaRecorder`) y `countFillers`.
+- **Banco Globant + enciclopedia**: `app/lib/globantMasterAnswers.ts` y `docs/master_answers_all_roles.md` (107 Q&A personales).
+
+Chrome de escritorio es el runtime real. Dual audio / HUD / Screen Vision no están pensados para iOS.
 
 ---
 
-## 🛠️ Tecnologías
+## Qué no está (aunque a veces se documentó)
 
-- **Framework**: [Next.js 14](https://nextjs.org/) (App Router, Edge Runtime)
-- **Frontend**: React 18, TypeScript, CSS nativo de alto rendimiento
-- **Audio & STT**: Web Audio API, `AudioWorkletProcessor` (PCM16 estéreo), `MediaRecorder` (Espejo Acústico local), [Deepgram Nova-2](https://deepgram.com/)
-- **Modelos de IA**: OpenCode / OpenRouter (DeepSeek, MiMo), Google Gemini, Anthropic Claude, OpenAI GPT
-- **Testing**: [Vitest](https://vitest.dev/) (185 tests automatizados en 26 suites)
-- **Analytics**: PostHog (fail-safe) + Vercel Analytics
-
----
-
-## 📚 Centro de Documentación (`docs/`)
-
-Toda la documentación técnica y operativa se encuentra organizada en el directorio [`docs/`](./docs/README.md):
-
-- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — Diagramas de secuencia Mermaid, pipeline de audio dual y diseño de sistemas.
-- [docs/master_answers_all_roles.md](./docs/master_answers_all_roles.md) — Banco maestro universal de 107 preguntas y respuestas en 12 capítulos para todos los CVs.
-- [docs/EXTENSION.md](./docs/EXTENSION.md) — Extensión de Chrome Manifest V3 para captura local en desarrollo.
-- [docs/LAUNCH.md](./docs/LAUNCH.md) — Estrategia y checklist pre-lanzamiento, límites y antimarketing.
-- [docs/BRANCH_PROTECTION.md](./docs/BRANCH_PROTECTION.md) — Reglas recomendadas de protección de ramas en GitHub.
+| Claim viejo | Realidad |
+|---|---|
+| Speech Coach en vivo en el copiloto | `analyzeSpeech` existe y tiene tests; **no se importa** en `/app`. En el simulador sí corre `countFillers`. |
+| Prompt Caching / KV-Cache (~75% costo) | Solo **orden de prefijo** en el prompt. No hay `cache_control` ni `cachedContent`. |
+| Extensión de Chrome conectada | `extension/` captura audio en localhost; la app Next **no escucha** `LORO_EXT_DG_MESSAGE`. En prod se usa `getDisplayMedia`. |
+| Dossier de 20+ empresas | **9**: MercadoLibre, Uber, Stripe, Netflix, Amazon, Google, Meta, Globant, Nubank. |
+| RAG semántico / embeddings | Overlap de tokens + heurísticas de recencia. |
+| Eye Coach ML | Ratio de luminosidad de la webcam a ~4 FPS. |
+| Inyector Glassdoor/Blind | Textarea para **pegar** listas; no hay scraper. |
+| Paywall / cupos de sesión en el copiloto | No. El simulador pide email al ver el feedback. Waitlist = Google Form. |
+| Auth, DB, CI de GitHub | No hay. Persistencia = `localStorage`. No existe `.github/workflows/ci.yml`. |
+| Indetectable | Es una web. El camouflage IDE/Terminal y Panic ayudan; no es overlay nativo invisible al screen share. |
 
 ---
 
-## 📦 Instalación y Configuración Local
+## Stack
 
-### Requisitos previos
-- Node.js 18.x o superior
-- Claves de API de Deepgram y de tu proveedor de LLM preferido (Gemini / OpenRouter / OpenAI / Anthropic)
+- Next.js 14, React 18, TypeScript, Edge Runtime en `/api/*`
+- Deepgram Nova-2 (grant efímero TTL **120 s**)
+- OpenCode / OpenRouter, Gemini, Anthropic, OpenAI (fallback en `app/lib/llm.ts`)
+- Vitest: **207 tests en 26 archivos**. Playwright e2e = smoke (título/URL/waitlist), no corre en CI.
+- Analytics: PostHog opcional (`NEXT_PUBLIC_POSTHOG_KEY`). `@vercel/analytics` está en `package.json` y **no se importa**.
 
-### 1. Clonar el repositorio e instalar dependencias
+---
+
+## Docs
+
+- [docs/README.md](./docs/README.md) — índice
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — flujo real (audio → STT → memoria/LLM → HUD)
+- [docs/master_answers_all_roles.md](./docs/master_answers_all_roles.md) — 107 respuestas personales (Fernando)
+- [docs/EXTENSION.md](./docs/EXTENSION.md) — extensión local, **no cableada** a la app
+- [docs/LAUNCH.md](./docs/LAUNCH.md) — ops (Deepgram, kill switch). Lanzamiento público **fuera de alcance**
+- [docs/BRANCH_PROTECTION.md](./docs/BRANCH_PROTECTION.md) — reglas deseadas; CI todavía no existe
+- [AGENTS.md](./AGENTS.md) — contexto para agentes de IA
+
+---
+
+## Local
+
 ```bash
-git clone https://github.com/Fernandofarfan/Loro-Copilot.git
-cd Loro-Copilot
 npm install
-```
-
-### 2. Configurar variables de entorno
-Crea tu archivo local copiando el ejemplo:
-```bash
-cp .env.example .env.local
-```
-
-Completa al menos las claves esenciales en `.env.local`:
-```env
-DEEPGRAM_API_KEY="tu_clave_de_deepgram"
-OPENCODE_API_KEY="tu_clave_de_opencode_o_openrouter"
-# o alternativamente:
-GEMINI_API_KEY="tu_clave_de_gemini"
-```
-
-### 3. Ejecutar en desarrollo
-```bash
+cp .env.example .env.local   # DEEPGRAM_API_KEY + OPENCODE_API_KEY o GEMINI_API_KEY
 npm run dev
 ```
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador (recomendado Google Chrome).
 
----
+Abrir [http://localhost:3000](http://localhost:3000) en Chrome.
 
-## 🧪 Tests y Validación
-
-Para ejecutar la suite completa de **185 pruebas unitarias automatizadas en 26 suites**:
 ```bash
 npm test
-```
-
-Para verificar tipos de TypeScript sin emitir build:
-```bash
 npx tsc --noEmit
-```
-
-Para compilar el build de producción:
-```bash
 npm run build
 ```
 
+Correr `npm test` y `npx tsc --noEmit` antes de pushear a `main` (Vercel despliega esa rama).
+
 ---
 
-## 🔐 Variables de Entorno
+## Variables de entorno
 
 | Variable | Requerida | Propósito |
 |---|:---:|---|
-| `DEEPGRAM_API_KEY` | **Sí** | Transcripción streaming con Nova-2. |
-| `OPENCODE_API_KEY` / `OPENROUTER_API_KEY` | Opcional | Clave para modelos OpenCode / OpenRouter (MiMo, DeepSeek, GPT). |
-| `GEMINI_API_KEY` | Opcional | Clave para modelos Gemini Flash. |
-| `ANTHROPIC_API_KEY` | Opcional | Clave para modelos Claude. |
-| `OPENAI_API_KEY` | Opcional | Clave para modelos OpenAI. |
-| `LLM_PROVIDER` | No | Override de proveedor por defecto (`opencode`, `gemini`, `anthropic`, `openai`). |
-| `NEXT_PUBLIC_POSTHOG_KEY` | No | Clave de proyecto para telemetría PostHog. |
-| `NEXT_PUBLIC_SITE_URL` | No | URL pública para metadatos OG y referer headers. |
+| `DEEPGRAM_API_KEY` | **Sí** | Streaming Nova-2. El cliente recibe un grant de 120 s, no la key. |
+| `OPENCODE_API_KEY` / `OPENROUTER_API_KEY` | No | OpenCode / OpenRouter. |
+| `GEMINI_API_KEY` | No | Gemini Flash. |
+| `ANTHROPIC_API_KEY` | No | Claude. |
+| `OPENAI_API_KEY` | No | GPT + TTS del simulador. |
+| `LLM_PROVIDER` | No | Override (`opencode`, `gemini`, `anthropic`, `openai`). |
+| `NEXT_PUBLIC_POSTHOG_KEY` | No | Telemetría PostHog. |
+| `NEXT_PUBLIC_SITE_URL` | No | Origin allowlist / OG. |
+| `CAPACITY_CLOSED` | No | Kill switch (`1` → 503 en answer/token). |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | No | Rate limit distribuido; si no, Map en memoria por isolate. |
+| `GFORM_ACTION` | No | Waitlist (Google Form). |
 
 ---
 
-## 📂 Estructura del Proyecto
+## Árbol
 
 ```text
 loro/
 ├── app/
-│   ├── api/                     # Rutas API en Edge Runtime
-│   │   ├── answer/              # Generación streaming con Prompt Caching y Punchline First
-│   │   ├── deepgram-token/      # Emisión de grants temporales (TTL 60s)
-│   │   ├── simulador/           # Lógica y evaluación del simulador
-│   │   └── summary/             # Resumen post-entrevista en Markdown
-│   ├── app/                     # Copiloto en vivo principal con soporte Audio Dual
-│   ├── components/              # Componentes modulares (AnswerCard, RescuePhrases, etc.)
-│   ├── hooks/                   # Custom React hooks (useDeepgram, useAnswerStream, etc.)
-│   ├── lib/                     # Utilidades (cvChunker, speechCoach, interviewHelpers, llm)
-│   ├── simulador/               # Simulador de entrevistas interactivo
-│   └── teleprompter/            # HUD Pop-out con Lectura Biónica y botón Panic
-├── docs/                        # Documentación centralizada (Arquitectura, Extensión, Launch)
-├── pdf/                         # 12 CVs de referencia en PDF (EN/ES)
-├── extension/                   # Extensión de Chrome para captura local
-├── public/                      # AudioWorklet estéreo PCM16 (pcm-worklet.js)
-└── __tests__/                   # Suite de 185 tests con Vitest (26 suites)
+│   ├── api/           # Edge: answer, deepgram-token, simulador, summary, waitlist
+│   ├── app/           # Copiloto en vivo (preset Globant)
+│   ├── components/
+│   ├── hooks/
+│   ├── lib/           # cvChunker, globantMasterAnswers, interviewHelpers, …
+│   ├── simulador/
+│   └── teleprompter/
+├── docs/
+├── pdf/               # CVs personales de Fernando
+├── extension/         # Chrome MV3 local; no integrada a Next
+├── public/pcm-worklet.js
+└── __tests__/         # 207 tests / 26 archivos
 ```
-
----
-
-## 📄 Licencia
-
-Desarrollado para la preparación y acompañamiento en entrevistas técnicas y de liderazgo. Distribuido bajo fines educativos y de validación profesional.

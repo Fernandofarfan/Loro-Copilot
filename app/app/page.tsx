@@ -137,6 +137,7 @@ export default function CopilotPage() {
     masterAnswers,
     saveMasterAnswer,
     importMasterAnswers,
+    replaceMasterAnswers,
     deleteMasterAnswer,
     clearAllMasterAnswers,
     toggleFavoriteMasterAnswer,
@@ -2112,9 +2113,22 @@ export default function CopilotPage() {
                   type="button"
                   onClick={() => importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS)}
                   className="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 text-purple-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
-                  title="Cargar el banco maestro de 132 respuestas preparadas para Globant, Intermedia, GCP, GCVE y RRHH"
+                  title="Cargar el banco maestro de respuestas preparadas para Globant, Intermedia, GCP, GCVE y RRHH"
                 >
-                  <span>⚡ Cargar Banco Completo (132)</span>
+                  <span>⚡ Cargar Banco Completo ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("Esto reemplaza TODAS las entradas del Banco con las " + GLOBANT_AND_GCP_MASTER_ANSWERS.length + " respuestas actualizadas. Las entradas viejas se eliminan. ¿Continuar?")) {
+                      replaceMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 hover:bg-amber-900/60 text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5"
+                  title="Reemplazar todo el banco viejo con las respuestas actualizadas"
+                >
+                  <span>🔄 Reemplazar Banco ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
                 </button>
 
                 <button

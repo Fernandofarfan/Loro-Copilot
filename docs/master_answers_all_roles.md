@@ -1,4 +1,6 @@
-# Informe de Entrevista — General (Puesto: Multi-Role Senior Tech Specialist)
+# Banco personal de Fernando — 107 Q&A / 12 capítulos
+
+Enciclopedia de Guillermo Fernando Farfán Romero (Salta, Luna, B2, GCP/GCVE). No es un banco genérico para terceros. El screening Globant/Intermedia usa además `app/lib/globantMasterAnswers.ts` (preset 1-click). Pretensión canónica: **$4.000 USD/mes o $25–30/h contractor** (alineada con `AGENTS.md`; no $23–26).
 
 ## CAPÍTULO 1: SMALL TALK Y PREGUNTAS CASUALES (EL FILTRO COTIDIANO DE RRHH)
 
@@ -1345,26 +1347,26 @@ STONITH evita el escenario de Split-Brain. Si la red de heartbeat falla, ambos n
 ### 101. Pregunta: What are your salary expectations or hourly rate?
 
 [EN]
-For a Senior role, my target hourly rate is between **$23 and $26 USD per hour**, which corresponds to approximately **$3,700 to $4,200 USD per month** for full-time work. I have my international export invoicing ready to go.
+For a Senior contractor role, my target hourly rate is between **$25 and $30 USD per hour**, which corresponds to approximately **$4,000 USD per month** for full-time work. I have my international export invoicing ready to go.
 
 [PHO]
-(maɪ ˈtɑrɡɪt ˈaʊərli reɪt ɪz bɪˈtwin ˈtwɛnti-θri ænd ˈtwɛnti-sɪks ˈju-ɛs-di pər ˈaʊər)
+(maɪ ˈtɑrɡɪt ˈaʊərli reɪt ɪz bɪˈtwin ˈtwɛnti-faɪv ænd ˈθɜrti ˈju-ɛs-di pər ˈaʊər)
 
 [ES]
-Para una posición senior, mi tarifa horaria pretendida está entre **23 y 26 USD la hora**, lo que representa aproximadamente **3.700 a 4.200 USD mensuales** a dedicación completa. Tengo mi facturación de exportación 100% operativa.
+Para una posición senior contractor, mi tarifa de referencia está entre **25 y 30 USD la hora**, equivalente a unos **4.000 USD mensuales** brutos a dedicación completa. Tengo mi facturación de exportación 100% operativa.
 
 ---
 
 ### 102. Pregunta: ¿Cuáles son tus pretensiones salariales o tarifa para este puesto?
 
 [ES]
-Para una posición senior, mi tarifa horaria pretendida está entre **23 y 26 USD la hora**, lo que representa aproximadamente **3.700 a 4.200 USD mensuales** a dedicación completa. Tengo mi facturación de exportación 100% operativa.
+Para una posición senior contractor, mi tarifa de referencia está entre **25 y 30 USD la hora**, equivalente a unos **4.000 USD mensuales** brutos a dedicación completa. Tengo mi facturación de exportación 100% operativa.
 
 [EN]
-My target rate is between $23 and $26 USD per hour ($3,700 to $4,200 USD/month).
+My target rate is between $25 and $30 USD per hour (~$4,000 USD/month).
 
 [PHO]
-(maɪ ˈtɑrɡɪt ˈaʊərli reɪt ɪz bɪˈtwin ˈtwɛnti-θri ænd ˈtwɛnti-sɪks ˈju-ɛs-di)
+(maɪ ˈtɑrɡɪt ˈaʊərli reɪt ɪz bɪˈtwin ˈtwɛnti-faɪv ænd ˈθɜrti ˈju-ɛs-di)
 
 ---
 

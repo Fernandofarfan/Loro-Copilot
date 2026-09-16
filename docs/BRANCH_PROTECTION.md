@@ -1,23 +1,23 @@
-# Branch Protection Rules — main
+# Branch protection — `main` (deseado, no activo)
 
-Configuración recomendada para `Settings → Branches → Branch protection rules → main`:
+No hay `.github/workflows/ci.yml`. GitHub no corre tests en push. Hasta que exista CI, el gate es manual:
 
-## ✅ Required status checks
-Marcar **"Require status checks to pass before merging"** y seleccionar:
+```bash
+npm test          # 207 tests / 26 archivos
+npx tsc --noEmit
+```
 
-- `unit` (del job en `.github/workflows/ci.yml`)
-- `e2e` (del job en `.github/workflows/ci.yml`)
+`npm run test:e2e` es smoke Playwright (título, URLs, waitlist 400). No cubre audio, SSE ni HUD.
 
-## ✅ Restrictions adicionales recomendadas
-- **Require a pull request before merging** → 1 aprobación mínima
-- **Do not allow bypassing the above settings** (incluye a admins)
-- **Require linear history** (squash o rebase merge)
-- **Include administrators**: ✅
+---
 
-## Resultado esperado
-Ningún push directo a `main` puede mergear si:
-1. Falla `unit` (lint, vitest, typecheck)
-2. Falla `e2e` (Playwright Chromium)
+## Si se agrega CI más adelante
 
-Configurar manualmente en GitHub UI ya que `branch protection` no se puede expresar
-en YAML versionado de forma nativa.
+`Settings → Branches → Branch protection rules → main`:
+
+- Require status checks: jobs `unit` (vitest + tsc) y, si se quiere, `e2e`.
+- Require PR + 1 aprobación (opcional en un repo personal).
+- Linear history (squash/rebase).
+- Include administrators.
+
+Hoy Fernando pushea a `main` y Vercel despliega. El riesgo es romper el copiloto Globant sin red de CI.
