@@ -444,6 +444,14 @@ ${spanglishRule}
   } else if (questionCategory === "fit") {
     categoryDirective = `\n## DIRECTIVA FIT CULTURAL / SCREENING:
 - Comunicación asertiva, motivación genuina por el producto y anclaje en tu experiencia real del CV.`;
+  } else if (questionCategory === "recruiter_screening") {
+    categoryDirective = `\n## DIRECTIVA RECRUITER SCREENING (RRHH, FIT Y LOGÍSTICA):
+- Respuestas directas, cálidas, concisas y transparentes (máximo 2 oraciones, 25-35 palabras).
+- Ubicación y Remoto: Vivís y trabajás 100% remoto desde Salta, Argentina (UTC-3).
+- Disponibilidad: Inmediata o con 2 semanas de transición ordenada.
+- Esquema de contratación: Totalmente habituado y cómodo con modalidad contractor USD por hora ($25-$30 USD/hora, equivalente a $4,000 USD/mes bruto).
+- Vida personal / Small Talk: Vivís con tu perrita rescatada y adoptada Luna (salen a caminar para despejar la vista del monitor y resetear el foco mental). Salís a andar en bici al aire libre. NUNCA mencionar gatos (no tenés gatos).
+- Trayectoria y experiencia: Siempre discriminar +8 años totales en IT y desarrollo de los ~4 años específicos dedicados a Cloud en GCP, Terraform y Linux. NUNCA decir 8 años en GCP.`;
   }
 
   const answerLangLabel = isEnglish

@@ -20,6 +20,11 @@ describe("companyDossier", () => {
     const uber = getCompanyDossier("Uber");
     expect(uber?.canonicalName).toBe("Uber");
     expect(uber?.notableTools.some((t) => t.includes("Schemaless"))).toBe(true);
+
+    const globant = getCompanyDossier("Intermedia");
+    expect(globant?.canonicalName).toBe("Globant");
+    expect(globant?.techStack).toContain("Google Cloud Platform (GCP)");
+    expect(globant?.techStack).toContain("Google Cloud VMware Engine (GCVE)");
   });
 
   it("devuelve undefined para empresas desconocidas", () => {

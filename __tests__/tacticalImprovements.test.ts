@@ -436,6 +436,8 @@ describe("Pilar 1: Modo Recruiter Screening y Puentes Inmediatos", () => {
     expect(classifyQuestionType("When can you start and what is your notice period?")).toBe("recruiter_screening");
     expect(classifyQuestionType("Where are you located and how do you feel about working remotely from Salta?")).toBe("recruiter_screening");
     expect(classifyQuestionType("Do you have pets or a dog at home?")).toBe("recruiter_screening");
+    expect(classifyQuestionType("What are your hobbies or what do you do in your free time?")).toBe("recruiter_screening");
+    expect(classifyQuestionType("What did you do last weekend?")).toBe("recruiter_screening");
   });
 
   it("genera un puente inmediato de screening con remuneración ($4,000 USD / $25-30/h) en <5ms", () => {

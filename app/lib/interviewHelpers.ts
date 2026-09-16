@@ -84,7 +84,7 @@ export function classifyQuestionType(q: string): QuestionCategory {
 
   // 6. Recruiter Screening Logístico & Disponibilidad
   if (
-    /when can you start|cu[aá]ndo podr[ií]as empezar|notice period|periodo de preaviso|disponibilidad inmediata|immediate availability|are you open to contract|contractor or fte|contractor vs|where are you based|where are you located|d[oó]nde est[aá]s ubicado|salta|argentina|work remotely|trabajo remoto|english proficiency|nivel de ingl[eé]s|why are you looking to change|por qu[eé] busc[aá]s un cambio|mascotas|pets|perro|luna/i.test(
+    /when can you start|cu[aá]ndo podr[ií]as empezar|notice period|periodo de preaviso|disponibilidad inmediata|immediate availability|are you open to contract|contractor or fte|contractor vs|where are you based|where are you located|d[oó]nde est[aá]s ubicado|salta|argentina|work remotely|trabajo remoto|english proficiency|nivel de ingl[eé]s|why are you looking to change|por qu[eé] busc[aá]s un cambio|mascota(?:s)?|pet(?:s)?|perr[oa](?:s)?|gato(?:s)?|cat(?:s)?|luna|hobbi?e(?:s)?|free time|tiempo libre|fin de semana|weekend/i.test(
       lower
     )
   ) {
