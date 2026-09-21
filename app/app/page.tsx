@@ -282,7 +282,7 @@ export default function CopilotPage() {
         next[idx] = line;
         return next;
       }
-      return [...prev.slice(-25), line];
+      return [...prev.slice(-250), line];
     });
   }, [stopGenerating, syncTeleprompter]);
 
@@ -875,6 +875,21 @@ export default function CopilotPage() {
       .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
       .join("\n");
 
+    const answersDigest = answers
+      .map((a) => `[Pregunta Entrevistador]: ${a.question}\n[Respuesta Candidato]: ${a.cleanText || a.esText || a.enText}`)
+      .reverse()
+      .join("\n\n");
+
+    const completeRecord = answersDigest
+      ? `### INTERACCIONES Y RESPUESTAS TÉCNICAS:\n${answersDigest}\n\n### TRANSCRIPCIÓN CONTINUA DE AUDIO:\n${fullTranscript}`
+      : fullTranscript || "(Sin transcripción grabada en esta sesión)";
+
+    const formattedFacts = sessionFacts.map((f: any) =>
+      typeof f === "object"
+        ? `${f.category || "Técnico"}: ${f.fact || f.statement || f.key || JSON.stringify(f)}`
+        : String(f)
+    );
+
     try {
       const res = await fetch("/api/summary", {
         method: "POST",
@@ -883,8 +898,8 @@ export default function CopilotPage() {
           company,
           role,
           profile,
-          transcript: fullTranscript || "(Sin transcripción grabada en esta sesión)",
-          facts: sessionFacts,
+          transcript: completeRecord,
+          facts: formattedFacts,
           provider: selectedModel.provider,
           model: selectedModel.model,
         }),
