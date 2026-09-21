@@ -1144,7 +1144,7 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Activa</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        Lunes 21 Sep • 14:00 ART
+                        Lunes 21 Sep • 10:00 ART
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         Bilingüe (Auto-Switch)
@@ -1178,7 +1178,7 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Próxima Agendada</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40 animate-pulse">
-                        Lunes 21 Sep • 14:00 ART
+                        Lunes 21 Sep • 10:00 ART
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-semibold text-zinc-100">

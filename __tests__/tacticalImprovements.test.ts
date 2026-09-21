@@ -63,6 +63,48 @@ describe("Pilar 1: Zero-Silence Opening Bridge (<200ms)", () => {
     expect(bridge.bridgeEn).toContain("leading technical initiatives");
   });
 
+  it("genera un puente behavioral para preguntas STAR en español", () => {
+    const bridge = getInstantBridge("¿Podrías darme un ejemplo donde enfrentaste una situación complicada o trabajaste bajo presión?");
+    expect(bridge.category).toBe("behavioral_star");
+    expect(bridge.bridgeEs).toContain("experiencia reciente");
+  });
+
+  it("genera un puente de self-intro para 'cuéntame sobre ti'", () => {
+    const bridge = getInstantBridge("Me gustaría conocer un poco más, háblame un poco más sobre ti");
+    expect(bridge.category).toBe("self_intro");
+    expect(bridge.bridgeEn).toContain("quick overview of my background");
+    expect(bridge.bridgeEs).toContain("panorama rápido");
+  });
+
+  it("genera un puente self_intro en inglés para 'tell me about yourself'", () => {
+    const bridge = getInstantBridge("Tell me about yourself and your background");
+    expect(bridge.category).toBe("self_intro");
+  });
+
+  it("genera un puente de motivation_fit para '¿por qué esta empresa?'", () => {
+    const bridge = getInstantBridge("¿Por qué te interesa trabajar con nosotros? ¿Qué te llamó la atención de nuestra empresa?");
+    expect(bridge.category).toBe("motivation_fit");
+    expect(bridge.bridgeEs).toContain("alineación con mi trayectoria");
+  });
+
+  it("genera un puente de motivation_fit para '¿cómo te ves en 5 años?'", () => {
+    const bridge = getInstantBridge("¿Cómo te ves tú de aquí a cinco años? ¿Qué proyección tienes?");
+    expect(bridge.category).toBe("motivation_fit");
+    expect(bridge.bridgeEn).toContain("alignment with my technical trajectory");
+  });
+
+  it("genera un puente de strengths_weaknesses para fortalezas", () => {
+    const bridge = getInstantBridge("¿Cuáles puedes decir que son tus fortalezas en cuestión laboral?");
+    expect(bridge.category).toBe("strengths_weaknesses");
+    expect(bridge.bridgeEs).toContain("autoconocimiento");
+  });
+
+  it("genera un puente de strengths_weaknesses para debilidades", () => {
+    const bridge = getInstantBridge("¿Cuáles consideras tú como tus debilidades laboralmente? ¿En qué puntos deberías trabajar más?");
+    expect(bridge.category).toBe("strengths_weaknesses");
+    expect(bridge.bridgeEn).toContain("self-awareness");
+  });
+
   it("usa fallback técnico coherente para preguntas generales", () => {
     const bridge = getInstantBridge("Can you describe your general development and debugging workflow?");
     expect(bridge.category).toBe("general_technical");

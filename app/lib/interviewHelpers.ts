@@ -1212,7 +1212,7 @@ export function getInstantBridge(question: string, lang: "en" | "es" = "en"): In
   }
 
   // 6. Behavioral, Conflicts & Leadership (STAR)
-  if (/\b(conflict|disagree|team|lead|leadership|stakeholder|priority|deadline|mistake|failure|challenge|difficult|project|tell me about a time|contame sobre|describe a situation)\b/i.test(clean)) {
+  if (/\b(conflict|disagree|team|lead|leadership|stakeholder|priority|deadline|mistake|failure|challenge|difficult|project|tell me about a time|contame sobre|describe a situation|presi[oó]n|complicad[ao]|sobrellevar|situaci[oó]n|lideraste|lider[aá]|error|problema)\b/i.test(clean)) {
     return {
       category: "behavioral_star",
       bridgeEn: "In my recent experience leading technical initiatives, a clear example of navigating this was...",
@@ -1229,7 +1229,34 @@ export function getInstantBridge(question: string, lang: "en" | "es" = "en"): In
     };
   }
 
-  // 8. General / Technical Fallback
+  // 8. Self-introduction & "Tell me about yourself"
+  if (/\b(tell me about yourself|about yourself|cu[eé]ntame sobre ti|cu[eé]ntame de ti|h[aá]blame de ti|h[aá]blame sobre ti|conocerte|present[aá]|qui[eé]n eres|who are you|introduce yourself|your background|sobre ti|conocer un poco)\b/i.test(clean)) {
+    return {
+      category: "self_intro",
+      bridgeEn: "Absolutely, I'd love to give you a quick overview of my background and what drives me technically.",
+      bridgeEs: "Con gusto, te doy un panorama rápido de mi recorrido y lo que me motiva técnicamente.",
+    };
+  }
+
+  // 9. Motivation, Culture Fit & Future Vision (¿por qué esta empresa?, ¿5 años?)
+  if (/\b(why .*(company|us|work here|join)|por qu[eé] .*(empresa|nosotros|trabajar|aqu[ií])|cinco a[ñn]os|five years|proyecci[oó]n|career goal|vision|futuro|where do you see|d[oó]nde te ves|qu[eé] te interes[aó]|qu[eé] te llam[oó]|te atrajo|motivaci[oó]n|why are you interested)\b/i.test(clean)) {
+    return {
+      category: "motivation_fit",
+      bridgeEn: "What really resonates with me about this opportunity is the alignment with my technical trajectory.",
+      bridgeEs: "Lo que realmente me atrae de esta oportunidad es la alineación con mi trayectoria técnica.",
+    };
+  }
+
+  // 10. Strengths & Weaknesses
+  if (/\b(strength|weakness|fortaleza|debilidad|punto fuerte|punto d[eé]bil|mejora|improve|[aá]rea.*(oportunidad|mejorar|crecer)|what are you good at|en qu[eé] .*(destac|bueno|flojo)|qu[eé] .*(mejorar|trabajar m[aá]s))/i.test(clean)) {
+    return {
+      category: "strengths_weaknesses",
+      bridgeEn: "That's a fair question — being honest about self-awareness is important to me.",
+      bridgeEs: "Buena pregunta — ser honesto con el autoconocimiento es algo que valoro mucho.",
+    };
+  }
+
+  // 11. General / Technical Fallback
   return {
     category: "general_technical",
     bridgeEn: "To break that down directly based on production experience, the core decision centers on...",
