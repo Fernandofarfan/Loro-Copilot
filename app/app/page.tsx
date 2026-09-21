@@ -23,6 +23,7 @@ import {
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
 import { GLOBANT_AND_GCP_MASTER_ANSWERS } from "../lib/globantMasterAnswers";
+import { MELI_NOSQL_MASTER_ANSWERS } from "../lib/meliMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
 import { useInterviewContext, type STARStory } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
@@ -330,8 +331,11 @@ export default function CopilotPage() {
         lastProcessedLineIdRef.current
       );
 
-      // Si la frase parece incompleta (respiración, conector final, etc.), esperar al siguiente fragmento
-      if (isIncomplete) {
+      // Si la frase parece incompleta (respiración, conector final, etc.), esperar al siguiente fragmento,
+      // salvo que ya tenga suficiente extensión (>= 8 palabras) o intención clara de entrevista
+      const words = recentText.split(/\s+/).filter(Boolean);
+      const hasClearIntent = /[?¿]|\b(contame|cu[eé]ntame|h[aá]blame|[aá]brame|explicame|explica|describ[ií]|describe|platicame|comentame|tell me|walk me through|sobre ti|sobre vos|tu experiencia)\b/i.test(recentText);
+      if (isIncomplete && words.length < 8 && !hasClearIntent) {
         return;
       }
 
@@ -680,10 +684,103 @@ export default function CopilotPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const triggerCurrentInterviewerQuestion = useCallback(() => {
+    if (isGeneratingRef.current) return;
+    const currentLines = transcriptLinesRef.current;
+    if (!currentLines || currentLines.length === 0) return;
+
+    // Buscar la última línea del entrevistador o la última línea registrada
+    const interviewerLines = currentLines.filter((l) => l.speaker === 0);
+    const targetLine = interviewerLines[interviewerLines.length - 1] || currentLines[currentLines.length - 1];
+    if (!targetLine || !targetLine.text.trim()) return;
+
+    lastProcessedLineIdRef.current = targetLine.id;
+    const q = targetLine.text.trim();
+    const lang = detectQuestionLanguage(q);
+    const focusedProfile =
+      profile && profile.length > 800
+        ? selectRelevantCvChunks(q, chunkCv(profile))
+        : profile;
+
+    const excludedStories = Array.from(usedStoryIndicesRef.current);
+    const matchedStory = matchSTARStory(q, starStoriesRef.current, 0.35, excludedStories);
+    const firmnessAlert = detectFirmnessChallenge(q);
+    const experienceAlert = detectExperienceQuestion(q);
+
+    if (matchedStory) {
+      usedStoryIndicesRef.current.add(matchedStory.storyIndex);
+    }
+
+    syncTeleprompter({
+      question: q,
+      interviewMode: interviewModeRef.current,
+      experienceAlert,
+      ...(matchedStory
+        ? {
+            matchedStory: {
+              storyIndex: matchedStory.storyIndex,
+              title: matchedStory.story.title,
+              action: matchedStory.story.action,
+              result: matchedStory.story.result || "",
+              score: matchedStory.score,
+            },
+          }
+        : {}),
+      firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
+    });
+
+    let effectiveInstructions = extraInstructions;
+    if (interviewModeRef.current === "screening") {
+      effectiveInstructions =
+        (effectiveInstructions ? effectiveInstructions + "\n" : "") +
+        "[MODO RECRUITER SCREENING]: Respuestas directas, cordiales y concisas (máximo 2 oraciones). Enfocar en pretensión de $4,000 USD/mes o ~$25-$30/h contractor, disponibilidad inmediata, inglés B2 fluido, residencia remota en Salta (UTC-3), estabilidad laboral y fit cultural con Luna.";
+    }
+
+    requestAnswer({
+      question: q,
+      transcript: currentLines
+        .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
+        .join("\n"),
+      company,
+      role,
+      profile: focusedProfile,
+      interviewerBio,
+      extraInstructions: effectiveInstructions,
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+      modelLabel: selectedModel.label,
+      detectedLang: lang,
+      simpleEnglish,
+      dialect,
+      bilingualMode,
+      type: "answer",
+      masterAnswers: masterAnswersRef.current,
+      starStories: starStoriesRef.current,
+      syncTeleprompter,
+      onPunchline: (punchline, pLang) => earbudWhisper.whisper(punchline, pLang),
+    });
+  }, [
+    requestAnswer,
+    company,
+    role,
+    profile,
+    interviewerBio,
+    extraInstructions,
+    selectedModel,
+    simpleEnglish,
+    dialect,
+    bilingualMode,
+    syncTeleprompter,
+    earbudWhisper,
+  ]);
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = manualQuestion.trim();
-    if (!q) return;
+    if (!q) {
+      triggerCurrentInterviewerQuestion();
+      return;
+    }
     setManualQuestion("");
     const currentLines = transcriptLinesRef.current;
     if (currentLines.length > 0) {
@@ -1009,6 +1106,25 @@ export default function CopilotPage() {
     importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
+  // Preset 1-Click para la entrevista de Mercado Libre - NoSQL Service Team (Valeria - Eightfold AI)
+  const loadMeliPreset = useCallback(() => {
+    setCompany("MercadoLibre");
+    setRole("Sr Software Engineer - NoSQL Service Team");
+    setInterviewerBio(
+      "Valeria (Agente de IA en Eightfold.ai). Evaluación inicial técnica para Mercado Libre (NoSQL Service Team, ID 126318). Evalúa: soporte multi-cloud más allá de AWS DocumentDB (GCP Firestore/MongoDB/Bigtable), segmentación y sharding de bases de datos, proxies de consulta y routing centralizado, migración a Istio en Kubernetes, resiliencia/alta disponibilidad/latencia P99, y uso avanzado de IA en el flujo diario de ingeniería. Estructura STAR estricta, alta densidad de palabras clave técnicas y métricas cuantificables."
+    );
+    setProfile(
+      "Guillermo Fernando Farfán Romero. Ingeniero de Software e Infraestructura Cloud con +8 años de experiencia en sistemas distribuidos/backend y ~4 años dedicados a arquitecturas cloud (GCP/AWS), Kubernetes, optimización de bases de datos, proxies de conexión y plataformas de alta disponibilidad."
+    );
+    setExtraInstructions(
+      "Respuestas concisas de alto impacto para evaluador IA (Valeria - Eightfold): estructurar con STAR tácito, incluir palabras clave exactas (DocumentDB, Firestore, Sharding, Database Proxy, Istio, Latencia P99, IA asistida). Enfatizar ~4 años en Cloud/GCP + Kubernetes y +8 años en IT/sistemas. Citar principios de Mercado Libre: Beta continuo, emprender tomando riesgos, ejecutar con excelencia."
+    );
+    setInterviewMode("technical");
+    syncTeleprompter({ interviewMode: "technical" });
+
+    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
   return (
     <div className="copilot-container min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Top Navbar */}
@@ -1133,8 +1249,62 @@ export default function CopilotPage() {
 
         {activeTab === "live" && (
           <div className="flex flex-col flex-1 gap-3">
-            {/* Mission & Target Intel Bar: Globant / Intermedia */}
-            {company === "Globant" ? (
+            {/* Mission & Target Intel Bar: Mercado Libre / Globant */}
+            {company === "MercadoLibre" ? (
+              <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/40 via-[#0e121e]/85 to-yellow-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(245,158,11,0.15)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🟡
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Entrevista Activa — Mercado Libre</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40 animate-pulse">
+                        Caduca: 24 Sep • 23:59 ART
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        🤖 Valeria (Agente IA Eightfold)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        NoSQL Service Team
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
+                      Mercado Libre — Sr Software Engineer (NoSQL Service Team • ID 126318)
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Multi-Cloud: <strong className="text-zinc-300">DocumentDB ➔ Firestore/GCP</strong> • Sharding & Routing • Istio • IA en workflow diario • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  <a
+                    href="https://mercadolibre.eightfold.ai/interview-ai/meeting/Yo9OAgvz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98] inline-flex items-center gap-1.5"
+                  >
+                    <span>🎙️ Abrir Sala Eightfold AI</span>
+                    <ExternalLinkIcon />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={loadGlobantPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                    title="Cargar preset de Globant"
+                  >
+                    Preset Globant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Stack
+                  </button>
+                </div>
+              </div>
+            ) : company === "Globant" ? (
               <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-[#0e121e]/80 to-indigo-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
@@ -1144,7 +1314,7 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Activa</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        Lunes 21 Sep • 10:00 ART
+                        Completada hoy 10:00 ART
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         Bilingüe (Auto-Switch)
@@ -1158,7 +1328,45 @@ export default function CopilotPage() {
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    🟡 Cargar Mercado Libre (NoSQL)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Stack
+                  </button>
+                </div>
+              </div>
+            ) : company && role ? (
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+                    <BriefcaseIcon />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-zinc-200">
+                        {role} en <span className="text-purple-400">{company}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all"
+                  >
+                    🟡 Mercado Libre (NoSQL)
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab("context")}
@@ -1169,33 +1377,45 @@ export default function CopilotPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-purple-500/40 bg-gradient-to-r from-purple-950/50 via-[#0e121e]/80 to-indigo-950/40 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(168,85,247,0.15)]">
+              <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/40 via-[#0e121e]/85 to-indigo-950/40 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(245,158,11,0.15)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    ⚡
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🟡
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Próxima Agendada</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40 animate-pulse">
-                        Lunes 21 Sep • 10:00 ART
+                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Entrevista Pendiente</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40 animate-pulse">
+                        Caduca: 24 Sep • 23:59 ART
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        🤖 Valeria (Agente IA)
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-semibold text-zinc-100">
-                      Globant / Intermedia — GCP Cloud Engineer (Francheska Escalona)
+                      Mercado Libre — Sr Software Engineer (NoSQL Service Team)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Cargar contexto bilingüe, GCVE, tarifa $25-$30/h y banco de preguntas de screening con Luna.
+                      Multi-Cloud (AWS DocumentDB a Firestore/GCP), Sharding, Istio, IA en workflow diario y respuestas STAR de alto impacto.
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={loadGlobantPreset}
-                  className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-black font-bold text-xs transition-all shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
-                >
-                  🚀 Activar Entrevista Globant
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                  >
+                    🚀 Activar Mercado Libre NoSQL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadGlobantPreset}
+                    className="px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all shrink-0"
+                  >
+                    Globant
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1540,9 +1760,21 @@ export default function CopilotPage() {
                   </span>
                 </div>
                 {transcriptLines.length > 0 && (
-                  <span className="text-[11px] font-mono text-zinc-500 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.04]">
-                    {transcriptLines.length} turnos
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={triggerCurrentInterviewerQuestion}
+                      disabled={isGenerating}
+                      className="px-3 py-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-bold text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all active:scale-95 disabled:opacity-50"
+                      title="Generar respuesta inmediata para lo que acaba de decir el entrevistador"
+                    >
+                      <span>⚡</span>
+                      <span>Responder Turno</span>
+                    </button>
+                    <span className="text-[11px] font-mono text-zinc-500 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.04]">
+                      {transcriptLines.length} turnos
+                    </span>
+                  </div>
                 )}
               </div>
             )}

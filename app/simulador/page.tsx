@@ -1466,6 +1466,32 @@ export default function SimuladorPage() {
                   style={{
                     padding: "2px 10px",
                     fontSize: 11,
+                    background: "rgba(245, 158, 11, 0.15)",
+                    border: "1px solid #f59e0b",
+                    color: "#f59e0b",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setCompany("MercadoLibre");
+                    setRole("Sr Software Engineer - NoSQL Service Team (ID 126318)");
+                    setJobDescription(
+                      "Responsabilidades:\n• Diseñar y desarrollar soporte multi-nube para nuevos motores de bases de datos más allá de AWS DocumentDB, evaluando alternativas como Firestore (GCP), MongoDB o Alibaba Cloud.\n• Migración de arquitecturas hacia estándares modernos de orquestación como Istio (Service Mesh) o serverless en Kubernetes.\n• Mecanismos de gestión centralizada de consultas, proxies y segmentación de bases de datos (sharding / routing / rate limiting).\n• Seguridad en la plataforma: cifrado en tránsito y reposo, IAM y RBAC.\n• Sistemas distribuidos de alta disponibilidad y baja latencia P99.\n• Uso avanzado de herramientas de inteligencia artificial en el flujo diario de ingeniería."
+                    );
+                    setLang("es");
+                    setInterviewType("technical");
+                    setPersona("skeptic_architect");
+                  }}
+                >
+                  🟡 Preset MELI NoSQL (Valeria IA)
+                </button>
+                <button
+                  type="button"
+                  className="btn-action mono"
+                  style={{
+                    padding: "2px 10px",
+                    fontSize: 11,
                     background: "rgba(16, 185, 129, 0.15)",
                     border: "1px solid var(--loro-green)",
                     color: "var(--loro-green)",

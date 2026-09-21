@@ -486,7 +486,7 @@ export const AnswerCard = React.memo(function AnswerCard({
       )}
 
       {/* Contenido Principal (Bilingüe orden EN -> PHO -> ES vs Estándar) */}
-      {a.bilingual ? (
+      {a.bilingual && (a.enText || (!a.done && !a.esText)) ? (
         <div className="flex flex-col gap-2.5 mt-2.5">
           {/* 1. Respuesta en Inglés */}
           <div className="bg-emerald-500/[0.05] border border-emerald-500/30 rounded-xl p-3.5 backdrop-blur-md shadow-[0_0_20px_rgba(16,185,129,0.06)]">
@@ -578,6 +578,42 @@ export const AnswerCard = React.memo(function AnswerCard({
               ) : (
                 <span className="mono answer-card-loading">generando resumen en español…</span>
               )}
+            </div>
+          </div>
+        </div>
+      ) : a.esText ? (
+        <div className="flex flex-col gap-2.5 mt-2.5">
+          <div className="rounded-xl p-3.5 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/20 to-transparent">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
+                ⭐ Respuesta (Español)
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => onPlayTTS(a.esText)}
+                  className="tts-button bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold px-2.5 py-0.5 text-xs rounded-md flex items-center gap-1 hover:bg-emerald-500/25 transition-colors"
+                  title="Escuchar cómo suena"
+                >
+                  🔊 Escuchar
+                </button>
+                <button
+                  onClick={() => onCopy(a.id, a.esText)}
+                  className="border border-white/10 bg-white/[0.04] text-zinc-200 px-2 py-0.5 text-xs rounded-md hover:bg-white/[0.08] transition-colors flex items-center gap-1"
+                  title="Copiar texto en español"
+                >
+                  {copiedId === a.id ? (
+                    <>
+                      <CheckIcon size={12} />
+                      <span className="text-[10px] text-emerald-400 font-bold">Copiado</span>
+                    </>
+                  ) : (
+                    <span>📋</span>
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="answer-card-text text-[1.05em] leading-relaxed text-zinc-100 font-medium">
+              {a.done ? <MarkdownText text={a.esText} /> : <span className="whitespace-pre-wrap">{a.esText}</span>}
             </div>
           </div>
         </div>

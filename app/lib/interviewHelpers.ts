@@ -172,6 +172,11 @@ export function isIncompleteQuestion(text: string): boolean {
 
   // Termina en signos de puntuación de continuación abierta (dos puntos, coma, puntos suspensivos, guion)
   if (/([,:\-–—]|\.\.\.)$/.test(clean.replace(/\s+$/, ""))) {
+    // Si la frase ya tiene 12 o más palabras o incluye una pregunta interrogativa/consigna previa,
+    // una coma al final suele ser una pausa oral o muletilla ("..., bueno,"), no una frase incompleta
+    if (words.length >= 12 || /[?¿]/.test(clean)) {
+      return false;
+    }
     return true;
   }
 
@@ -264,11 +269,15 @@ export function isActionableQuestion(text: string): boolean {
   const SPANISH_QUESTION_STARTERS =
     /^(qu[eé]|c[oó]mo|cu[aá]l(es)?|cu[aá]ndo|d[oó]nde|por\s*qu[eé]|qui[eé]n(es)?|contame|cu[eé]ntame|explicame|explica|describ[ií]|describe|ten[eé]s|tienes|hac[eé]s|haces|podr[ií]as|quisiera saber|hablemos de|profundicemos en|me gustar[ií]a saber)\b/i;
 
+  // 3b. Directivas claras en cualquier parte del enunciado (después de saludos, introducciones o contexto)
+  const INTERVIEW_INTENT_PATTERNS =
+    /\b(contame|cu[eé]ntame|h[aá]blame|[aá]brame|explicame|explica|describ[ií]|describe|platicame|comentame|quisiera saber|me gustar[ií]a (conocer|saber|que me cuentes)|sobre ti|sobre vos|tu experiencia|tu trayectoria|tell me about|walk me through)\b/i;
+
   // 4. Patrones interrogativos o directivas claras de entrevista en inglés
   const ENGLISH_QUESTION_STARTERS =
     /^(what|how|why|when|where|who|which|can you|could you|would you|tell me|explain|describe|walk me through|do you|have you|are you|is there|could we|let's talk about|first question is|next question is|can you tell me|can you share|how would you)\b/i;
 
-  if (SPANISH_QUESTION_STARTERS.test(clean) || ENGLISH_QUESTION_STARTERS.test(clean)) {
+  if (SPANISH_QUESTION_STARTERS.test(clean) || INTERVIEW_INTENT_PATTERNS.test(clean) || ENGLISH_QUESTION_STARTERS.test(clean)) {
     return true;
   }
 
