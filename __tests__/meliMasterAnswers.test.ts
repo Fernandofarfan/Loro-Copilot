@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { MELI_NOSQL_MASTER_ANSWERS } from "../app/lib/meliMasterAnswers";
 
 describe("MELI_NOSQL_MASTER_ANSWERS", () => {
-  it("contiene al menos 20 respuestas maestras para Mercado Libre NoSQL", () => {
-    expect(MELI_NOSQL_MASTER_ANSWERS.length).toBeGreaterThanOrEqual(20);
+  it("contiene al menos 50 respuestas maestras para Mercado Libre NoSQL", () => {
+    expect(MELI_NOSQL_MASTER_ANSWERS.length).toBeGreaterThanOrEqual(50);
   });
 
   it("todas las respuestas pertenecen a MercadoLibre", () => {
