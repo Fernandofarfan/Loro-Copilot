@@ -101,7 +101,7 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
                 </span>
               </div>
               <p className="text-[11.5px] text-zinc-100 font-medium leading-snug line-clamp-2">
-                "{phrase.en}"
+                &ldquo;{phrase.en}&rdquo;
               </p>
               {phrase.es && (
                 <p className="text-[10.5px] text-zinc-400 mt-1 italic truncate">{phrase.es}</p>

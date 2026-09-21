@@ -1,24 +1,23 @@
 import { MasterAnswer } from "./interviewHelpers";
 
 /**
- * Banco Mercado Libre — NoSQL Service Team
+ * Banco Maestro Mercado Libre — NoSQL Service Team
  * Alineado a la JD: Sr Software Engineer - NoSQL Service Team (ID 126318)
- * y a la evaluación automatizada con Valeria (Agente de IA en Eightfold.ai).
+ * y a la evaluación técnica automatizada con Valeria (Agente de IA en Eightfold.ai).
  *
- * Directivas de audio/IA:
- * - Respuestas con alta densidad de palabras clave técnicas (DocumentDB, Firestore, Sharding, Proxy, Istio, Latencia P99, IA).
- * - Estructura STAR tácita y concisa.
+ * Directivas estrictas:
+ * - Respuestas de alta densidad técnica (DocumentDB, Firestore, Sharding, Proxy, Istio, Latencia P99, IA).
+ * - Cumplimiento del Zero-Bullet Mandate: exactamente 2 oraciones concisas y directas sin viñetas.
  * - Discriminar +8 años IT total vs ~4 años Cloud/GCP/Kubernetes.
+ * - Anclado 100% al CV real de Guillermo Fernando Farfán Romero (Salta, Argentina).
  */
 export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
-  // ─────────────────────────────────────────────
-  // PRESENTACIÓN — Adaptada a NoSQL Service Team
-  // ─────────────────────────────────────────────
+  // 1. PRESENTACIÓN
   {
     id: "meli_tell_me_about_yourself",
     question: "Tell me about yourself or walk me through your background and experience.",
-    enText: "I'm Fernando, a Software and Cloud Infrastructure Engineer based in Argentina. Over the last eight years in software engineering and four years focused on cloud, Kubernetes, and database reliability, I've designed resilient data layers, optimized connection pooling, and built automated multi-cloud platforms. I'm especially interested in Mercado Libre's NoSQL platform challenge because designing multi-cloud database proxies and sharding architectures at LATAM scale is the exact intersection of systems engineering and high-throughput reliability where I thrive.",
-    esText: "Soy Fernando, Ingeniero de Software e Infraestructura Cloud. Cuento con más de ocho años en ingeniería de software y unos cuatro años dedicados a arquitecturas cloud, Kubernetes y confiabilidad de bases de datos, diseñando capas de datos resilientes, optimizando pooling de conexiones y automatizando plataformas. Me entusiasma el desafío del equipo de NoSQL de Mercado Libre porque diseñar proxies multi-nube y arquitecturas de sharding a escala de LATAM combina exactamente sistemas distribuidos y alta disponibilidad.",
+    enText: "I'm Fernando, a Software and Cloud Infrastructure Engineer with eight years in software systems and four years dedicated to cloud platforms. I specialize in high-throughput data architectures, connection pooling, and automated Kubernetes platforms tailored for low-latency Latin American scale.",
+    esText: "Soy Fernando, Ingeniero de Software e Infraestructura Cloud con ocho años en sistemas de software y cuatro años dedicados a plataformas cloud. Me especializo en arquitecturas de datos de alto throughput, pooling de conexiones y plataformas Kubernetes de baja latencia a escala regional.",
     category: "Screening",
     tags: ["presentation", "background", "about me", "introduction", "cv", "trayectoria"],
     company: "MercadoLibre",
@@ -26,14 +25,12 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // AÑOS DE EXPERIENCIA — Regla estricta (+8 IT / ~4 Cloud)
-  // ─────────────────────────────────────────────
+  // 2. AÑOS DE EXPERIENCIA (REGLA ESTRICTA +8 IT / ~4 CLOUD)
   {
     id: "meli_experience_strict",
     question: "¿Cuántos años de experiencia tienes en ingeniería de software y arquitecturas en la nube?",
-    enText: "I have over eight years of total experience in IT and software development across backend systems and databases, and around four years dedicated specifically to cloud platforms, Kubernetes, and infrastructure automation. This balance gives me strong software design foundations alongside deep cloud reliability expertise.",
-    esText: "Tengo más de ocho años de experiencia total en desarrollo de software y sistemas backend, y unos cuatro años enfocados específicamente en plataformas cloud, Kubernetes y automatización de infraestructura. Este balance me permite diseñar soluciones de software robustas con conocimiento profundo de confiabilidad en la nube.",
+    enText: "I bring over eight years of total software engineering experience alongside four years focused specifically on cloud infrastructure, Kubernetes, and database reliability. This dual foundation allows me to build resilient distributed services with deep platform and systems understanding.",
+    esText: "Cuento con más de ocho años de experiencia total en ingeniería de software y cuatro años enfocados específicamente en infraestructura cloud, Kubernetes y confiabilidad de bases de datos. Este balance me permite construir servicios distribuidos resilientes con sólido dominio de sistemas.",
     category: "Screening",
     tags: ["experience", "years", "años", "seniority"],
     company: "MercadoLibre",
@@ -41,14 +38,12 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // MULTI-CLOUD NOSQL — AWS DocumentDB vs GCP Firestore / MongoDB
-  // ─────────────────────────────────────────────
+  // 3. MULTI-CLOUD NOSQL (DOCUMENTDB VS FIRESTORE/MONGODB)
   {
     id: "meli_multicloud_nosql",
     question: "¿Cómo evaluarías e implementarías soporte multi-nube para bases de datos NoSQL más allá de AWS DocumentDB, considerando alternativas como GCP Firestore o MongoDB?",
-    enText: "When architecting multi-cloud NoSQL support beyond AWS DocumentDB, I evaluate consistency models, read and write latency profiles, API wire-compatibility, and operational cost. In GCP, Firestore provides great managed scale and flexible document modeling, while MongoDB Atlas offers seamless protocol parity with DocumentDB. The key is creating a vendor-agnostic abstraction layer or database proxy that translates query primitives and normalizes telemetry across cloud providers without breaking client contracts.",
-    esText: "Al diseñar soporte multi-nube más allá de AWS DocumentDB, evalúo modelos de consistencia, perfiles de latencia en lectura y escritura, compatibilidad de protocolos y costos operativos. En GCP, Firestore ofrece gran escalabilidad gestionada y modelado flexible de documentos, mientras que MongoDB Atlas mantiene paridad nativa de protocolo con DocumentDB. La clave es construir una capa de abstracción o proxy de base de datos que desacople a las aplicaciones y normalice la telemetría entre proveedores sin romper contratos existentes.",
+    enText: "I evaluate consistency semantics, read and write latency profiles, protocol compatibility, and operational cost across cloud vendors. Building a database proxy abstraction layer normalizes query primitives and telemetry between DocumentDB and Firestore without mutating client contracts.",
+    esText: "Evalúo semántica de consistencia, perfiles de latencia en lectura y escritura, compatibilidad de protocolos y costos operativos entre proveedores cloud. Construir una capa de proxy de base de datos desacopla las primitivas de consulta y normaliza la telemetría sin modificar contratos de clientes.",
     category: "Technical",
     tags: ["nosql", "multicloud", "documentdb", "firestore", "mongodb", "aws", "gcp", "database"],
     company: "MercadoLibre",
@@ -56,14 +51,12 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // SEGMENTACIÓN Y SHARDING DE BASES DE DATOS
-  // ─────────────────────────────────────────────
+  // 4. SEGMENTACIÓN Y SHARDING
   {
     id: "meli_database_sharding_segmentation",
     question: "¿Qué estrategias utilizas para la segmentación de bases de datos y sharding en sistemas de alto tráfico?",
-    enText: "To prevent hot spots and scale throughput, I design sharding strategies based on high-cardinality shard keys combined with consistent hashing. I isolate large enterprise tenants onto dedicated physical partitions while packing smaller tenants into virtual shards. Pairing this with distributed caching in Redis and local circuit breaking keeps P99 latency stable during seasonal traffic surges.",
-    esText: "Para evitar cuellos de botella y escalar el throughput, diseño estrategias de sharding basadas en claves de alta cardinalidad combinadas con hashing consistente. Separo tenants o dominios de alto volumen en particiones físicas dedicadas mientras agrupo entidades menores en shards virtuales. Complementar esto con caching distribuido en Redis y circuit breaking local mantiene estable la latencia P99 durante picos masivos de tráfico.",
+    enText: "I design horizontal sharding using high-cardinality partition keys paired with consistent hashing to prevent cluster hot spots. Isolating large enterprise tenants onto dedicated physical shards while packing smaller workloads maintains predictable P99 latency during traffic spikes.",
+    esText: "Diseño sharding horizontal combinando claves de partición de alta cardinalidad con hashing consistente para prevenir puntos calientes en el cluster. Aislar grandes tenants en shards físicos dedicados mientras se agrupan cargas menores mantiene predecible la latencia P99 durante picos de tráfico.",
     category: "Technical",
     tags: ["sharding", "segmentación", "partitioning", "hotspots", "scaling", "latency"],
     company: "MercadoLibre",
@@ -71,14 +64,12 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // GESTIÓN CENTRALIZADA DE CONSULTAS / DATABASE PROXY
-  // ─────────────────────────────────────────────
+  // 5. DATABASE PROXY / QUERY GATEWAY
   {
     id: "meli_centralized_query_gateway",
     question: "¿Cómo diseñarías un mecanismo de gestión centralizada de consultas y proxy para bases de datos NoSQL?",
-    enText: "A centralized query gateway acts as an intelligent proxy between microservices and backend database clusters. It handles transparent connection pooling, dynamically routes queries based on partition keys, enforces rate limits on abusive queries, and injects distributed tracing. This shields the storage engines from connection exhaustion and enables seamless live cluster migrations with zero application downtime.",
-    esText: "Un gateway centralizado de consultas funciona como un proxy inteligente entre los microservicios y los clusters de base de datos. Se encarga del pooling transparente de conexiones, enruta dinámicamente según claves de partición, aplica rate limiting sobre consultas costosas e inyecta trazabilidad distribuida. Esto protege los motores de datos contra agotamiento de sockets y permite migraciones en caliente con cero downtime para las aplicaciones.",
+    enText: "A centralized query gateway manages connection multiplexing, dynamic query routing by partition key, and circuit breaking before hitting storage nodes. This architecture shields database clusters from connection exhaustion while enabling transparent live cluster migrations with zero application downtime.",
+    esText: "Un gateway centralizado de consultas gestiona multiplexación de conexiones, ruteo dinámico por clave de partición y circuit breaking antes de tocar los nodos de almacenamiento. Esta arquitectura protege los clusters contra saturación de conexiones y permite migraciones en caliente sin downtime.",
     category: "Technical",
     tags: ["proxy", "query gateway", "connection pooling", "routing", "throttling", "downtime"],
     company: "MercadoLibre",
@@ -86,14 +77,12 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // MODERNIZACIÓN A ISTIO Y ARQUITECTURAS SERVERLESS
-  // ─────────────────────────────────────────────
+  // 6. MIGRACIÓN A ISTIO EN KUBERNETES
   {
     id: "meli_istio_modernization",
     question: "¿Cómo abordarías la migración de arquitecturas heredadas hacia Istio o arquitecturas de despliegue modernas en Kubernetes?",
-    enText: "Migrating towards Istio allows offloading mTLS encryption, traffic shifting, and observability directly to Envoy sidecars without changing business logic. I adopt a phased canary migration, progressively injecting sidecars and validating service-to-service latency with Prometheus and Jaeger before enforcing strict mutual TLS and authorization policies. This guarantees zero impact on platform traffic during the rollout.",
-    esText: "Migrar hacia Istio permite delegar el cifrado mTLS, el ruteo de tráfico y la observabilidad directamente a sidecars de Envoy sin modificar la lógica de negocio. Abordo la transición con un despliegue canary progresivo, inyectando sidecars por namespace y validando latencias con Prometheus y Jaeger antes de activar políticas estrictas de mTLS y RBAC. Esto asegura cero impacto en el tráfico productivo durante la adopción.",
+    enText: "I migrate services incrementally to Istio by deploying Envoy sidecars per namespace and validating service latencies before enforcing strict mTLS. Offloading mutual TLS encryption and canary traffic routing directly to the service mesh minimizes application code modifications.",
+    esText: "Migro servicios de forma incremental hacia Istio inyectando sidecars de Envoy por namespace y validando latencias antes de exigir mTLS estricto. Delegar el cifrado mutuo y el ruteo canary directamente al service mesh minimiza cualquier modificación en el código de aplicación.",
     category: "Technical",
     tags: ["istio", "kubernetes", "service mesh", "envoy", "mtls", "canary", "serverless"],
     company: "MercadoLibre",
@@ -101,14 +90,38 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // RESOLUCIÓN DE INCIDENTES / TROUBLESHOOTING EN VIVO (STAR)
-  // ─────────────────────────────────────────────
+  // 7. LATENCIA P99 Y ESTRATEGIAS DE CACHE
+  {
+    id: "meli_p99_latency_caching",
+    question: "¿Cómo optimizas la latencia P99 y previenes el efecto estampida (thundering herd) en bases de datos NoSQL?",
+    enText: "I place a distributed Redis caching layer in front of the database using cache-aside and singleflight mutexes. This guarantees that only one worker queries the storage engine during cache misses, suppressing the thundering herd and stabilizing tail latencies.",
+    esText: "Coloco una capa de cache distribuido en Redis frente a la base de datos aplicando cache-aside y mutexes singleflight. Esto garantiza que un único worker consulte el motor de almacenamiento ante misses de cache, eliminando estampidas y estabilizando la latencia de cola.",
+    category: "Technical",
+    tags: ["latency", "p99", "redis", "caching", "thundering herd", "performance"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 8. TEOREMA CAP Y CONSISTENCIA EVENTUAL
+  {
+    id: "meli_consistency_cap_pacelc",
+    question: "¿Cómo balanceas consistencia vs disponibilidad en sistemas NoSQL distribuidos bajo el teorema PACELC?",
+    enText: "I tune read and write concerns according to business criticality, using strong quorum consistency for financial transactions and eventual consistency for high-volume telemetry. Pairing idempotent writes with asynchronous read repair maintains ninety-nine point nine percent availability without sacrificing critical data integrity.",
+    esText: "Ajusto las garantías de lectura y escritura según la criticidad del negocio, usando consistencia estricta por quórum en transacciones y consistencia eventual en telemetría masiva. Combinar escrituras idempotentes con read repair asíncrono sostiene alta disponibilidad sin comprometer la integridad de datos críticos.",
+    category: "Technical",
+    tags: ["cap", "pacelc", "consistency", "eventual consistency", "quorum", "distributed"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 9. INCIDENTE STAR: SATURACIÓN DE CONEXIONES (UBA / PGBOUNCER)
   {
     id: "meli_troubleshooting_incident_star",
     question: "Cuéntame sobre una situación crítica de degradación de rendimiento o saturación de base de datos que hayas resuelto.",
-    enText: "During a peak enrollment surge, our database cluster suffered severe connection pool exhaustion and query latency spikes. I inspected live session states, identified leaked idle transactions from an asynchronous worker, and quickly deployed connection pooling in transaction mode alongside Redis caching. This dropped active connections by over eighty percent and restored sub-twenty millisecond P95 response times immediately.",
-    esText: "Durante un pico masivo de inscripciones, nuestro cluster de base de datos sufrió saturación crítica del pool de conexiones y picos de latencia. Inspeccioné las sesiones activas, identifiqué transacciones ociosas retenidas por un proceso asíncrono y desplegué de urgencia pooling en modo transacción complementado con Redis. Esto redujo las conexiones activas en más de un 80% y normalizó de inmediato la latencia P95 por debajo de veinte milisegundos.",
+    enText: "During an enrollment traffic spike, database connection exhaustion caused severe latency spikes across our core services. I deployed connection pooling in transaction mode alongside Redis caching, reducing active database connections by eighty percent and restoring sub-twenty millisecond P95 latencies.",
+    esText: "Durante un pico de inscripciones, el agotamiento de conexiones de base de datos disparó la latencia en nuestros servicios críticos. Desplegué pooling de conexiones en modo transacción junto con cache en Redis, reduciendo las conexiones activas en un 80% y normalizando la latencia P95 bajo 20 milisegundos.",
     category: "Behavioral",
     tags: ["star", "incident", "troubleshooting", "latency", "pooling", "redis", "resilience"],
     company: "MercadoLibre",
@@ -116,14 +129,25 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // USO DE IA EN EL FLUJO DIARIO DE INGENIERÍA
-  // ─────────────────────────────────────────────
+  // 10. INCIDENTE STAR: HOT SHARD / PARTICIÓN CALIENTE
+  {
+    id: "meli_hot_shard_incident_star",
+    question: "¿Cómo diagnosticaste y mitigaste un problema de partición caliente (hot shard) en un cluster NoSQL?",
+    enText: "Prometheus alerts flagged a single storage node operating at ninety percent CPU due to unpartitioned viral entity queries. I applied salt hashing to the partition key and introduced short-lived edge caching, evenly redistributing IOPS across nodes without data loss.",
+    esText: "Alertas de Prometheus detectaron un nodo de almacenamiento al 90% de CPU por consultas concentradas sobre una misma entidad viral. Apliqué salting en la clave de partición e introduje caching efímero en el borde, redistribuyendo los IOPS equitativamente entre los nodos sin pérdida de datos.",
+    category: "Behavioral",
+    tags: ["star", "hot shard", "partitioning", "prometheus", "salting", "troubleshooting"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 11. USO DE IA EN EL FLUJO DIARIO DE INGENIERÍA
   {
     id: "meli_ai_daily_workflow",
     question: "¿Cómo incorporas herramientas de inteligencia artificial en tu flujo de trabajo diario de ingeniería de software?",
-    enText: "I use AI tools every single day to accelerate delivery and elevate engineering quality. Beyond code autocompletion, I leverage LLMs for generating edge-case unit tests, stress-testing complex regular expressions and queries, validating Terraform and Kubernetes security policies, and synthesizing performance profiling reports. It allows me to automate boilerplate tasks and spend more focus on high-impact distributed systems architecture.",
-    esText: "Incorporo herramientas de IA todos los días para acelerar el delivery y elevar el estándar de calidad de ingeniería. Más allá del autocompletado de código, utilizo LLMs para generar tests unitarios con casos de borde, realizar benchmarking de consultas complejas, auditar manifiestos de Terraform y Kubernetes contra vulnerabilidades y sintetizar reportes de profiling. Me permite automatizar tareas repetitivas y concentrarme en la arquitectura de sistemas distribuidos.",
+    enText: "I use AI daily to synthesize edge-case unit test suites, benchmark complex queries, and validate Kubernetes security policies before code reviews. This automation eliminates repetitive setup work so I can dedicate focus to distributed systems reliability and low-latency proxy architectures.",
+    esText: "Utilizo IA a diario para sintetizar suites de tests con casos de borde, benchmarkear consultas complejas y auditar políticas de seguridad en Kubernetes antes del code review. Esta automatización elimina tareas repetitivas para enfocarme en confiabilidad de sistemas distribuidos y proxies de baja latencia.",
     category: "Technical",
     tags: ["ai", "inteligencia artificial", "copilot", "workflow", "productivity", "testing"],
     company: "MercadoLibre",
@@ -131,14 +155,12 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // SEGURIDAD Y CONTROL DE ACCESO EN PLATAFORMAS DE DATOS
-  // ─────────────────────────────────────────────
+  // 12. SEGURIDAD, ENVELOPE ENCRYPTION Y RBAC
   {
     id: "meli_security_encryption_rbac",
     question: "¿Cómo implementas seguridad, cifrado y controles de acceso en plataformas de bases de datos críticas?",
-    enText: "I implement defense in depth by enforcing encryption at rest using envelope encryption with customer-managed keys, and encryption in transit via enforced TLS 1.3 or Istio mTLS. Access control relies on strictly scoped IAM roles and Kubernetes Workload Identity, avoiding hardcoded credentials and rotating secrets automatically with automated audit logging for compliance.",
-    esText: "Implemento seguridad en capas exigiendo cifrado en reposo con gestión de claves KMS y cifrado en tránsito mediante TLS 1.3 o mTLS de Istio. El control de accesos se basa en roles de menor privilegio e identidades federadas con Kubernetes Workload Identity, eliminando credenciales estáticas y automatizando la rotación de secretos junto con auditoría continua de accesos.",
+    enText: "I implement envelope encryption at rest using KMS managed keys and enforce TLS one point three in transit via Istio. Access is governed through Kubernetes Workload Identity and strict least-privilege IAM policies, eliminating hardcoded service credentials completely.",
+    esText: "Implemento envelope encryption en reposo con claves gestionadas en KMS y exijo TLS 1.3 en tránsito mediante Istio. El acceso se controla con Kubernetes Workload Identity y políticas IAM de menor privilegio, eliminando credenciales estáticas en los servicios.",
     category: "Technical",
     tags: ["security", "encryption", "rbac", "iam", "kms", "compliance", "seguridad"],
     company: "MercadoLibre",
@@ -146,9 +168,72 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     favorite: true,
     createdAt: 1789572000000,
   },
-  // ─────────────────────────────────────────────
-  // CULTURA MERCADO LIBRE: BETA CONTINUO Y EMPRENDER
-  // ─────────────────────────────────────────────
+  // 13. PYTHON ASÍNCRONO Y RENDIMIENTO
+  {
+    id: "meli_python_async_perf",
+    question: "¿Cómo aseguras alto rendimiento y no bloqueas el event loop al construir servicios con Python y FastAPI?",
+    enText: "I ensure non-blocking I/O by utilizing async native database drivers and delegating CPU-heavy tasks to worker pools or Celery queues. Combining connection reuse with uvloop keeps API response times predictable under thousands of concurrent requests.",
+    esText: "Garantizo I/O no bloqueante utilizando drivers nativos asíncronos y delegando tareas pesadas de CPU a pools de procesos o workers en Celery. Combinar reutilización de conexiones con uvloop mantiene los tiempos de respuesta estables bajo miles de peticiones concurrentes.",
+    category: "Technical",
+    tags: ["python", "asyncio", "fastapi", "performance", "uvloop", "concurrency"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 14. OBSERVABILIDAD Y GOLDEN SIGNALS
+  {
+    id: "meli_observability_golden_signals",
+    question: "¿Qué métricas y herramientas de observabilidad priorizas para monitorear plataformas NoSQL a gran escala?",
+    enText: "I track the four golden signals with emphasis on P99 latency percentiles, storage node saturation, and query connection pool utilization. Exporting OpenTelemetry traces to Jaeger allows us to pinpoint slow database queries across distributed microservices immediately.",
+    esText: "Monitoreo las cuatro señales doradas priorizando percentiles P99 de latencia, saturación de nodos de almacenamiento y utilización del pool de conexiones. Exportar trazas OpenTelemetry hacia Jaeger permite identificar al instante consultas lentas a través de los microservicios distribuidos.",
+    category: "Technical",
+    tags: ["observability", "metrics", "golden signals", "opentelemetry", "jaeger", "prometheus"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 15. RESILIENCIA Y CIRCUIT BREAKER
+  {
+    id: "meli_resilience_circuit_breaker",
+    question: "¿Cómo previenes fallas en cascada cuando una base de datos o servicio downstream experimenta degradación?",
+    enText: "I configure circuit breakers and exponential backoff with jitter on outgoing database queries to shed downstream load fast. Enforcing bulkhead thread pool isolation prevents a degraded storage partition from exhausting system memory across healthy workloads.",
+    esText: "Configuro circuit breakers y backoff exponencial con jitter en las consultas salientes para aliviar la carga downstream rápidamente. Aplicar aislamiento por bulkheads evita que una partición degradada agote la memoria y recursos del resto de los servicios saludables.",
+    category: "Technical",
+    tags: ["resilience", "circuit breaker", "bulkhead", "backoff", "cascading failure"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 16. MIGRACIÓN DE BASES DE DATOS CON CERO DOWNTIME
+  {
+    id: "meli_zero_downtime_migration",
+    question: "¿Cuál es tu metodología para migrar datos entre motores NoSQL diferentes sin interrumpir el servicio?",
+    enText: "I implement dual-writing through feature flags followed by Change Data Capture backfilling with Kafka to sync historical state. Once asynchronous validation confirms zero checksum discrepancies between engines, we switch read traffic over transparently.",
+    esText: "Implemento doble escritura mediante feature flags seguida de sincronización histórica con Change Data Capture y Kafka. Una vez que la validación asíncrona confirma cero discrepancias de checksum entre ambos motores, conmutamos las lecturas de forma transparente.",
+    category: "Technical",
+    tags: ["migration", "zero downtime", "dual-write", "cdc", "kafka", "feature flags"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 17. ARQUITECTURA ORIENTADA A EVENTOS Y KAFKA
+  {
+    id: "meli_event_driven_kafka",
+    question: "¿Cómo garantizas procesamiento idempotente y orden de eventos en arquitecturas distribuidas con Kafka?",
+    enText: "I partition Kafka topics using consistent entity identifiers and implement the transactional outbox pattern in producer services. Consumer microservices persist processed message IDs in a unique index, ensuring exactly-once processing semantics without duplicate operations.",
+    esText: "Particiono tópicos de Kafka mediante identificadores consistentes de entidad e implemento el patrón transactional outbox en los productores. Los microservicios consumidores persisten los IDs de mensajes procesados con índices únicos, garantizando idempotencia frente a reintentos.",
+    category: "Technical",
+    tags: ["kafka", "event-driven", "idempotency", "outbox pattern", "ordering"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 18. CULTURA MERCADO LIBRE: BETA CONTINUO Y RISK-TAKING
   {
     id: "meli_culture_fit",
     question: "¿Por qué te interesa sumarte a Mercado Libre y cómo te identificas con principios como Beta Continuo?",
@@ -159,6 +244,97 @@ export const MELI_NOSQL_MASTER_ANSWERS: MasterAnswer[] = [
     company: "MercadoLibre",
     role: "Sr Software Engineer - NoSQL Service Team",
     favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 19. TRABAJO REMOTO Y COORDINACIÓN ASÍNCRONA
+  {
+    id: "meli_remote_work_salta",
+    question: "¿Cómo gestionas el trabajo en equipo distribuido y la comunicación asíncrona de manera remota?",
+    enText: "I work remotely from Salta, Argentina, relying on structured Architecture Decision Records, clear pull request documentation, and proactive asynchronous communication. This self-driven discipline ensures high alignment across regional time zones without creating meeting bottlenecks.",
+    esText: "Trabajo en remoto desde Salta, apoyándome en Architecture Decision Records estructurados, pull requests bien documentados y comunicación asíncrona proactiva. Esta disciplina autónoma asegura alineación técnica entre zonas horarias sin generar cuellos de botella en reuniones.",
+    category: "Behavioral",
+    tags: ["remote", "salta", "asynchronous", "communication", "autonomy", "adrs"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 20. ¿POR QUÉ EL EQUIPO DE NOSQL EN MERCADO LIBRE?
+  {
+    id: "meli_why_nosql_team",
+    question: "¿Por qué elegiste postularte específicamente al NoSQL Service Team de Mercado Libre?",
+    enText: "The NoSQL Service Team operates at the very foundation of Mercado Libre's ecosystem, supporting millions of transactions with strict low-latency requirements. Building multi-cloud database abstractions and proxy routing at this scale represents the exact systems engineering challenge where my experience creates immediate value.",
+    esText: "El NoSQL Service Team opera en el corazón de la plataforma de Mercado Libre, respaldando millones de transacciones con exigencias críticas de baja latencia. Diseñar abstracciones multi-cloud y ruteo de proxies a esta escala representa el desafío de ingeniería de sistemas donde mi experiencia aporta valor inmediato.",
+    category: "Screening",
+    tags: ["motivation", "why meli", "nosql team", "impact", "systems"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 21. RATE LIMITING Y PROTECCIÓN DE BASES DE DATOS
+  {
+    id: "meli_rate_limiting_token_bucket",
+    question: "¿Cómo implementarías rate limiting en un proxy de bases de datos para proteger clusters contra consultas abusivas?",
+    enText: "I implement token bucket rate limiting in the database gateway keyed by client service identity and query complexity weight. Queries exceeding dynamic concurrency thresholds are gracefully queued or rejected with specific backoff codes before saturating backend storage engines.",
+    esText: "Implemento rate limiting por token bucket en el gateway de base de datos categorizado por identidad del microservicio y costo estimado de la consulta. Las peticiones que superan los umbrales de concurrencia se encolan o rechazan con códigos de backoff antes de saturar los motores de almacenamiento.",
+    category: "Technical",
+    tags: ["rate limiting", "token bucket", "throttling", "proxy", "dos prevention"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 22. DOCUMENTDB VS FIRESTORE INTERNALS
+  {
+    id: "meli_documentdb_vs_firestore_internals",
+    question: "¿Cuáles son las diferencias arquitectónicas clave entre AWS DocumentDB y GCP Firestore a bajo nivel?",
+    enText: "DocumentDB decouples compute from an emulated distributed log storage layer across three availability zones using MongoDB wire-protocol compatibility. In contrast, Firestore utilizes multi-region Paxos consensus over Bigtable storage with native serverless autoscaling and real-time document change listeners.",
+    esText: "DocumentDB desacopla cómputo de una capa de log de almacenamiento distribuido en tres zonas con compatibilidad del protocolo de MongoDB. En cambio, Firestore utiliza consenso Paxos multi-región sobre almacenamiento Bigtable con autoescalado serverless y listeners de cambios en tiempo real.",
+    category: "Technical",
+    tags: ["documentdb", "firestore", "internals", "architecture", "aws", "gcp", "storage engine"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 23. EXPECTATIVA SALARIAL
+  {
+    id: "meli_salary_expectation",
+    question: "¿Cuáles son tus pretensiones salariales para este rol de Senior Software Engineer?",
+    enText: "My reference compensation is four thousand US dollars per month gross, open to exploring Mercado Libre's competitive local or regional senior compensation structure. My main priority is aligning with the scope, ownership, and technical impact of the NoSQL Service Team.",
+    esText: "Mi remuneración de referencia ronda los cuatro mil dólares mensuales brutos, estando totalmente abierto a la estructura salarial competitiva de Mercado Libre para este nivel senior. Mi prioridad principal es el impacto técnico y los desafíos del equipo de NoSQL.",
+    category: "Screening",
+    tags: ["salary", "remuneración", "expectativa", "compensación"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
+    createdAt: 1789572000000,
+  },
+  // 24. PREGUNTAS DE ORO PARA EL ENTREVISTADOR (REVERSE QUESTIONS)
+  {
+    id: "meli_reverse_questions",
+    question: "¿Tienes alguna pregunta para nosotros sobre el equipo o el proyecto?",
+    enText: "I'd love to know what the biggest operational bottleneck is today when scaling DocumentDB clusters across regions, and how you see the balance between building in-house database proxies versus adopting open-source solutions evolving over the next year.",
+    esText: "Me gustaría conocer cuál es el mayor cuello de botella operativo actual al escalar clusters de DocumentDB entre regiones, y cómo proyectan en el equipo el balance entre desarrollar proxies propietarios versus adoptar herramientas open-source durante el próximo año.",
+    category: "Screening",
+    tags: ["reverse questions", "preguntas", "cierre", "interviewer"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: true,
+    createdAt: 1789572000000,
+  },
+  // 25. MASCOTA / ROMPEHIELO CASUAL (LUNA)
+  {
+    id: "meli_casual_dog_luna",
+    question: "¿Qué haces en tu tiempo libre o qué te gusta fuera de la ingeniería?",
+    enText: "When I'm not architecting systems, I enjoy outdoor activities and spending time with my rescued dog Luna here in Salta. Taking long walks in the hills keeps me grounded and brings great clarity for solving complex distributed systems problems.",
+    esText: "Cuando no estoy diseñando sistemas, disfruto de actividades al aire libre y compartir tiempo con mi perrita rescatada Luna acá en Salta. Salir a caminar por los cerros me desconecta y me da gran claridad mental para resolver problemas complejos de arquitectura.",
+    category: "Screening",
+    tags: ["casual", "icebreaker", "hobbies", "luna", "salta"],
+    company: "MercadoLibre",
+    role: "Sr Software Engineer - NoSQL Service Team",
+    favorite: false,
     createdAt: 1789572000000,
   },
 ];

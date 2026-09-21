@@ -114,6 +114,8 @@ export default function CopilotPage() {
   const [warmupLoading, setWarmupLoading] = useState(false);
   const [warmupMessage, setWarmupMessage] = useState<string | null>(null);
   const [profileNameInput, setProfileNameInput] = useState("");
+  const [memoryFilterCompany, setMemoryFilterCompany] = useState<string>("all");
+  const [memorySearchTerm, setMemorySearchTerm] = useState<string>("");
 
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -151,6 +153,43 @@ export default function CopilotPage() {
 
   const starStoriesRef = useRef(starStories);
   starStoriesRef.current = starStories;
+
+  // Estadísticas y filtrado del Banco de Memoria (Mercado Libre vs Globant)
+  const meliAnswersCount = useMemo(() => {
+    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("mercadolibre")).length;
+  }, [masterAnswers]);
+
+  const globantAnswersCount = useMemo(() => {
+    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("globant")).length;
+  }, [masterAnswers]);
+
+  const favoriteAnswersCount = useMemo(() => {
+    return masterAnswers.filter((a) => a.favorite).length;
+  }, [masterAnswers]);
+
+  const filteredMasterAnswers = useMemo(() => {
+    return masterAnswers.filter((ans) => {
+      if (memoryFilterCompany === "MercadoLibre") {
+        if (!(ans.company || "").toLowerCase().includes("mercadolibre")) return false;
+      } else if (memoryFilterCompany === "Globant") {
+        if (!(ans.company || "").toLowerCase().includes("globant")) return false;
+      } else if (memoryFilterCompany === "favorites") {
+        if (!ans.favorite) return false;
+      }
+
+      if (memorySearchTerm.trim()) {
+        const query = memorySearchTerm.toLowerCase();
+        const inQuestion = ans.question.toLowerCase().includes(query);
+        const inEn = (ans.enText || "").toLowerCase().includes(query);
+        const inEs = (ans.esText || "").toLowerCase().includes(query);
+        const inTags = (ans.tags || []).some((t) => t.toLowerCase().includes(query));
+        const inCategory = (ans.category || "").toLowerCase().includes(query);
+        if (!inQuestion && !inEn && !inEs && !inTags && !inCategory) return false;
+      }
+
+      return true;
+    });
+  }, [masterAnswers, memoryFilterCompany, memorySearchTerm]);
 
   // Radar de Vulnerabilidades del CV (Red Team)
   const [vulnModalOpen, setVulnModalOpen] = useState(false);
@@ -1119,6 +1158,7 @@ export default function CopilotPage() {
     syncTeleprompter({ interviewMode: "screening" });
 
     importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
+    setMemoryFilterCompany("Globant");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
   // Preset 1-Click para la entrevista de Mercado Libre - NoSQL Service Team (Valeria - Eightfold AI)
@@ -1138,6 +1178,7 @@ export default function CopilotPage() {
     syncTeleprompter({ interviewMode: "technical" });
 
     importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+    setMemoryFilterCompany("MercadoLibre");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
   return (
@@ -2350,32 +2391,66 @@ export default function CopilotPage() {
                   <span>⚡ Banco de Memoria Inteligente</span>
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  Respuestas instantáneas (&lt;50ms) coincidentes con preguntas típicas. Aisladas por empresa.
+                  Respuestas instantáneas (&lt;50ms) coincidentes con preguntas típicas. Precargadas por empresa y rol.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-
-                <button
-                  type="button"
-                  onClick={() => importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS)}
-                  className="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 text-purple-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
-                  title="Cargar el banco maestro de respuestas preparadas para Globant, Intermedia, GCP, GCVE y RRHH"
-                >
-                  <span>⚡ Cargar Banco Completo ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
-                </button>
-
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Botón Cargar Mercado Libre */}
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm("Esto reemplaza TODAS las entradas del Banco con las " + GLOBANT_AND_GCP_MASTER_ANSWERS.length + " respuestas actualizadas. Las entradas viejas se eliminan. ¿Continuar?")) {
-                      replaceMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
+                    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+                    setMemoryFilterCompany("MercadoLibre");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-yellow-500/40 bg-yellow-950/40 hover:bg-yellow-900/60 text-yellow-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(234,179,8,0.2)]"
+                  title="Cargar o actualizar las respuestas maestras preparadas para Mercado Libre NoSQL Service Team"
+                >
+                  <span>🟡 Cargar Mercado Libre ({MELI_NOSQL_MASTER_ANSWERS.length})</span>
+                </button>
+
+                {/* Botón Cargar Globant */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
+                    setMemoryFilterCompany("Globant");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 text-purple-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
+                  title="Cargar el banco maestro de respuestas preparadas para Globant, Intermedia, GCP y GCVE"
+                >
+                  <span>🟣 Cargar Globant ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
+                </button>
+
+                {/* Botón Cargar Ambos */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers([...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS]);
+                    setMemoryFilterCompany("all");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                  title="Cargar todas las respuestas maestras de Mercado Libre y Globant juntas"
+                >
+                  <span>⚡ Cargar Ambos ({MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
+                </button>
+
+                {/* Reemplazar Banco con Preset Activo */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isMeli = company === "MercadoLibre";
+                    const targetName = isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
+                    const answersToLoad = isMeli ? MELI_NOSQL_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
+                    if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
+                      replaceMasterAnswers(answersToLoad);
+                      setMemoryFilterCompany(isMeli ? "MercadoLibre" : "Globant");
                     }
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-950/40 hover:bg-amber-900/60 text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5"
-                  title="Reemplazar todo el banco viejo con las respuestas actualizadas"
+                  className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-1.5"
+                  title="Reemplazar todo el banco con el preset de la empresa seleccionada"
                 >
-                  <span>🔄 Reemplazar Banco ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
+                  <span>🔄 Reemplazar ({company === "MercadoLibre" ? "Solo MELI" : "Solo Globant"})</span>
                 </button>
 
                 <button
@@ -2384,12 +2459,12 @@ export default function CopilotPage() {
                   disabled={warmupLoading}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-bold transition-all disabled:opacity-50"
                 >
-                  {warmupLoading ? "Generando 4 típicas..." : "Generar 4 típicas con IA"}
+                  {warmupLoading ? "Generando..." : "Generar 4 con IA"}
                 </button>
 
                 <label className="cursor-pointer px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 transition-all flex items-center gap-1.5">
                   <DocIcon />
-                  <span>Importar Markdown</span>
+                  <span>Importar MD</span>
                   <input type="file" accept=".md" onChange={handleMarkdownImport} className="hidden" />
                 </label>
 
@@ -2399,7 +2474,7 @@ export default function CopilotPage() {
                   className="px-3 py-1.5 rounded-lg border border-amber-600/50 bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 text-xs font-semibold transition-all flex items-center gap-1.5"
                   title="Pegar preguntas de entrevistas de Glassdoor, Blind o Reddit para precargar respuestas en memoria"
                 >
-                  <span>📥 Glassdoor / Blind</span>
+                  <span>📥 Glassdoor</span>
                 </button>
 
                 {masterAnswers.length > 0 && (
@@ -2414,51 +2489,265 @@ export default function CopilotPage() {
               </div>
             </div>
 
+            {/* Banner contextual si está en Mercado Libre y no tiene respuestas cargadas */}
+            {company === "MercadoLibre" && meliAnswersCount === 0 && (
+              <div className="p-3.5 rounded-xl bg-yellow-950/50 border border-yellow-500/50 text-yellow-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(234,179,8,0.15)]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🟡</span>
+                  <div>
+                    <span className="font-bold text-yellow-100">Estás en la entrevista de Mercado Libre (NoSQL Service Team)</span>
+                    <p className="text-[11px] text-yellow-300/80">Tu banco de memoria aún no tiene cargadas las respuestas de NoSQL, Sharding, Proxy e Istio.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+                    setMemoryFilterCompany("MercadoLibre");
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
+                >
+                  ⚡ Cargar las {MELI_NOSQL_MASTER_ANSWERS.length} Respuestas de MELI
+                </button>
+              </div>
+            )}
+
             {warmupMessage && (
               <div className="p-3 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-200 text-xs">
                 {warmupMessage}
               </div>
             )}
 
-            {masterAnswers.length === 0 ? (
+            {/* Barra de Filtros y Búsqueda */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-2.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMemoryFilterCompany("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    memoryFilterCompany === "all"
+                      ? "bg-zinc-200 text-zinc-950 font-bold shadow-sm"
+                      : "bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800"
+                  }`}
+                >
+                  <span>🏢 Todas</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800/80 text-zinc-300">{masterAnswers.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMemoryFilterCompany("MercadoLibre")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    memoryFilterCompany === "MercadoLibre"
+                      ? "bg-yellow-400 text-zinc-950 font-bold shadow-[0_0_12px_rgba(250,204,21,0.35)]"
+                      : "bg-yellow-950/30 text-yellow-300 hover:bg-yellow-900/40 border border-yellow-700/40"
+                  }`}
+                >
+                  <span>🟡 Mercado Libre</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "MercadoLibre" ? "bg-zinc-950/20 text-zinc-950" : "bg-yellow-500/20 text-yellow-300"}`}>
+                    {meliAnswersCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMemoryFilterCompany("Globant")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    memoryFilterCompany === "Globant"
+                      ? "bg-purple-500 text-white font-bold shadow-[0_0_12px_rgba(168,85,247,0.35)]"
+                      : "bg-purple-950/30 text-purple-300 hover:bg-purple-900/40 border border-purple-700/40"
+                  }`}
+                >
+                  <span>🟣 Globant / GCP</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "Globant" ? "bg-white/20 text-white" : "bg-purple-500/20 text-purple-300"}`}>
+                    {globantAnswersCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMemoryFilterCompany("favorites")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    memoryFilterCompany === "favorites"
+                      ? "bg-amber-400 text-zinc-950 font-bold shadow-sm"
+                      : "bg-zinc-900 text-zinc-400 hover:text-amber-300 border border-zinc-800"
+                  }`}
+                >
+                  <span>★ Favoritas</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800/80 text-zinc-300">{favoriteAnswersCount}</span>
+                </button>
+              </div>
+
+              {/* Input de Búsqueda */}
+              <div className="relative min-w-[260px]">
+                <input
+                  type="text"
+                  value={memorySearchTerm}
+                  onChange={(e) => setMemorySearchTerm(e.target.value)}
+                  placeholder="🔍 Buscar pregunta, sharding, istio, star..."
+                  className="w-full px-3 py-1.5 pr-7 text-xs rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-yellow-500"
+                />
+                {memorySearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setMemorySearchTerm("")}
+                    className="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-200 text-xs"
+                    title="Limpiar búsqueda"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Listado de Respuestas Filtradas */}
+            {filteredMasterAnswers.length === 0 ? (
               <div className="p-8 text-center text-zinc-500 border border-dashed border-zinc-800 rounded-xl">
-                <p className="text-sm font-semibold text-zinc-300 mb-1">El Banco de Memoria está vacío</p>
-                <p className="text-xs max-w-sm mx-auto">
-                  Generá 4 preguntas típicas con IA, importá un informe anterior en Markdown o da thumbs-up en vivo a
-                  respuestas para guardarlas.
+                <p className="text-sm font-semibold text-zinc-300 mb-1">
+                  {masterAnswers.length === 0
+                    ? "El Banco de Memoria está vacío"
+                    : "No hay respuestas que coincidan con el filtro"}
                 </p>
+                <p className="text-xs max-w-md mx-auto mb-4 text-zinc-400">
+                  {masterAnswers.length === 0
+                    ? `Cargá las respuestas de Mercado Libre (${MELI_NOSQL_MASTER_ANSWERS.length}) o de Globant (${GLOBANT_AND_GCP_MASTER_ANSWERS.length}) para tener respuestas instantáneas (<50ms) en vivo.`
+                    : "Prueba seleccionando 'Todas' o borrando el término del buscador."}
+                </p>
+                {masterAnswers.length === 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+                        setMemoryFilterCompany("MercadoLibre");
+                      }}
+                      className="px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(250,204,21,0.3)]"
+                    >
+                      🟡 Cargar Mercado Libre ({MELI_NOSQL_MASTER_ANSWERS.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
+                        setMemoryFilterCompany("Globant");
+                      }}
+                      className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-[0_0_12px_rgba(168,85,247,0.3)]"
+                    >
+                      🟣 Cargar Globant ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto">
-                {masterAnswers.map((ans) => (
-                  <div key={ans.id} className="p-3 rounded-lg border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between text-[11px] text-zinc-500 mb-1">
-                        <span className="font-bold text-zinc-400">{ans.company || "General"}</span>
-                        <span>{ans.category || "General"}</span>
-                      </div>
-                      <h4 className="text-xs font-bold text-zinc-200 mb-2">{ans.question}</h4>
-                      <p className="text-xs text-zinc-400 line-clamp-3 mb-2">{ans.enText || ans.esText}</p>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[600px] overflow-y-auto pr-1">
+                {filteredMasterAnswers.map((ans) => {
+                  const isMeli = (ans.company || "").toLowerCase().includes("mercadolibre");
+                  const isGlobant = (ans.company || "").toLowerCase().includes("globant");
+                  return (
+                    <div
+                      key={ans.id}
+                      className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                        isMeli
+                          ? "border-yellow-500/30 bg-gradient-to-br from-yellow-950/20 via-zinc-950 to-zinc-950 hover:border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
+                          : isGlobant
+                          ? "border-purple-500/30 bg-gradient-to-br from-purple-950/20 via-zinc-950 to-zinc-950 hover:border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.05)]"
+                          : "border-zinc-800 bg-zinc-950 hover:border-zinc-700"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-2 gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {isMeli ? (
+                              <span className="px-2 py-0.5 rounded-md bg-yellow-400/15 border border-yellow-400/30 text-yellow-300 font-bold text-[10px] tracking-wide">
+                                🟡 Mercado Libre
+                              </span>
+                            ) : isGlobant ? (
+                              <span className="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold text-[10px] tracking-wide">
+                                🟣 Globant
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 font-bold text-[10px]">
+                                {ans.company || "General"}
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-400 text-[10px]">
+                              {ans.category || "General"}
+                            </span>
+                            {ans.role && (
+                              <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] text-zinc-500">
+                                {ans.role}
+                              </span>
+                            )}
+                          </div>
 
-                    <div className="flex items-center justify-between border-t border-zinc-900 pt-2 text-[11px]">
-                      <button
-                        type="button"
-                        onClick={() => toggleFavoriteMasterAnswer(ans.id)}
-                        className={`text-xs ${ans.favorite ? "text-amber-400" : "text-zinc-600"}`}
-                      >
-                        ★ {ans.favorite ? "Favorita" : "Destacar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteMasterAnswer(ans.id)}
-                        className="text-zinc-500 hover:text-red-400"
-                      >
-                        Eliminar
-                      </button>
+                          {ans.tags && ans.tags.length > 0 && (
+                            <div className="hidden lg:flex items-center gap-1 max-w-[180px] overflow-hidden text-[10px] text-zinc-500">
+                              {ans.tags.slice(0, 2).map((t) => (
+                                <span key={t} className="px-1.5 py-0.2 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 text-[9px]">
+                                  #{t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <h4 className="text-xs font-bold text-zinc-100 mb-2.5 leading-snug">{ans.question}</h4>
+
+                        {/* Respuesta Español */}
+                        {ans.esText && (
+                          <div className="mb-2 p-2 rounded-lg bg-zinc-900/80 border border-white/[0.05] text-[11px] text-zinc-300 leading-relaxed">
+                            <span className="text-amber-400 font-bold mr-1 text-[10px] tracking-wider">[ES]:</span>
+                            {ans.esText}
+                          </div>
+                        )}
+
+                        {/* Respuesta Inglés */}
+                        {ans.enText && (
+                          <div className="p-2 rounded-lg bg-zinc-900/40 border border-white/[0.03] text-[11px] text-zinc-400 leading-relaxed">
+                            <span className="text-cyan-400 font-bold mr-1 text-[10px] tracking-wider">[EN]:</span>
+                            {ans.enText}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-zinc-800/80 pt-2.5 mt-3 text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleFavoriteMasterAnswer(ans.id)}
+                            className={`text-xs font-medium flex items-center gap-1 transition-colors ${
+                              ans.favorite ? "text-amber-400 font-bold" : "text-zinc-500 hover:text-amber-300"
+                            }`}
+                          >
+                            <span>{ans.favorite ? "★" : "☆"}</span>
+                            <span>{ans.favorite ? "Favorita" : "Destacar"}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const textToCopy = ans.esText || ans.enText;
+                              navigator.clipboard.writeText(textToCopy);
+                            }}
+                            className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-zinc-800/50 hover:bg-zinc-800"
+                            title="Copiar respuesta al portapapeles"
+                          >
+                            <CopyIcon />
+                            <span>Copiar</span>
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteMasterAnswer(ans.id)}
+                          className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
