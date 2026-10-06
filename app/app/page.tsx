@@ -24,6 +24,7 @@ import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
 import { GLOBANT_AND_GCP_MASTER_ANSWERS } from "../lib/globantMasterAnswers";
 import { MELI_NOSQL_MASTER_ANSWERS } from "../lib/meliMasterAnswers";
+import { VAIRIX_MASTER_ANSWERS } from "../lib/vairixMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
 import { useInterviewContext, type STARStory } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
@@ -154,13 +155,17 @@ export default function CopilotPage() {
   const starStoriesRef = useRef(starStories);
   starStoriesRef.current = starStories;
 
-  // Estadísticas y filtrado del Banco de Memoria (Mercado Libre vs Globant)
+  // Estadísticas y filtrado del Banco de Memoria (Mercado Libre vs Globant vs VAIRIX)
   const meliAnswersCount = useMemo(() => {
     return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("mercadolibre")).length;
   }, [masterAnswers]);
 
   const globantAnswersCount = useMemo(() => {
     return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("globant")).length;
+  }, [masterAnswers]);
+
+  const vairixAnswersCount = useMemo(() => {
+    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("vairix")).length;
   }, [masterAnswers]);
 
   const favoriteAnswersCount = useMemo(() => {
@@ -173,6 +178,8 @@ export default function CopilotPage() {
         if (!(ans.company || "").toLowerCase().includes("mercadolibre")) return false;
       } else if (memoryFilterCompany === "Globant") {
         if (!(ans.company || "").toLowerCase().includes("globant")) return false;
+      } else if (memoryFilterCompany === "VAIRIX") {
+        if (!(ans.company || "").toLowerCase().includes("vairix")) return false;
       } else if (memoryFilterCompany === "favorites") {
         if (!ans.favorite) return false;
       }
@@ -1141,6 +1148,26 @@ export default function CopilotPage() {
     setShowDossierWizard(false);
   };
 
+  // Preset 1-Click para la entrevista de VAIRIX - Senior Technical Architect (Romina Raffo De León)
+  const loadVairixPreset = useCallback(() => {
+    setCompany("VAIRIX");
+    setRole("Senior Technical Architect");
+    setInterviewerBio(
+      "Romina Raffo De León, IT Recruiter en VAIRIX. Primera llamada de screening y acercamiento para el rol de Senior Technical Architect (cliente en EE.UU.). Evalúa: perfil hands-on (diseñar arquitectura de alto nivel pero programar activamente en TypeScript y Python), experiencia en GenAI/LLM/RAG (pgvector, Vertex AI/OpenAI, embeddings, reranking) y MLOps/DevOps (Kubernetes, Cloud Run, Terraform), toma de decisiones técnicas con clientes en inglés fluido, y pretensión salarial contractor ($4.000 USD / $25-30/h)."
+    );
+    setProfile(
+      "Guillermo Fernando Farfán Romero. Senior Technical Architect e Ingeniero de Software con +8 años de experiencia en desarrollo de sistemas y ~4 años dedicados a arquitectura cloud, Kubernetes, DevOps y soluciones GenAI/RAG en TypeScript y Python."
+    );
+    setExtraInstructions(
+      "Respuestas conversacionales ultra-concisas (máximo 2 oraciones, 25-35 palabras, Zero-Bullet Mandate). Bilingüe: responder en inglés técnico fluido con [KEY], [EN], [PHO], [ES] si la pregunta es en inglés, o español profesional con terminología técnica si es en español. Pretensión contractor: $25-$30/h USD (o ~$4.000 USD/mes bruto). Mascota: perrita adoptada y rescatada Luna en Salta. NUNCA mencionar gatos. Regla estricta de experiencia: discriminar +8 años IT total vs ~4 años Cloud/DevOps/GenAI (nunca afirmar 8 años en cloud)."
+    );
+    setInterviewMode("screening");
+    syncTeleprompter({ interviewMode: "screening" });
+
+    importMasterAnswers(VAIRIX_MASTER_ANSWERS);
+    setMemoryFilterCompany("VAIRIX");
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
   // Preset 1-Click para la entrevista de Globant / Intermedia
   const loadGlobantPreset = useCallback(() => {
     setCompany("Globant");
@@ -1161,21 +1188,21 @@ export default function CopilotPage() {
     setMemoryFilterCompany("Globant");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
-  // Preset 1-Click para la entrevista de Mercado Libre - NoSQL Service Team (Valeria - Eightfold AI)
+  // Preset 1-Click para la entrevista de Mercado Libre - NoSQL Service Team (Majo Trejo Conde - Talent Acquisition SR)
   const loadMeliPreset = useCallback(() => {
     setCompany("MercadoLibre");
     setRole("Sr Software Engineer - NoSQL Service Team");
     setInterviewerBio(
-      "Valeria (Agente de IA en Eightfold.ai). Evaluación inicial técnica para Mercado Libre (NoSQL Service Team, ID 126318). Evalúa: soporte multi-cloud más allá de AWS DocumentDB (GCP Firestore/MongoDB/Bigtable), segmentación y sharding de bases de datos, proxies de consulta y routing centralizado, migración a Istio en Kubernetes, resiliencia/alta disponibilidad/latencia P99, y uso avanzado de IA en el flujo diario de ingeniería. Estructura STAR estricta, alta densidad de palabras clave técnicas y métricas cuantificables."
+      "Maria Jose Trejo Conde (Majo), Regional Talent Acquisition IT Senior Analyst en Mercado Libre. Charla de screening/agendada vía LinkedIn tras aprobar la etapa inicial (manager Nicolás). Evalúa: encaje cultural con el ADN de MELI (Beta Continuo, Emprender tomando riesgos, Ejecutar con excelencia, Dar el máximo compitiendo en equipo), trayectoria profesional (+8 años IT total vs ~4 años Cloud/Kubernetes/DevOps), pretensiones salariales (~$4.000 USD bruto o estructura salarial senior MELI), esquema de trabajo remoto desde Salta (comunicación asíncrona, ADRs, autonomía) y motivación para el NoSQL Service Team."
     );
     setProfile(
-      "Guillermo Fernando Farfán Romero. Ingeniero de Software e Infraestructura Cloud con +8 años de experiencia en sistemas distribuidos/backend y ~4 años dedicados a arquitecturas cloud (GCP/AWS), Kubernetes, optimización de bases de datos, proxies de conexión y plataformas de alta disponibilidad."
+      "Guillermo Fernando Farfán Romero. Ingeniero de Software e Infraestructura Cloud con +8 años de experiencia en desarrollo/backend y ~4 años dedicados a arquitecturas cloud (GCP/AWS), Kubernetes, optimización de bases de datos, proxies de conexión y plataformas de alta disponibilidad. Radicado en Salta con perrita rescatada Luna."
     );
     setExtraInstructions(
-      "Respuestas concisas de alto impacto para evaluador IA (Valeria - Eightfold): estructurar con STAR tácito, incluir palabras clave exactas (DocumentDB, Firestore, Sharding, Database Proxy, Istio, Latencia P99, IA asistida). Enfatizar ~4 años en Cloud/GCP + Kubernetes y +8 años en IT/sistemas. Citar principios de Mercado Libre: Beta continuo, emprender tomando riesgos, ejecutar con excelencia."
+      "Respuestas conversacionales concisas (máximo 2 oraciones, 25-35 palabras, Zero-Bullet Mandate). Enfoque para Talent Acquisition SR (Majo): calidez profesional, alta claridad sobre trayectoria (+8 años IT total vs ~4 años Cloud/Kubernetes), alineación con principios de MELI (Beta continuo, ownership, velocidad con calidad). Pretensión de referencia: ~$4,000 USD/mes bruto (abierto a la propuesta integral de MELI). Radicado en Salta, remoto con total autonomía. Small talk: Luna la perrita rescatada en Salta. NUNCA mencionar gatos ni inventar métricas."
     );
-    setInterviewMode("technical");
-    syncTeleprompter({ interviewMode: "technical" });
+    setInterviewMode("screening");
+    syncTeleprompter({ interviewMode: "screening" });
 
     importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
     setMemoryFilterCompany("MercadoLibre");
@@ -1305,8 +1332,61 @@ export default function CopilotPage() {
 
         {activeTab === "live" && (
           <div className="flex flex-col flex-1 gap-3">
-            {/* Mission & Target Intel Bar: Mercado Libre / Globant */}
-            {company === "MercadoLibre" ? (
+            {/* Mission & Target Intel Bar: VAIRIX / Mercado Libre / Globant */}
+            {company === "VAIRIX" ? (
+              <div className="rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(6,182,212,0.15)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🔷
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">Entrevista Activa — VAIRIX</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 animate-pulse">
+                        Miércoles • 10:30 hs
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        👤 Romina Raffo De León (IT Recruiter)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        Senior Technical Architect
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
+                      VAIRIX — Senior Technical Architect (Nearshore / Cliente EE.UU.)
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Hands-on: <strong className="text-zinc-300">TypeScript & Python</strong> • RAG: <strong className="text-zinc-300">pgvector, Embeddings & Reranking</strong> • MLOps: <strong className="text-zinc-300">K8s & CI/CD</strong> • Tarifa: <span className="text-emerald-400 font-semibold">$25-$30/h (o $4k USD)</span> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                    title="Cargar preset de Mercado Libre"
+                  >
+                    Preset MELI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadGlobantPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                    title="Cargar preset de Globant"
+                  >
+                    Preset Globant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Stack
+                  </button>
+                </div>
+              </div>
+            ) : company === "MercadoLibre" ? (
               <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/40 via-[#0e121e]/85 to-yellow-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(245,158,11,0.15)]">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
@@ -1316,33 +1396,32 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Entrevista Activa — Mercado Libre</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40 animate-pulse">
-                        Caduca: 24 Sep • 23:59 ART
+                        Etapa 2 • Screening HR
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        🤖 Valeria (Agente IA Eightfold)
+                        👤 Maria Jose Trejo Conde (Majo)
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         NoSQL Service Team
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
-                      Mercado Libre — Sr Software Engineer (NoSQL Service Team • ID 126318)
+                      Mercado Libre — Sr Software Engineer (NoSQL Service Team • Manager: Nicolás)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Multi-Cloud: <strong className="text-zinc-300">DocumentDB ➔ Firestore/GCP</strong> • Sharding & Routing • Istio • IA en workflow diario • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                      Entrevistadora: <strong className="text-zinc-300">Majo (Talent Acquisition SR - IT)</strong> • Foco: <strong className="text-zinc-300">Fit Cultural, Trayectoria & Compensación</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
-                  <a
-                    href="https://mercadolibre.eightfold.ai/interview-ai/meeting/Yo9OAgvz"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98] inline-flex items-center gap-1.5"
+                  <button
+                    type="button"
+                    onClick={loadVairixPreset}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98] inline-flex items-center gap-1.5"
+                    title="Cargar preset de VAIRIX"
                   >
-                    <span>🎙️ Abrir Sala Eightfold AI</span>
-                    <ExternalLinkIcon />
-                  </a>
+                    <span>🔷 Preset VAIRIX</span>
+                  </button>
                   <button
                     type="button"
                     onClick={loadGlobantPreset}
@@ -1368,9 +1447,9 @@ export default function CopilotPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista Activa</span>
+                      <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista — Globant</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        Completada hoy 10:00 ART
+                        Completada
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         Bilingüe (Auto-Switch)
@@ -1387,10 +1466,17 @@ export default function CopilotPage() {
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
                   <button
                     type="button"
-                    onClick={loadMeliPreset}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+                    onClick={loadVairixPreset}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    🟡 Cargar Mercado Libre (NoSQL)
+                    🔷 Cargar VAIRIX (Architect)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                  >
+                    🟡 Mercado Libre
                   </button>
                   <button
                     type="button"
@@ -1404,13 +1490,13 @@ export default function CopilotPage() {
             ) : company && role ? (
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
                     <BriefcaseIcon />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-zinc-200">
-                        {role} en <span className="text-purple-400">{company}</span>
+                        {role} en <span className="text-cyan-400">{company}</span>
                       </span>
                     </div>
                   </div>
@@ -1418,10 +1504,17 @@ export default function CopilotPage() {
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                   <button
                     type="button"
-                    onClick={loadMeliPreset}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all"
+                    onClick={loadVairixPreset}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all"
                   >
-                    🟡 Mercado Libre (NoSQL)
+                    🔷 VAIRIX (Architect)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                  >
+                    🟡 Mercado Libre
                   </button>
                   <button
                     type="button"
@@ -1433,36 +1526,43 @@ export default function CopilotPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/40 via-[#0e121e]/85 to-indigo-950/40 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(245,158,11,0.15)]">
+              <div className="rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(6,182,212,0.15)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    🟡
+                  <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🔷
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Entrevista Pendiente</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40 animate-pulse">
-                        Caduca: 24 Sep • 23:59 ART
+                      <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">Próxima Entrevista — VAIRIX</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 animate-pulse">
+                        Miércoles • 10:30 hs
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        🤖 Valeria (Agente IA)
+                        👤 Romina Raffo De León
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-semibold text-zinc-100">
-                      Mercado Libre — Sr Software Engineer (NoSQL Service Team)
+                      VAIRIX — Senior Technical Architect (TypeScript, GenAI/RAG, MLOps)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Multi-Cloud (AWS DocumentDB a Firestore/GCP), Sharding, Istio, IA en workflow diario y respuestas STAR de alto impacto.
+                      Perfil hands-on con clientes de EE.UU.: arquitectura, TypeScript/Python, pgvector, Kubernetes, y respuestas conversacionales concisas.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={loadMeliPreset}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                    onClick={loadVairixPreset}
+                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
                   >
-                    🚀 Activar Mercado Libre NoSQL
+                    🚀 Activar VAIRIX (Architect)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadMeliPreset}
+                    className="px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all shrink-0"
+                  >
+                    MELI
                   </button>
                   <button
                     type="button"
@@ -1871,6 +1971,27 @@ export default function CopilotPage() {
                   <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">
                     {company ? `Listo para responder preguntas de ${company}` : "Copiloto Listo para tu Entrevista"}
                   </h3>
+                  {company === "VAIRIX" && (
+                    <div className="mb-4 p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-left max-w-md w-full shadow-lg">
+                      <div className="flex items-center justify-between font-bold text-cyan-300 mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <span>🔷</span>
+                          <span>Entrevista VAIRIX (Senior Technical Architect)</span>
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-500/40">
+                          Screening / Acercamiento
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
+                        <div>💼 Rol: <span className="text-zinc-100 font-medium">Senior Technical Architect</span></div>
+                        <div>💵 Tarifa: <span className="text-emerald-400 font-medium">$4.000 USD / $25-30/h</span></div>
+                        <div>👤 Reclutadora: <span className="text-zinc-100 font-medium">Romina Raffo De León</span></div>
+                        <div>🌐 Idioma: <span className="text-cyan-300 font-medium">Bilingüe (Hands-on US)</span></div>
+                        <div>🐕 Mascota: <span className="text-cyan-300 font-medium">Luna (Salta)</span></div>
+                        <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
+                      </div>
+                    </div>
+                  )}
                   {company === "Globant" && (
                     <div className="mb-4 p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-left max-w-md w-full shadow-lg">
                       <div className="flex items-center justify-between font-bold text-purple-300 mb-2">
@@ -2396,6 +2517,19 @@ export default function CopilotPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/* Botón Cargar VAIRIX */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(VAIRIX_MASTER_ANSWERS);
+                    setMemoryFilterCompany("VAIRIX");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+                  title="Cargar o actualizar las respuestas maestras preparadas para VAIRIX Senior Technical Architect"
+                >
+                  <span>🔷 Cargar VAIRIX ({VAIRIX_MASTER_ANSWERS.length})</span>
+                </button>
+
                 {/* Botón Cargar Mercado Libre */}
                 <button
                   type="button"
@@ -2422,35 +2556,36 @@ export default function CopilotPage() {
                   <span>🟣 Cargar Globant ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
                 </button>
 
-                {/* Botón Cargar Ambos */}
+                {/* Botón Cargar Todas */}
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers([...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS]);
+                    importMasterAnswers([...VAIRIX_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS]);
                     setMemoryFilterCompany("all");
                   }}
                   className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                  title="Cargar todas las respuestas maestras de Mercado Libre y Globant juntas"
+                  title="Cargar todas las respuestas maestras de VAIRIX, Mercado Libre y Globant juntas"
                 >
-                  <span>⚡ Cargar Ambos ({MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
+                  <span>⚡ Cargar Todas ({VAIRIX_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
                 </button>
 
                 {/* Reemplazar Banco con Preset Activo */}
                 <button
                   type="button"
                   onClick={() => {
+                    const isVairix = company === "VAIRIX";
                     const isMeli = company === "MercadoLibre";
-                    const targetName = isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
-                    const answersToLoad = isMeli ? MELI_NOSQL_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
+                    const targetName = isVairix ? "VAIRIX (" + VAIRIX_MASTER_ANSWERS.length + ")" : isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
+                    const answersToLoad = isVairix ? VAIRIX_MASTER_ANSWERS : isMeli ? MELI_NOSQL_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
                     if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
                       replaceMasterAnswers(answersToLoad);
-                      setMemoryFilterCompany(isMeli ? "MercadoLibre" : "Globant");
+                      setMemoryFilterCompany(isVairix ? "VAIRIX" : isMeli ? "MercadoLibre" : "Globant");
                     }
                   }}
                   className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-1.5"
                   title="Reemplazar todo el banco con el preset de la empresa seleccionada"
                 >
-                  <span>🔄 Reemplazar ({company === "MercadoLibre" ? "Solo MELI" : "Solo Globant"})</span>
+                  <span>🔄 Reemplazar ({company === "VAIRIX" ? "Solo VAIRIX" : company === "MercadoLibre" ? "Solo MELI" : "Solo Globant"})</span>
                 </button>
 
                 <button
@@ -2488,6 +2623,29 @@ export default function CopilotPage() {
                 )}
               </div>
             </div>
+
+            {/* Banner contextual si está en VAIRIX y no tiene respuestas cargadas */}
+            {company === "VAIRIX" && vairixAnswersCount === 0 && (
+              <div className="p-3.5 rounded-xl bg-cyan-950/50 border border-cyan-500/50 text-cyan-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔷</span>
+                  <div>
+                    <span className="font-bold text-cyan-100">Estás en la entrevista de VAIRIX (Senior Technical Architect)</span>
+                    <p className="text-[11px] text-cyan-300/80">Tu banco de memoria aún no tiene cargadas las respuestas de TypeScript, RAG, pgvector y MLOps.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(VAIRIX_MASTER_ANSWERS);
+                    setMemoryFilterCompany("VAIRIX");
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
+                >
+                  ⚡ Cargar las {VAIRIX_MASTER_ANSWERS.length} Respuestas de VAIRIX
+                </button>
+              </div>
+            )}
 
             {/* Banner contextual si está en Mercado Libre y no tiene respuestas cargadas */}
             {company === "MercadoLibre" && meliAnswersCount === 0 && (
@@ -2532,6 +2690,21 @@ export default function CopilotPage() {
                 >
                   <span>🏢 Todas</span>
                   <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-800/80 text-zinc-300">{masterAnswers.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMemoryFilterCompany("VAIRIX")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    memoryFilterCompany === "VAIRIX"
+                      ? "bg-cyan-400 text-zinc-950 font-bold shadow-[0_0_12px_rgba(34,211,238,0.35)]"
+                      : "bg-cyan-950/30 text-cyan-300 hover:bg-cyan-900/40 border border-cyan-700/40"
+                  }`}
+                >
+                  <span>🔷 VAIRIX</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "VAIRIX" ? "bg-zinc-950/20 text-zinc-950" : "bg-cyan-500/20 text-cyan-300"}`}>
+                    {vairixAnswersCount}
+                  </span>
                 </button>
 
                 <button
@@ -2610,11 +2783,21 @@ export default function CopilotPage() {
                 </p>
                 <p className="text-xs max-w-md mx-auto mb-4 text-zinc-400">
                   {masterAnswers.length === 0
-                    ? `Cargá las respuestas de Mercado Libre (${MELI_NOSQL_MASTER_ANSWERS.length}) o de Globant (${GLOBANT_AND_GCP_MASTER_ANSWERS.length}) para tener respuestas instantáneas (<50ms) en vivo.`
+                    ? `Cargá las respuestas de VAIRIX (${VAIRIX_MASTER_ANSWERS.length}), Mercado Libre (${MELI_NOSQL_MASTER_ANSWERS.length}) o de Globant (${GLOBANT_AND_GCP_MASTER_ANSWERS.length}) para tener respuestas instantáneas (<50ms) en vivo.`
                     : "Prueba seleccionando 'Todas' o borrando el término del buscador."}
                 </p>
                 {masterAnswers.length === 0 && (
                   <div className="flex flex-wrap items-center justify-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        importMasterAnswers(VAIRIX_MASTER_ANSWERS);
+                        setMemoryFilterCompany("VAIRIX");
+                      }}
+                      className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)]"
+                    >
+                      🔷 Cargar VAIRIX ({VAIRIX_MASTER_ANSWERS.length})
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -2641,13 +2824,16 @@ export default function CopilotPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[600px] overflow-y-auto pr-1">
                 {filteredMasterAnswers.map((ans) => {
+                  const isVairix = (ans.company || "").toLowerCase().includes("vairix");
                   const isMeli = (ans.company || "").toLowerCase().includes("mercadolibre");
                   const isGlobant = (ans.company || "").toLowerCase().includes("globant");
                   return (
                     <div
                       key={ans.id}
                       className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
-                        isMeli
+                        isVairix
+                          ? "border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-zinc-950 to-zinc-950 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.05)]"
+                          : isMeli
                           ? "border-yellow-500/30 bg-gradient-to-br from-yellow-950/20 via-zinc-950 to-zinc-950 hover:border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
                           : isGlobant
                           ? "border-purple-500/30 bg-gradient-to-br from-purple-950/20 via-zinc-950 to-zinc-950 hover:border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.05)]"
@@ -2657,7 +2843,11 @@ export default function CopilotPage() {
                       <div>
                         <div className="flex items-center justify-between text-[11px] mb-2 gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {isMeli ? (
+                            {isVairix ? (
+                              <span className="px-2 py-0.5 rounded-md bg-cyan-400/15 border border-cyan-400/30 text-cyan-300 font-bold text-[10px] tracking-wide">
+                                🔷 VAIRIX
+                              </span>
+                            ) : isMeli ? (
                               <span className="px-2 py-0.5 rounded-md bg-yellow-400/15 border border-yellow-400/30 text-yellow-300 font-bold text-[10px] tracking-wide">
                                 🟡 Mercado Libre
                               </span>

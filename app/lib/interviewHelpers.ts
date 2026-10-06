@@ -872,6 +872,22 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   idempotency: "idempotency_concept", idempotencia: "idempotency_concept",
   pgbouncer: "pgbouncer_concept",
   opentelemetry: "otel_concept", otel: "otel_concept", tracing: "otel_concept",
+
+  // TypeScript, Node & Fullstack
+  typescript: "ts_concept", ts: "ts_concept", javascript: "ts_concept", js: "ts_concept",
+  node: "node_concept", nodejs: "node_concept", nestjs: "node_concept", express: "node_concept",
+
+  // MLOps, RAG & LLMOps
+  mlops: "mlops_concept", llmops: "mlops_concept",
+  chunking: "chunking_concept", chunks: "chunking_concept", chunk: "chunking_concept",
+  rerank: "rerank_concept", reranking: "rerank_concept", crossencoder: "rerank_concept",
+  ragas: "eval_concept", trulens: "eval_concept", evaluation: "eval_concept", evaluacion: "eval_concept",
+  langfuse: "otel_concept", helicone: "otel_concept",
+
+  // Roles, Hands-on & VAIRIX
+  vairix: "vairix_concept",
+  handson: "handson_concept", "hands-on": "handson_concept", programar: "handson_concept",
+  recruiter: "recruiter_concept", reclutadora: "recruiter_concept", romina: "recruiter_concept",
 };
 
 function canonicalizeToken(token: string): string {

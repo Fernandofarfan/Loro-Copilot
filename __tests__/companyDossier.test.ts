@@ -25,6 +25,13 @@ describe("companyDossier", () => {
     expect(globant?.canonicalName).toBe("Globant");
     expect(globant?.techStack).toContain("Google Cloud Platform (GCP)");
     expect(globant?.techStack).toContain("Google Cloud VMware Engine (GCVE)");
+
+    const vairix = getCompanyDossier("VAIRIX");
+    expect(vairix?.canonicalName).toBe("VAIRIX");
+    expect(vairix?.techStack).toContain("TypeScript");
+    expect(vairix?.techStack).toContain("AI / LLM / RAG");
+    expect(vairix?.techStack).toContain("pgvector");
+    expect(vairix?.notableTools.some((t) => t.includes("Langfuse"))).toBe(true);
   });
 
   it("devuelve undefined para empresas desconocidas", () => {

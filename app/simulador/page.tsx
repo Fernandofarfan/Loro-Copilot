@@ -1492,6 +1492,32 @@ export default function SimuladorPage() {
                   style={{
                     padding: "2px 10px",
                     fontSize: 11,
+                    background: "rgba(234, 179, 8, 0.2)",
+                    border: "1px solid #eab308",
+                    color: "#fde047",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setCompany("MercadoLibre");
+                    setRole("Sr Software Engineer - NoSQL Service Team (Majo Trejo Conde)");
+                    setJobDescription(
+                      "Entrevista de Screening HR con Maria Jose Trejo Conde (Majo), Regional Talent Acquisition IT Senior Analyst.\nFoco: Fit cultural (ADN MELI: Beta continuo, emprender tomando riesgos, ejecutar con excelencia, competir en equipo), validación de trayectoria (+8 años IT total vs ~4 años Cloud/Kubernetes), pretensión salarial (~$4.000 USD), trabajo remoto desde Salta (ADRs, autonomía) y motivación para el NoSQL Service Team de Nicolás."
+                    );
+                    setLang("es");
+                    setInterviewType("hr");
+                    setPersona("faang_recruiter");
+                  }}
+                >
+                  🟡 Preset MELI (Screening Majo)
+                </button>
+                <button
+                  type="button"
+                  className="btn-action mono"
+                  style={{
+                    padding: "2px 10px",
+                    fontSize: 11,
                     background: "rgba(16, 185, 129, 0.15)",
                     border: "1px solid var(--loro-green)",
                     color: "var(--loro-green)",
