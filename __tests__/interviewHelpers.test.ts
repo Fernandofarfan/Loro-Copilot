@@ -45,6 +45,12 @@ describe("interviewHelpers", () => {
       expect(isActionableQuestion("Contame sobre un cuello de botella complejo de rendimiento que hayas resuelto")).toBe(true);
       expect(isActionableQuestion("What are your salary expectations and availability?")).toBe(true);
     });
+
+    it("debe aceptar consignas reales sin signo de interrogación (fail-open)", () => {
+      expect(isActionableQuestion("I would like you to explain how you handled a GKE cluster upgrade")).toBe(true);
+      expect(isActionableQuestion("Please describe your Terraform module structure for multiple environments")).toBe(true);
+      expect(isActionableQuestion("Okay, that makes sense, thank you")).toBe(false);
+    });
   });
 
   describe("isIncompleteQuestion", () => {
@@ -373,6 +379,27 @@ describe("interviewHelpers", () => {
       );
       expect(pythonRes).not.toBeNull();
       expect(pythonRes?.match.id).toBe("python_pitch");
+    });
+
+    it("NO debe matchear falsos positivos de tecnología no relacionada (GKE upgrade vs latency pool)", () => {
+      const dbMem: MasterAnswer[] = [
+        {
+          id: "latencia_pool",
+          question: "Contame sobre un cuello de botella o latencia P99 que hayas resuelto",
+          enText: "We handled high P99 latency by setting up a database proxy with connection pooling.",
+          esText: "En un pico de tráfico se nos disparó la latencia P99 por saturación del pool de conexiones.",
+          tags: ["latencia", "database", "proxy", "p99"],
+          company: "General",
+          createdAt: Date.now(),
+        },
+      ];
+
+      const res = findMatchingAnswer(
+        "Quisiera que me expliques cómo manejaste una actualización de un Clúster GKE",
+        dbMem,
+        0.48
+      );
+      expect(res).toBeNull();
     });
   });
 

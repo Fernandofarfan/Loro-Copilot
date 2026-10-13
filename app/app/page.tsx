@@ -68,33 +68,46 @@ function ProviderIcon({ provider }: { provider: Provider }) {
 
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 const MODELS: ModelOption[] = [
-  // ⚡ Nivel Ultra Rápido (< 8s) — Óptimo en Vivo
-  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡ (1.0s)", provider: "gemini", model: "gemini-flash-latest", tag: "Ultra Rápido" },
-  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (1.5s)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (1.5s)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (1.6s)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1.6s)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (1.0s)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
-  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Ultra Rápido" },
+  // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
+  { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
+  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
 
-  // 🚀 Nivel Rápido / Balanceado
-  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Balanceado" },
-  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Balanceado" },
-  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  // ♾️ Ilimitados / Free (OpenCode Go)
+  { id: "longcat-2-5-preview-free", label: "LongCat 2.5 Free ♾️", provider: "opencode", model: "longcat-2.5-preview-free", tag: "Ilimitado" },
+  { id: "step-5-preview-free", label: "Step 5 Preview Free ♾️", provider: "opencode", model: "step-5-preview-free", tag: "Ilimitado" },
+  { id: "cat-jam-free", label: "Cat Jam Free ♾️", provider: "opencode", model: "cat-jam-free", tag: "Ilimitado" },
+
+  // 🚀 Nivel Pro / Senior (Alta Precisión & Calidad)
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
+  { id: "gpt-6-luna", label: "GPT 6 Luna 🚀", provider: "opencode", model: "gpt-6-luna", tag: "Top Tier" },
+  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🎯", provider: "opencode", model: "gpt-5.6-luna", tag: "Top Tier" },
+  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1k req)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
+  { id: "mimo-v2-6-pro", label: "MiMo V2.6 Pro 🎯", provider: "opencode", model: "mimo-v2.6-pro", tag: "Senior / Pro" },
+  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Senior / Pro" },
   { id: "kimi-k3", label: "Kimi K3 🧠", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
-  { id: "gemini-3-6-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
+  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  { id: "space-bunny", label: "Space Bunny 🐰", provider: "opencode", model: "space-bunny", tag: "Balanceado" },
 
-  // 🧠 Nivel Razonamiento / Deep Think
-  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
+  // 🌌 Nivel Razonamiento / Deep Think & Grok
+  { id: "grok-4-7", label: "Grok 4.7 🌌", provider: "opencode", model: "grok-4.7", tag: "Deep Think" },
+  { id: "grok-4-6", label: "Grok 4.6 🌌", provider: "opencode", model: "grok-4.6", tag: "Deep Think" },
   { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠", provider: "opencode", model: "qwen3.8-max", tag: "Deep Think" },
-  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Deep Think" },
+  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
   { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Deep Think" },
+  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "minimax-m2-7", label: "MiniMax M2.7", provider: "opencode", model: "minimax-m2.7", tag: "Deep Think" },
   { id: "longcat-2-0", label: "LongCat 2.0 🐱", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
-  { id: "qwen-3-7-max", label: "Qwen 3.7 Max", provider: "opencode", model: "qwen3.7-max", tag: "Deep Think" },
   { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen3.7-plus", tag: "Deep Think" },
-  { id: "qwen-3-6-plus", label: "Qwen 3.6 Plus", provider: "opencode", model: "qwen3.6-plus", tag: "Deep Think" },
+  { id: "muse-spark-1-3", label: "Muse Spark 1.3 ⚡", provider: "opencode", model: "muse-spark-1.3-contributor", tag: "Deep Think" },
+  { id: "deepseek-v4-vision", label: "DeepSeek V4 Vision 👁️", provider: "opencode", model: "deepseek-v4-flash-vision-exp", tag: "Vision" },
 
   // Direct Providers
   { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
@@ -346,9 +359,11 @@ export default function CopilotPage() {
   }, []);
 
   const audioModeRef = useRef<AudioMode>("mic");
+  // Auto-referencia para reintentar el fin de turno sin esperar otro UtteranceEnd (Deepgram manda uno solo por pausa)
+  const handleUtteranceEndRef = useRef<((force?: boolean) => void) | null>(null);
 
   // Trigger automático de respuesta al detectar fin de habla (UtteranceEnd)
-  const handleUtteranceEnd = useCallback(() => {
+  const handleUtteranceEnd = useCallback((force?: boolean) => {
     if (!autoRespond || isGeneratingRef.current) return;
 
     if (utteranceTimerRef.current) {
@@ -365,9 +380,10 @@ export default function CopilotPage() {
       if (isGeneratingRef.current) return;
       const currentLines = transcriptLinesRef.current;
 
-      // Solo en modo Dual ignorar si el último que habló fue el candidato por su propio micrófono (speaker === 1)
+      // Solo en modo Dual ignorar si el último que habló fue el candidato respondiendo de verdad (speaker === 1);
+      // un murmullo corto ("mhm", eco) no debe bloquear la respuesta a la pregunta pendiente
       const lastLine = currentLines[currentLines.length - 1];
-      if (audioModeRef.current === "dual" && lastLine && lastLine.speaker === 1) {
+      if (audioModeRef.current === "dual" && lastLine && lastLine.speaker === 1 && lastLine.text.trim().length >= 25) {
         return;
       }
 
@@ -381,7 +397,11 @@ export default function CopilotPage() {
       // salvo que ya tenga suficiente extensión (>= 8 palabras) o intención clara de entrevista
       const words = recentText.split(/\s+/).filter(Boolean);
       const hasClearIntent = /[?¿]|\b(contame|cu[eé]ntame|h[aá]blame|[aá]brame|explicame|explica|describ[ií]|describe|platicame|comentame|tell me|walk me through|sobre ti|sobre vos|tu experiencia)\b/i.test(recentText);
-      if (isIncomplete && words.length < 8 && !hasClearIntent) {
+      if (!force && isIncomplete && words.length < 8 && !hasClearIntent) {
+        // Sin reintento el turno se perdía y había que apretar el botón a mano: re-evaluar una vez forzando
+        if (recentText) {
+          utteranceTimerRef.current = setTimeout(() => handleUtteranceEndRef.current?.(true), 1800);
+        }
         return;
       }
 
@@ -479,6 +499,7 @@ export default function CopilotPage() {
     syncTeleprompter,
     earbudWhisper,
   ]);
+  handleUtteranceEndRef.current = handleUtteranceEnd;
 
   // Hook de Audio y Conexión Deepgram (con soporte de Audio Dual y Barge-in)
   const {
@@ -1188,10 +1209,40 @@ export default function CopilotPage() {
     setMemoryFilterCompany("Globant");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
-  // Preset 1-Click para la entrevista de Mercado Libre - NoSQL Service Team (Majo Trejo Conde - Talent Acquisition SR)
-  const loadMeliPreset = useCallback(() => {
+  // Preset 1-Click: Mercado Libre - Charla Técnica con Experts (Alberto y Mario • Jueves 15 a 16 hs)
+  const loadMeliTechPreset = useCallback(() => {
     setCompany("MercadoLibre");
-    setRole("Sr Software Engineer - NoSQL Service Team");
+    setRole("Sr Software Engineer - NoSQL Service Team (Charla Técnica con Experts)");
+    setInterviewerBio(
+      "Alberto y Mario, Experts en MELI (NoSQL Service Team / Core Platform). Charla técnica profunda de arquitectura y defensa del take-home challenge de HackerRank (Jueves 15:00 a 16:00 hs). Evalúan: arquitectura distribuida a escala LATAM sobre Fury, abstracciones NoSQL multi-cloud (AWS DocumentDB a GCP Firestore), sharding y partition keys, hot keys con salting, latencia P99 (buffers, sync.Pool), consistencia (PACELC, Quorum R+W>N, eventual consistency), proxies de base de datos/query gateways, Istio y concurrencia/memoria en Go 1.22 stdlib."
+    );
+    setProfile(
+      "Guillermo Fernando Farfán Romero. Ingeniero de Software e Infraestructura Cloud con +8 años de experiencia en desarrollo backend/sistemas y ~4 años dedicados a arquitecturas cloud (GCP/AWS), Kubernetes, optimización de bases de datos y plataformas de alta disponibilidad. Radicado en Salta con perrita rescatada Luna.\n\n" +
+      "ARQUITECTURA DEL CHALLENGE ENTREGADO (HackerRank - Scale & Security en Go 1.22 stdlib & React):\n" +
+      "• Backend: Go 1.22 stdlib puro (net/http ServeMux con method routing y path wildcards, sin frameworks externos como Gin/Fiber para cero CVEs y mínimo footprint).\n" +
+      "• Multi-tenancy: Middleware con header X-Seller-ID obligatorio. Validación estricta por seller; accesos cruzados retornan 403 Forbidden inmediato.\n" +
+      "• State Machine: Matriz formal validOrderTransitions (Pending -> Processing -> Shipped o Cancelled). Saltos ilegales retornan 400 Bad Request.\n" +
+      "• Scoring & XSS: Algoritmo dinámico por wait time, GMV de orden y keywords urgentes (reclamo, rotura, defecto). Sanitización de texto con html.EscapeString.\n" +
+      "• Notificaciones: Strategy Pattern con interfaz Notifier (Email, SMS, Mock) desacoplado mediante canal bufferizado y worker goroutines en background sin bloquear HTTP.\n" +
+      "• Caché Híbrido: Almacén en memoria con sync.RWMutex. TTL de 5 minutos para métricas pesadas de revenue; preguntas en tiempo real con invalidación inmediata al responder.\n" +
+      "• Frontend: Dashboard React + TypeScript (NPM) con métricas en vivo, acciones de pedidos respetando la state machine, bandeja de preguntas y toasts informativos.\n" +
+      "• Escalabilidad en Fury: Reemplazo de memoria local por NoSQL particionado por hash de Seller ID, streaming de eventos por BigQueue/Kafka, Redis distribuido para lecturas e Istio Envoy sidecars con circuit breakers.\n" +
+      "• Cobertura: 100% de tests unitarios y de integración pasando en go test ./... y smoke.test.js sin carreras de datos (race detector verificado)."
+    );
+    setExtraInstructions(
+      "Defensa técnica ante Alberto y Mario (Experts en MELI). Respuestas ultra-concisas de exactamente 2 oraciones (25-35 palabras, Zero-Bullet Mandate). Enfoque técnico: explicar el por qué de las decisiones de diseño del challenge de HackerRank (Go stdlib sin frameworks externos para 0 CVEs y mínimo overhead, validación multi-tenant en gateway con X-Seller-ID, matriz de transiciones de estados, sanitización XSS con html.EscapeString, canales asíncronos para notificaciones, caché híbrido de 5m para métricas vs real-time para preguntas, y escalabilidad a 100k req/s con Redis/Kafka/Fury). En preguntas de NoSQL: destacar partition keys, hot keys con salting, latencia P99 con buffers y sync.Pool. Anclado al perfil: Salta, Luna, +8 años IT total vs ~4 años Cloud. NUNCA mencionar gatos ni inventar métricas."
+    );
+    setInterviewMode("technical");
+    syncTeleprompter({ interviewMode: "technical" });
+
+    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+    setMemoryFilterCompany("MercadoLibre");
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
+  // Preset 1-Click: Mercado Libre - Screening HR (Majo Trejo Conde)
+  const loadMeliHrPreset = useCallback(() => {
+    setCompany("MercadoLibre");
+    setRole("Sr Software Engineer - NoSQL Service Team (Screening HR)");
     setInterviewerBio(
       "Maria Jose Trejo Conde (Majo), Regional Talent Acquisition IT Senior Analyst en Mercado Libre. Charla de screening/agendada vía LinkedIn tras aprobar la etapa inicial (manager Nicolás). Evalúa: encaje cultural con el ADN de MELI (Beta Continuo, Emprender tomando riesgos, Ejecutar con excelencia, Dar el máximo compitiendo en equipo), trayectoria profesional (+8 años IT total vs ~4 años Cloud/Kubernetes/DevOps), pretensiones salariales (~$4.000 USD bruto o estructura salarial senior MELI), esquema de trabajo remoto desde Salta (comunicación asíncrona, ADRs, autonomía) y motivación para el NoSQL Service Team."
     );
@@ -1207,6 +1258,9 @@ export default function CopilotPage() {
     importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
     setMemoryFilterCompany("MercadoLibre");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
+  // loadMeliPreset ahora carga el modo técnico por defecto
+  const loadMeliPreset = loadMeliTechPreset;
 
   return (
     <div className="copilot-container min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -1363,11 +1417,11 @@ export default function CopilotPage() {
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
                   <button
                     type="button"
-                    onClick={loadMeliPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
-                    title="Cargar preset de Mercado Libre"
+                    onClick={loadMeliTechPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                    title="Cargar preset técnico de Mercado Libre (Defensa Challenge & NoSQL)"
                   >
-                    Preset MELI
+                    🟡 MELI Técnica
                   </button>
                   <button
                     type="button"
@@ -1396,24 +1450,56 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Entrevista Activa — Mercado Libre</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-200 border border-amber-500/40 animate-pulse">
-                        Etapa 2 • Screening HR
+                        {interviewMode === "technical" ? "Jueves • 15:00 a 16:00 hs" : "Etapa 2 • Screening HR"}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        👤 Maria Jose Trejo Conde (Majo)
+                        {interviewMode === "technical" ? "👥 Alberto y Mario (Experts en MELI)" : "👤 Maria Jose Trejo Conde (Majo)"}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         NoSQL Service Team
                       </span>
+                      {interviewMode === "technical" && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/40">
+                          Panel Técnico de Arquitectura
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
                       Mercado Libre — Sr Software Engineer (NoSQL Service Team • Manager: Nicolás)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Entrevistadora: <strong className="text-zinc-300">Majo (Talent Acquisition SR - IT)</strong> • Foco: <strong className="text-zinc-300">Fit Cultural, Trayectoria & Compensación</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                      {interviewMode === "technical" ? (
+                        <>
+                          Panel: <strong className="text-amber-300">Alberto y Mario (Experts)</strong> • Foco: <strong className="text-zinc-200">Arquitectura NoSQL a Escala LATAM, Defensa Challenge Go 1.22, Sharding, Consistencia & P99</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                        </>
+                      ) : (
+                        <>
+                          Entrevistadora: <strong className="text-zinc-300">Majo (Talent Acquisition SR - IT)</strong> • Foco: <strong className="text-zinc-300">Fit Cultural, Trayectoria & Compensación</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  {interviewMode === "technical" ? (
+                    <button
+                      type="button"
+                      onClick={loadMeliHrPreset}
+                      className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                      title="Cambiar a configuración de Screening HR con Majo"
+                    >
+                      Modo HR (Majo)
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={loadMeliTechPreset}
+                      className="px-2.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                      title="Cambiar a configuración Técnica (Defensa Challenge & NoSQL)"
+                    >
+                      ⚡ Modo Técnico (Live Code)
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={loadVairixPreset}
@@ -1559,10 +1645,11 @@ export default function CopilotPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={loadMeliPreset}
-                    className="px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all shrink-0"
+                    onClick={loadMeliTechPreset}
+                    className="px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+                    title="Activar preset técnico de Mercado Libre (Defensa Challenge & NoSQL)"
                   >
-                    MELI
+                    🟡 MELI (Técnica)
                   </button>
                   <button
                     type="button"
@@ -1988,6 +2075,27 @@ export default function CopilotPage() {
                         <div>👤 Reclutadora: <span className="text-zinc-100 font-medium">Romina Raffo De León</span></div>
                         <div>🌐 Idioma: <span className="text-cyan-300 font-medium">Bilingüe (Hands-on US)</span></div>
                         <div>🐕 Mascota: <span className="text-cyan-300 font-medium">Luna (Salta)</span></div>
+                        <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
+                      </div>
+                    </div>
+                  )}
+                  {company === "MercadoLibre" && (
+                    <div className="mb-4 p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs text-left max-w-md w-full shadow-lg">
+                      <div className="flex items-center justify-between font-bold text-amber-300 mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <span>🟡</span>
+                          <span>Entrevista Mercado Libre (NoSQL Service Team)</span>
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/40">
+                          {interviewMode === "technical" ? "Panel Técnico • Experts" : "Screening HR"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
+                        <div>💼 Rol: <span className="text-zinc-100 font-medium">Sr Software Engineer</span></div>
+                        <div>👥 Panel: <span className="text-amber-200 font-medium">{interviewMode === "technical" ? "Alberto y Mario (Experts)" : "Majo (Talent Acq.)"}</span></div>
+                        <div>📅 Horario: <span className="text-zinc-100 font-medium">Jueves 15:00 a 16:00 hs</span></div>
+                        <div>⚡ Foco: <span className="text-amber-300 font-medium">Challenge Go & NoSQL Distribuido</span></div>
+                        <div>🐕 Mascota: <span className="text-zinc-300 font-medium">Luna (Salta)</span></div>
                         <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
                       </div>
                     </div>

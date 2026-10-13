@@ -88,33 +88,46 @@ function OpenCodeMark() {
 }
 
 const MODELS: ModelOption[] = [
-  // ⚡ Nivel Ultra Rápido (< 8s) — Óptimo en Vivo
-  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡ (1.0s)", provider: "gemini", model: "gemini-flash-latest", tag: "Ultra Rápido" },
-  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (1.5s)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (1.5s)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (1.6s)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1.6s)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (1.0s)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
-  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Ultra Rápido" },
+  // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
+  { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
+  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
 
-  // 🚀 Nivel Rápido / Balanceado
-  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Balanceado" },
-  { id: "glm-5-1", label: "GLM 5.1", provider: "opencode", model: "glm-5.1", tag: "Balanceado" },
-  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  // ♾️ Ilimitados / Free (OpenCode Go)
+  { id: "longcat-2-5-preview-free", label: "LongCat 2.5 Free ♾️", provider: "opencode", model: "longcat-2.5-preview-free", tag: "Ilimitado" },
+  { id: "step-5-preview-free", label: "Step 5 Preview Free ♾️", provider: "opencode", model: "step-5-preview-free", tag: "Ilimitado" },
+  { id: "cat-jam-free", label: "Cat Jam Free ♾️", provider: "opencode", model: "cat-jam-free", tag: "Ilimitado" },
+
+  // 🚀 Nivel Pro / Senior (Alta Precisión & Calidad)
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
+  { id: "gpt-6-luna", label: "GPT 6 Luna 🚀", provider: "opencode", model: "gpt-6-luna", tag: "Top Tier" },
+  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🎯", provider: "opencode", model: "gpt-5.6-luna", tag: "Top Tier" },
+  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1k req)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
+  { id: "mimo-v2-6-pro", label: "MiMo V2.6 Pro 🎯", provider: "opencode", model: "mimo-v2.6-pro", tag: "Senior / Pro" },
+  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Senior / Pro" },
   { id: "kimi-k3", label: "Kimi K3 🧠", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
-  { id: "gemini-3-6-flash", label: "Gemini 3.6 Flash", provider: "gemini", model: "gemini-3.6-flash", tag: "Google" },
+  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  { id: "space-bunny", label: "Space Bunny 🐰", provider: "opencode", model: "space-bunny", tag: "Balanceado" },
 
-  // 🧠 Nivel Razonamiento / Deep Think
-  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
+  // 🌌 Nivel Razonamiento / Deep Think & Grok
+  { id: "grok-4-7", label: "Grok 4.7 🌌", provider: "opencode", model: "grok-4.7", tag: "Deep Think" },
+  { id: "grok-4-6", label: "Grok 4.6 🌌", provider: "opencode", model: "grok-4.6", tag: "Deep Think" },
   { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠", provider: "opencode", model: "qwen3.8-max", tag: "Deep Think" },
-  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Deep Think" },
+  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
   { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Deep Think" },
+  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "minimax-m2-7", label: "MiniMax M2.7", provider: "opencode", model: "minimax-m2.7", tag: "Deep Think" },
   { id: "longcat-2-0", label: "LongCat 2.0 🐱", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
-  { id: "qwen-3-7-max", label: "Qwen 3.7 Max", provider: "opencode", model: "qwen3.7-max", tag: "Deep Think" },
   { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen3.7-plus", tag: "Deep Think" },
-  { id: "qwen-3-6-plus", label: "Qwen 3.6 Plus", provider: "opencode", model: "qwen3.6-plus", tag: "Deep Think" },
+  { id: "muse-spark-1-3", label: "Muse Spark 1.3 ⚡", provider: "opencode", model: "muse-spark-1.3-contributor", tag: "Deep Think" },
+  { id: "deepseek-v4-vision", label: "DeepSeek V4 Vision 👁️", provider: "opencode", model: "deepseek-v4-flash-vision-exp", tag: "Vision" },
 
   // Direct Providers
   { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
@@ -1485,6 +1498,32 @@ export default function SimuladorPage() {
                   }}
                 >
                   🟡 Preset MELI NoSQL (Valeria IA)
+                </button>
+                <button
+                  type="button"
+                  className="btn-action mono"
+                  style={{
+                    padding: "2px 10px",
+                    fontSize: 11,
+                    background: "rgba(245, 158, 11, 0.25)",
+                    border: "1px solid #f59e0b",
+                    color: "#fbbf24",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setCompany("MercadoLibre");
+                    setRole("Sr Software Engineer - NoSQL Service Team (Live Code & Challenge Defense)");
+                    setJobDescription(
+                      "Entrevista técnica en vivo con ingeniero senior / tech lead del NoSQL Service Team de Mercado Libre.\nFoco principal:\n1. Defensa del take-home challenge de HackerRank (Seller Dashboard en Go 1.22 stdlib, multi-tenancy con X-Seller-ID, order state machine, scoring con XSS prevention, notificaciones async Strategy, hybrid caching y escalabilidad a 100k req/s sobre Fury).\n2. Preguntas profundas de sistemas distribuidos y NoSQL: sharding, partition keys, hot keys, latencia P99, PACELC, Quorum (R+W>N), database proxies, idempotencia con BigQueue/Kafka, y concurrencia/profiling en Go (channels vs sync.Mutex, pprof, GC pauses)."
+                    );
+                    setLang("es");
+                    setInterviewType("technical");
+                    setPersona("skeptic_architect");
+                  }}
+                >
+                  ⚡ Preset MELI (Defensa Challenge & NoSQL)
                 </button>
                 <button
                   type="button"

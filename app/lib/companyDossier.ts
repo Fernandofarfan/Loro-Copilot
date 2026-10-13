@@ -25,7 +25,9 @@ export const COMPANY_DOSSIERS: Record<string, CompanyDossier> = {
     culturePrinciples: ["Beta continuo", "Emprendedurismo", "Dar el máximo compitiendo en equipo", "Ejecutar con excelencia"],
     interviewTips: [
       "Mencionar métricas de escala en pagos o e-commerce de LATAM",
-      "Para la IA Valeria (Eightfold): estructura STAR estricta, alta densidad de keywords de la JD (DocumentDB, Firestore, sharding, Istio, latency P99)",
+      "Defensa del Take-Home Challenge (Go & NPM): destacar arquitectura Go 1.22 stdlib (cero dependencias externas / cero CVEs), aislamiento multi-tenant con X-Seller-ID, máquina de estados para pedidos, scoring con sanitización XSS (html.EscapeString), Strategy pattern para notificaciones asíncronas desacopladas en canales y caché híbrido con 5m TTL",
+      "Escalabilidad a 100k req/s sobre Fury: sharding NoSQL por hash de Seller ID, BigQueue/Kafka para eventos asíncronos, Redis cluster distribuido para absorber lecturas y Envoy sidecars con Istio circuit breaking",
+      "Para la IA Valeria y paneles técnicos: estructura STAR estricta, alta densidad de keywords (DocumentDB, Firestore, sharding, Istio, latency P99, Quorum R+W>N)",
       "Enfatizar experiencia multi-cloud: ~4 años sólidos en GCP + Kubernetes como puente natural para convivir con AWS",
       "Uso diario de IA: citar asistentes de código, benchmarking automatizado de queries y testing guiado por LLMs",
       "Demostrar experiencia en APIs idempotentes, database proxies y transacciones distribuidas",

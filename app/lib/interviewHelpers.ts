@@ -283,10 +283,18 @@ export function isActionableQuestion(text: string): boolean {
 
   // 5. Palabras técnicas sustanciales (si el entrevistador plantea una consigna técnica sin signo de interrogación)
   const TECHNICAL_KEYWORDS =
-    /\b(python|gil|asyncio|fastapi|pydantic|sqlalchemy|postgres|postgresql|redis|aws|ecs|fargate|eks|kubernetes|docker|langchain|rag|pgvector|hnsw|microservices|architecture|monolith|cache|caching|latency|throughput|alembic|saga|opentelemetry|instana|pytest|tdd|clean architecture|ddd|lead|leader|leadership|salario|sueldo|remuneraci[oó]n|pretensi[oó]n)\b/i;
+    /\b(python|gil|asyncio|fastapi|pydantic|sqlalchemy|postgres|postgresql|redis|aws|ecs|fargate|eks|kubernetes|docker|langchain|rag|pgvector|hnsw|microservices|architecture|monolith|cache|caching|latency|throughput|alembic|saga|opentelemetry|instana|pytest|tdd|clean architecture|ddd|lead|leader|leadership|salario|sueldo|remuneraci[oó]n|pretensi[oó]n|gcp|gke|gcve|vmware|terraform|ansible|vpc|iam|bigquery|cloud|devops|linux|networking|migration|disaster recovery|salary|availability)\b/i;
 
   const words = clean.split(/\s+/).filter(Boolean);
   if (words.length >= 4 && TECHNICAL_KEYWORDS.test(clean)) {
+    return true;
+  }
+
+  // 6. Fail-open: una pregunta real sin "?" ni arranque conocido ("I'd like to know about your GKE setup",
+  // "please explain...") se descartaba en silencio y obligaba a usar el botón manual. La lista negra de
+  // arriba ya filtra cierres y muletillas; acá solo se excluyen asentimientos cortos.
+  const ACKNOWLEDGEMENT_START = /^(ok(ay)?|great|perfect|nice|good|awesome|thanks|thank you|gracias|perfecto|genial|excelente|entiendo|ya veo|i see)\b/i;
+  if (words.length >= 5 && !(ACKNOWLEDGEMENT_START.test(clean) && words.length <= 7)) {
     return true;
   }
 
@@ -888,7 +896,16 @@ const CANONICAL_SYNONYMS: Record<string, string> = {
   vairix: "vairix_concept",
   handson: "handson_concept", "hands-on": "handson_concept", programar: "handson_concept",
   recruiter: "recruiter_concept", reclutadora: "recruiter_concept", romina: "recruiter_concept",
+
+  // GCP / IaC (screening Globant, Mercado Libre NoSQL)
+  gke: "k8s_concept", gcve: "gcve_concept", vmware: "gcve_concept",
+  terraform: "terraform_concept", ansible: "ansible_concept",
+  firestore: "nosql_concept", bigtable: "nosql_concept", nosql: "nosql_concept",
+  mongodb: "nosql_concept", cassandra: "nosql_concept", dynamodb: "nosql_concept",
 };
+
+// Conceptos técnicos distintivos: si la pregunta nombra alguno, la memoria debe compartir al menos uno
+const DISTINCTIVE_CONCEPTS = new Set(Object.values(CANONICAL_SYNONYMS));
 
 function canonicalizeToken(token: string): string {
   return CANONICAL_SYNONYMS[token.toLowerCase()] || token;
@@ -936,6 +953,15 @@ export function findMatchingAnswer(
       const rawItemTokens = tokenize(partText);
       const itemTokens = Array.from(new Set(rawItemTokens.map(canonicalizeToken)));
       if (itemTokens.length === 0) continue;
+
+      // Guardia de tema: una pregunta sobre GKE no debe resolverse con una respuesta de latencia/otro stack
+      // solo por coincidir en palabras genéricas ("cluster", "manejaste")
+      const queryTech = queryTokens.filter((t) => DISTINCTIVE_CONCEPTS.has(t));
+      if (queryTech.length > 0) {
+        const itemTagTokens = (item.tags || []).map((tg) => canonicalizeToken(tg.toLowerCase().trim()));
+        const itemTech = new Set([...itemTokens, ...itemTagTokens]);
+        if (!queryTech.some((t) => itemTech.has(t))) continue;
+      }
 
       // 1. Intersección de tokens significativos exactos y canónicos
       let intersection = 0;
