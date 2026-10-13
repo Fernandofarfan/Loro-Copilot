@@ -14,7 +14,7 @@ export const DEFAULT_MODELS: Record<Provider, string> = {
   gemini: process.env.GEMINI_MODEL || "gemini-flash-latest",
   anthropic: "claude-3-5-haiku-20241022",
   openai: "gpt-4o-mini",
-  opencode: process.env.OPENCODE_MODEL || "deepseek-v4.1-flash",
+  opencode: process.env.OPENCODE_MODEL || "glm-5.3-flash",
   openrouter: "deepseek/deepseek-chat",
 };
 
@@ -22,11 +22,9 @@ export const FALLBACK_MODELS: Record<Provider, string[]> = {
   opencode: Array.from(
     new Set([
       ...(process.env.OPENCODE_MODEL ? [process.env.OPENCODE_MODEL] : []),
+      "glm-5.3-flash",
       "deepseek-v4.1-flash",
       "deepseek-v4-flash",
-      "mimo-v2.6-flash",
-      "glm-5.3-flash",
-      "mimo-v2.5",
     ])
   ).slice(0, 3),
   openrouter: ["deepseek/deepseek-chat", "openai/gpt-4o-mini"],

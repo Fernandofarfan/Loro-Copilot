@@ -69,12 +69,13 @@ function ProviderIcon({ provider }: { provider: Provider }) {
 type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 const MODELS: ModelOption[] = [
   // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
   { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
   { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
   { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
   { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
   { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
   { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
   { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
@@ -163,7 +164,7 @@ export default function CopilotPage() {
     deleteSTARStory,
     importSTARStories,
     isLoaded: isContextLoaded,
-  } = useInterviewContext("deepseek-v4-flash", MODELS.map((m) => m.id));
+  } = useInterviewContext("glm-5-3-flash", MODELS.map((m) => m.id));
 
   const starStoriesRef = useRef(starStories);
   starStoriesRef.current = starStories;
@@ -1237,7 +1238,8 @@ export default function CopilotPage() {
 
     importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
     setMemoryFilterCompany("MercadoLibre");
-  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+    setModelId("glm-5-3-flash");
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers, setModelId]);
 
   // Preset 1-Click: Mercado Libre - Screening HR (Majo Trejo Conde)
   const loadMeliHrPreset = useCallback(() => {

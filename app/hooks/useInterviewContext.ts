@@ -28,7 +28,7 @@ const LS_PROFILES_KEY = "loro-saved-profiles";
 const LS_ANSWERS_KEY = "loro-master-answers:v1";
 const LS_STAR_STORIES_KEY = "loro-star-stories:v1";
 
-export function useInterviewContext(defaultModelId: string = "deepseek-v4-flash", availableModelIds: string[] = []) {
+export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", availableModelIds: string[] = []) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [profile, setProfile] = useState("");

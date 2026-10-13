@@ -89,12 +89,13 @@ function OpenCodeMark() {
 
 const MODELS: ModelOption[] = [
   // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
   { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
   { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
   { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
   { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
   { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
   { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
   { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
@@ -105,7 +106,6 @@ const MODELS: ModelOption[] = [
   { id: "cat-jam-free", label: "Cat Jam Free ♾️", provider: "opencode", model: "cat-jam-free", tag: "Ilimitado" },
 
   // 🚀 Nivel Pro / Senior (Alta Precisión & Calidad)
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
   { id: "gpt-6-luna", label: "GPT 6 Luna 🚀", provider: "opencode", model: "gpt-6-luna", tag: "Top Tier" },
   { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🎯", provider: "opencode", model: "gpt-5.6-luna", tag: "Top Tier" },
   { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1k req)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
@@ -133,7 +133,7 @@ const MODELS: ModelOption[] = [
   { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
   { id: "claude-haiku", label: "Claude 3.5 Haiku 🧠", provider: "anthropic", model: "claude-3-5-haiku-20241022", tag: "Anthropic" },
 ];
-const DEFAULT_MODEL_ID = "gemini-flash-latest";
+const DEFAULT_MODEL_ID = "glm-5-3-flash";
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   return (
