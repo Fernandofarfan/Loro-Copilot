@@ -1211,21 +1211,21 @@ export default function CopilotPage() {
     setMemoryFilterCompany("Globant");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
-  // Preset 1-Click: IT Patagonia — screening con Arnorys Peña (DevOps & FinOps Sr)
+  // Preset 1-Click: IT Patagonia — Charla Técnica con el Líder de Infraestructura (DevOps & FinOps Sr)
   const loadItPatagoniaPreset = useCallback(() => {
     setCompany("ITPatagonia");
-    setRole("DevOps & FinOps Sr");
+    setRole("DevOps & FinOps Sr (Charla Técnica con el Líder)");
     setInterviewerBio(
-      "Arnorys Peña Barreto, IT Recruiter / Talent Attraction Specialist en IT Patagonia. Screening inicial por Meet (rol DevOps & FinOps Sr, híbrido 2 días presenciales, relación de dependencia). Valida: años de experiencia, ubicación (Salta actual / casa en Almagro, Buenos Aires), disponibilidad, pretensión salarial y stack de la JD: GitHub/GitLab, Active Directory, WSUS, Proxmox, Hyper-V, Zabbix, Veeam, backups SaaS/Cloud y FinOps. Tope de banda: 5.500.000 ARS brutos + bono por permanencia."
+      "Líder Técnico del Área de Infraestructura / DevOps & FinOps en IT Patagonia. Entrevista técnica profunda: evalúa cómo harías esto o aquello en producción para clientes bancarios (Santander, Galicia, Macro, Prisma, Interbanking) y la Software Factory. Valida resolución de problemas reales en Hyper-V 2025 / SAN / MPIO, Veeam Backup & DRP (inmutabilidad, RTO/RPO), Active Directory (replicación, FSMO, SYSVOL, GPOs), WSUS por anillos, monitoreo con Zabbix, pipelines CI/CD con escaneo de seguridad y prácticas avanzadas de FinOps sobre GCP con Terraform."
     );
     setProfile(
-      "Guillermo Fernando Farfán Romero. +8 años en IT (sistemas, backend, bases de datos) y ~4 años dedicados a cloud/DevOps/Linux. Hyper-V 2025 HA con SAN y Veeam, Active Directory, WSUS, Zabbix, GCP + Terraform, GitHub Actions/GitLab CI, FinOps en Reforest. Proxmox: conocimiento conceptual, no profundidad hands-on (no sobrevender). Actualmente en Salta, con casa en Almagro (Buenos Aires) y disponibilidad para el esquema híbrido. Inglés B2."
+      "Guillermo Fernando Farfán Romero. Ingeniero de Infraestructura Cloud y Software con +8 años de experiencia global en IT/sistemas y ~4 años dedicados a Google Cloud Platform (GCP), Terraform, Linux y Kubernetes. Experiencia destacada: clúster HA en Microsoft Hyper-V 2025 sobre 3 blades HPE Synergy + SAN HPE Alletra/3PAR (55 TB CSV, MPIO Round Robin, Live Migration a 20 Gbps con SMB Direct/RDMA), respaldos con Veeam Backup & Replication (inmutabilidad, RTO < 15 min, SureBackup), Active Directory (GPOs de hardening CIS, LAPS, troubleshooting con repadmin/dcdiag), WSUS por anillos de prueba, observabilidad híbrida con Zabbix (LLD, proxies para redes aisladas), CI/CD DevSecOps (GitHub Actions/GitLab CI con checkov/trivy/infracost) y FinOps en Reforest Latam (28% de reducción de gasto mensual, billing export a BigQuery, rightsizing, CUDs, autoescalado). Proxmox: conocimiento conceptual, clustering Corosync, KVM y storage ZFS/Ceph con rápida asimilación. Radicado en Salta con perrita adoptada Luna, casa en Almagro (Buenos Aires), disponibilidad inmediata para esquema híbrido."
     );
     setExtraInstructions(
-      "Screening con recruiter en español. Respuestas conversacionales de máximo 2 oraciones (25-35 palabras), sin viñetas ni métricas inventadas. Discriminar +8 años IT total vs ~4 años cloud/DevOps. Banda salarial del recruiter dentro de expectativas; mostrar apertura al paquete completo. Preguntar zona de las oficinas si no se mencionó. NUNCA mencionar gatos; mascota Luna solo si surge small talk."
+      "Charla técnica con el Líder de Infraestructura en español. Respuestas de alta densidad técnica cumpliendo el Zero-Bullet Mandate: exactamente 2 oraciones (25-45 palabras), primero el veredicto técnico concreto ('punchline') y luego la justificación de arquitectura, trade-off o comando exacto. Mencionar herramientas y conceptos precisos: repadmin, dcdiag, SOBR, Object Lock, MPIO Round Robin, CSV, SMB Direct/RDMA, BigQuery billing export, CUDs, Workload Identity, Infracost. En Proxmox: mantener posicionamiento honesto y sólido (dominio de clustering Linux, storage compartido y equivalencia con VMware/Hyper-V sin sobreventa). En FinOps: enfoque metodológico (Inform, Optimize, Operate). NUNCA usar viñetas ni inventar métricas. Mascota Luna solo si surge charla casual."
     );
-    setInterviewMode("screening");
-    syncTeleprompter({ interviewMode: "screening" });
+    setInterviewMode("technical");
+    syncTeleprompter({ interviewMode: "technical" });
 
     importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
     setMemoryFilterCompany("ITPatagonia");
@@ -1457,10 +1457,10 @@ export default function CopilotPage() {
                   <button
                     type="button"
                     onClick={loadItPatagoniaPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 hover:text-sky-200 text-xs font-bold transition-all"
-                    title="Cargar preset de IT Patagonia (DevOps & FinOps Sr)"
+                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 hover:text-sky-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.15)]"
+                    title="Cargar preset técnico de IT Patagonia (DevOps & FinOps Sr)"
                   >
-                    🔵 IT Patagonia
+                    🔵 IT Patagonia (Técnica)
                   </button>
                   <button
                     type="button"
@@ -1604,6 +1604,58 @@ export default function CopilotPage() {
                   </button>
                 </div>
               </div>
+            ) : company === "ITPatagonia" ? (
+              <div className="rounded-2xl border border-sky-500/40 bg-gradient-to-r from-sky-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(14,165,233,0.15)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🔵
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-sky-300 uppercase tracking-wider">Entrevista Técnica — IT Patagonia</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-200 border border-sky-500/40 animate-pulse">
+                        Etapa 2 • Líder de Área
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        DevOps & FinOps Sr
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        Clientes Bancarios & Factory
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
+                      IT Patagonia — DevOps & FinOps Sr (Arquitectura Híbrida & Operaciones)
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Entrevistador: <strong className="text-sky-300">Líder Técnico de Área</strong> • Stack: <strong className="text-zinc-200">Hyper-V 2025, Proxmox, Veeam DRP, AD/WSUS, Zabbix, GCP Terraform & FinOps</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={loadItPatagoniaPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.2)]"
+                    title="Recargar preset técnico de IT Patagonia"
+                  >
+                    ⚡ Recargar Preset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadVairixPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                  >
+                    🔷 VAIRIX
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Stack
+                  </button>
+                </div>
+              </div>
             ) : company && role ? (
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -1685,10 +1737,10 @@ export default function CopilotPage() {
                   <button
                     type="button"
                     onClick={loadItPatagoniaPreset}
-                    className="px-3 py-2 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shrink-0"
-                    title="Activar preset de IT Patagonia (DevOps & FinOps Sr)"
+                    className="px-3 py-2 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(14,165,233,0.25)]"
+                    title="Activar preset técnico de IT Patagonia (DevOps & FinOps Sr)"
                   >
-                    🔵 IT Patagonia
+                    🔵 IT Patagonia (Líder Técnico)
                   </button>
                   <button
                     type="button"
@@ -2720,13 +2772,13 @@ export default function CopilotPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers([...VAIRIX_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS]);
+                    importMasterAnswers([...VAIRIX_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS, ...IT_PATAGONIA_MASTER_ANSWERS]);
                     setMemoryFilterCompany("all");
                   }}
                   className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                  title="Cargar todas las respuestas maestras de VAIRIX, Mercado Libre y Globant juntas"
+                  title="Cargar todas las respuestas maestras de VAIRIX, Mercado Libre, Globant e IT Patagonia juntas"
                 >
-                  <span>⚡ Cargar Todas ({VAIRIX_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
+                  <span>⚡ Cargar Todas ({VAIRIX_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length + IT_PATAGONIA_MASTER_ANSWERS.length})</span>
                 </button>
 
                 {/* Reemplazar Banco con Preset Activo */}
