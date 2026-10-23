@@ -25,6 +25,7 @@ import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnera
 import { GLOBANT_AND_GCP_MASTER_ANSWERS } from "../lib/globantMasterAnswers";
 import { MELI_NOSQL_MASTER_ANSWERS } from "../lib/meliMasterAnswers";
 import { VAIRIX_MASTER_ANSWERS } from "../lib/vairixMasterAnswers";
+import { IT_PATAGONIA_MASTER_ANSWERS } from "../lib/itPatagoniaMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
 import { useInterviewContext, type STARStory } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
@@ -1210,6 +1211,26 @@ export default function CopilotPage() {
     setMemoryFilterCompany("Globant");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
+  // Preset 1-Click: IT Patagonia — screening con Arnorys Peña (DevOps & FinOps Sr)
+  const loadItPatagoniaPreset = useCallback(() => {
+    setCompany("ITPatagonia");
+    setRole("DevOps & FinOps Sr");
+    setInterviewerBio(
+      "Arnorys Peña Barreto, IT Recruiter / Talent Attraction Specialist en IT Patagonia. Screening inicial por Meet (rol DevOps & FinOps Sr, híbrido 2 días presenciales, relación de dependencia). Valida: años de experiencia, ubicación (Salta actual / casa en Almagro, Buenos Aires), disponibilidad, pretensión salarial y stack de la JD: GitHub/GitLab, Active Directory, WSUS, Proxmox, Hyper-V, Zabbix, Veeam, backups SaaS/Cloud y FinOps. Tope de banda: 5.500.000 ARS brutos + bono por permanencia."
+    );
+    setProfile(
+      "Guillermo Fernando Farfán Romero. +8 años en IT (sistemas, backend, bases de datos) y ~4 años dedicados a cloud/DevOps/Linux. Hyper-V 2025 HA con SAN y Veeam, Active Directory, WSUS, Zabbix, GCP + Terraform, GitHub Actions/GitLab CI, FinOps en Reforest. Proxmox: conocimiento conceptual, no profundidad hands-on (no sobrevender). Actualmente en Salta, con casa en Almagro (Buenos Aires) y disponibilidad para el esquema híbrido. Inglés B2."
+    );
+    setExtraInstructions(
+      "Screening con recruiter en español. Respuestas conversacionales de máximo 2 oraciones (25-35 palabras), sin viñetas ni métricas inventadas. Discriminar +8 años IT total vs ~4 años cloud/DevOps. Banda salarial del recruiter dentro de expectativas; mostrar apertura al paquete completo. Preguntar zona de las oficinas si no se mencionó. NUNCA mencionar gatos; mascota Luna solo si surge small talk."
+    );
+    setInterviewMode("screening");
+    syncTeleprompter({ interviewMode: "screening" });
+
+    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
+    setMemoryFilterCompany("ITPatagonia");
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
   // Preset 1-Click: Mercado Libre - Charla Técnica con Experts (Alberto y Mario • Jueves 15 a 16 hs)
   const loadMeliTechPreset = useCallback(() => {
     setCompany("MercadoLibre");
@@ -1435,6 +1456,14 @@ export default function CopilotPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={loadItPatagoniaPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 hover:text-sky-200 text-xs font-bold transition-all"
+                    title="Cargar preset de IT Patagonia (DevOps & FinOps Sr)"
+                  >
+                    🔵 IT Patagonia
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setActiveTab("context")}
                     className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
                   >
@@ -1652,6 +1681,14 @@ export default function CopilotPage() {
                     title="Activar preset técnico de Mercado Libre (Defensa Challenge & NoSQL)"
                   >
                     🟡 MELI (Técnica)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadItPatagoniaPreset}
+                    className="px-3 py-2 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shrink-0"
+                    title="Activar preset de IT Patagonia (DevOps & FinOps Sr)"
+                  >
+                    🔵 IT Patagonia
                   </button>
                   <button
                     type="button"
@@ -2666,6 +2703,19 @@ export default function CopilotPage() {
                   <span>🟣 Cargar Globant ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
                 </button>
 
+                {/* Botón Cargar IT Patagonia */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
+                    setMemoryFilterCompany("ITPatagonia");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/60 text-sky-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(14,165,233,0.2)]"
+                  title="Cargar el banco maestro de respuestas para IT Patagonia (DevOps & FinOps Sr)"
+                >
+                  <span>🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})</span>
+                </button>
+
                 {/* Botón Cargar Todas */}
                 <button
                   type="button"
@@ -2685,17 +2735,18 @@ export default function CopilotPage() {
                   onClick={() => {
                     const isVairix = company === "VAIRIX";
                     const isMeli = company === "MercadoLibre";
-                    const targetName = isVairix ? "VAIRIX (" + VAIRIX_MASTER_ANSWERS.length + ")" : isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
-                    const answersToLoad = isVairix ? VAIRIX_MASTER_ANSWERS : isMeli ? MELI_NOSQL_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
+                    const isItp = company === "ITPatagonia";
+                    const targetName = isVairix ? "VAIRIX (" + VAIRIX_MASTER_ANSWERS.length + ")" : isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : isItp ? "IT Patagonia (" + IT_PATAGONIA_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
+                    const answersToLoad = isVairix ? VAIRIX_MASTER_ANSWERS : isMeli ? MELI_NOSQL_MASTER_ANSWERS : isItp ? IT_PATAGONIA_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
                     if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
                       replaceMasterAnswers(answersToLoad);
-                      setMemoryFilterCompany(isVairix ? "VAIRIX" : isMeli ? "MercadoLibre" : "Globant");
+                      setMemoryFilterCompany(isVairix ? "VAIRIX" : isMeli ? "MercadoLibre" : isItp ? "ITPatagonia" : "Globant");
                     }
                   }}
                   className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-1.5"
                   title="Reemplazar todo el banco con el preset de la empresa seleccionada"
                 >
-                  <span>🔄 Reemplazar ({company === "VAIRIX" ? "Solo VAIRIX" : company === "MercadoLibre" ? "Solo MELI" : "Solo Globant"})</span>
+                  <span>🔄 Reemplazar ({company === "VAIRIX" ? "Solo VAIRIX" : company === "MercadoLibre" ? "Solo MELI" : company === "ITPatagonia" ? "Solo IT Patagonia" : "Solo Globant"})</span>
                 </button>
 
                 <button
