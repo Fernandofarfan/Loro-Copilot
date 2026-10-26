@@ -1614,7 +1614,7 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-sky-300 uppercase tracking-wider">Entrevista Técnica — IT Patagonia</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-200 border border-sky-500/40 animate-pulse">
-                        Etapa 2 • Líder de Área
+                        Miércoles • 11:00 hs
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         DevOps & FinOps Sr
