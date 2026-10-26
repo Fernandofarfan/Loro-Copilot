@@ -1232,21 +1232,21 @@ export default function CopilotPage() {
     setMemoryFilterCompany("ITPatagonia");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
-  // Preset 1-Click: Snappy Commerce — screening con María Laura (Lopez HR SOLUTIONS)
+  // Preset 1-Click: Snappy Commerce — Charla Técnica & Founder con Patricio (Owner) y Nick (Tech Lead)
   const loadSnappyPreset = useCallback(() => {
     setCompany("SnappyCommerce");
-    setRole("Full Stack Developer (Vue.js / Node.js / AI)");
+    setRole("Full Stack Developer (Técnica con Patricio & Nick • Martes 17:30 hs)");
     setInterviewerBio(
-      "María Laura, IT Recruiter en Lopez HR SOLUTIONS buscando para Snappy Commerce. Llamada breve de screening a las 16:00 hs (rol Full Stack Semi Senior / Senior, remoto full-time con encuentros opcionales cada 15 días en CABA o Zona Norte). Valida: años de experiencia en desarrollo web (+3 años requeridos / +8 años reales), stack JavaScript/TypeScript, Node.js, Vue.js / React, APIs e integraciones, SQL / NoSQL (PostgreSQL, MongoDB, Redis), Git/CI/CD, testing, capacidad de usar herramientas de IA (Copilot, ChatGPT) y nivel de inglés intermedio (B2)."
+      "Patricio (Dueño/Founder de Snappy Commerce) y Nick (Líder Técnico / Tech Lead). Entrevista técnica y de visión de producto (Martes 17:30 hs). Patricio evalúa visión de negocio, pragmatismo, impacto de la IA en conversión y retención de tiendas, experiencia de cliente (CX) y capacidad de comunicación transversal. Nick evalúa arquitectura hands-on: Vue 3 (Composition API, Pinia, reactividad con Proxies, virtual scrolling), Node.js (concurrencia, Event Loop, workers), PostgreSQL (transacciones ACID, consistencia de stock con SELECT FOR UPDATE, pgvector/embeddings), Redis (locks distribuidos, atomic DECR, cache-aside), webhooks de pagos idempotentes (HMAC), microservicios y testing automatizado con Vitest y Playwright."
     );
     setProfile(
-      "Guillermo Fernando Farfán Romero. Senior Full Stack Developer con +8 años de experiencia construyendo aplicaciones web completas, reactivas y microservicios escalables. Stack principal: TypeScript, JavaScript, React/Next.js, Vue.js (reactividad, Composition API), Node.js (Express, APIs REST), Python (FastAPI), PostgreSQL, MongoDB, Redis, Docker, GitHub Actions y testing automatizado (Jest, React Testing Library). Experiencia práctica integrando Inteligencia Artificial aplicada (LLMs, OpenAI API, Copilot en flujo diario de desarrollo). Radicado en Salta con perrita Luna, casa en Almagro (CABA) para encuentros quincenales opcionales, inglés B2 profesional."
+      "Guillermo Fernando Farfán Romero. Senior Full Stack Developer con +8 años de experiencia construyendo aplicaciones web completas, reactivas y microservicios escalables de alta concurrencia. Stack principal: TypeScript, Vue.js 3 (Composition API, Pinia, reactividad), React/Next.js, Node.js (Express, NestJS, APIs REST & GraphQL), PostgreSQL (ACID, row locking, pgvector), Redis (locks distribuidos, atomic counters, caching), Docker, CI/CD con GitHub Actions y testing automatizado (Vitest, Playwright). Especialización en Inteligencia Artificial aplicada a eCommerce: búsqueda semántica con embeddings, RAG con function calling para inventario en tiempo real y aceleración con Copilot/LLMs. Radicado en Salta con perrita rescatada Luna, casa propia en Almagro (CABA) para encuentros quincenales, inglés B2 profesional."
     );
     setExtraInstructions(
-      "Screening en español con María Laura. Respuestas fluidas y conversacionales de exactamente 2 oraciones (25-35 palabras, Zero-Bullet Mandate). Resaltar versatilidad frontend/backend (TypeScript, Node.js, APIs, React/Vue.js) y uso activo de herramientas de IA (Copilot) para acelerar código y tests. Si preguntan por Vue.js: destacar dominio profundo de JavaScript/TypeScript, React y la facilidad inmediata con la Composition API y reactividad de Vue. Presencialidad: confirmar que vivís en Salta pero tenés casa en Almagro (CABA) y no tenés problema con los encuentros cada 15 días. Pretensión salarial: abierta al rango presupuestado (~3.8M - 4.2M ARS brutos o ~3.000 USD). NUNCA mencionar gatos."
+      "Entrevista técnica con Patricio (Owner) y Nick (Tech Lead) en español. Cumplir estrictamente el Zero-Bullet Mandate: exactamente 2 oraciones (25-45 palabras), primero el veredicto técnico ('punchline') y luego la justificación con trade-offs o impacto en producción. Para Nick: respuestas precisas con terminología exacta (Composition API, Proxies, SELECT FOR UPDATE, idempotency key, HMAC-SHA256, BullMQ, HNSW, Vitest). Para Patricio: conectar las decisiones técnicas con métricas de negocio (conversión, retención, disponibilidad en CyberMonday/Hot Sale, costos de infraestructura). Si preguntan por ubicación o presencialidad: confirmar que vivís en Salta pero tenés casa en Almagro (CABA) y viajás sin problemas para las reuniones quincenales. Salario: pretensión de $4.000 USD mensual o $25-$30/hora contractor (o rango equivalente en pesos para relación de dependencia local). NUNCA usar viñetas ni inventar métricas."
     );
-    setInterviewMode("screening");
-    syncTeleprompter({ interviewMode: "screening" });
+    setInterviewMode("technical");
+    syncTeleprompter({ interviewMode: "technical" });
 
     importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
     setMemoryFilterCompany("SnappyCommerce");
@@ -1487,9 +1487,9 @@ export default function CopilotPage() {
                     type="button"
                     onClick={loadSnappyPreset}
                     className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 hover:text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.15)]"
-                    title="Cargar preset de Snappy Commerce (Full Stack Developer - 16:00 hs)"
+                    title="Cargar preset técnico de Snappy Commerce (Patricio & Nick - Martes 17:30 hs)"
                   >
-                    🧡 Snappy Commerce
+                    🧡 Snappy (Técnica)
                   </button>
                   <button
                     type="button"
@@ -1671,6 +1671,14 @@ export default function CopilotPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={loadSnappyPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 hover:text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.15)]"
+                    title="Cargar preset técnico de Snappy Commerce (Patricio & Nick - Martes 17:30 hs)"
+                  >
+                    🧡 Snappy (Técnica)
+                  </button>
+                  <button
+                    type="button"
                     onClick={loadVairixPreset}
                     className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
                   >
@@ -1695,20 +1703,20 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Entrevista Activa — Snappy Commerce</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-200 border border-orange-500/40 animate-pulse">
-                        Llamada Hoy • 16:00 hs
+                        Martes • 17:30 hs
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        👤 María Laura (Lopez HR SOLUTIONS)
+                        👥 Patricio (Founder) & Nick (Tech Lead)
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        Full Stack Developer
+                        Full Stack Developer (Técnica)
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
                       Snappy Commerce — Full Stack Developer (Vue.js / Node.js / AI aplicada a eCommerce)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Reclutadora: <strong className="text-orange-300">María Laura</strong> • Stack: <strong className="text-zinc-200">TypeScript, Vue.js / React, Node.js, APIs REST, PostgreSQL/MongoDB, Copilot & IA</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                      Panel: <strong className="text-orange-300">Patricio (Dueño) & Nick (Líder Técnico)</strong> • Foco: <strong className="text-zinc-200">Vue 3, Node.js, Concurrencia de Stock (Postgres/Redis), Pagos Idempotentes, pgvector & Vitest</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
                     </p>
                   </div>
                 </div>
@@ -1717,7 +1725,7 @@ export default function CopilotPage() {
                     type="button"
                     onClick={loadSnappyPreset}
                     className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.2)]"
-                    title="Recargar preset de Snappy Commerce"
+                    title="Recargar preset técnico de Snappy Commerce (Patricio & Nick)"
                   >
                     ⚡ Recargar Preset
                   </button>
