@@ -26,6 +26,7 @@ import { GLOBANT_AND_GCP_MASTER_ANSWERS } from "../lib/globantMasterAnswers";
 import { MELI_NOSQL_MASTER_ANSWERS } from "../lib/meliMasterAnswers";
 import { VAIRIX_MASTER_ANSWERS } from "../lib/vairixMasterAnswers";
 import { IT_PATAGONIA_MASTER_ANSWERS } from "../lib/itPatagoniaMasterAnswers";
+import { SNAPPY_COMMERCE_MASTER_ANSWERS } from "../lib/snappyCommerceMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
 import { useInterviewContext, type STARStory } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
@@ -1231,6 +1232,26 @@ export default function CopilotPage() {
     setMemoryFilterCompany("ITPatagonia");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
+  // Preset 1-Click: Snappy Commerce — screening con María Laura (Lopez HR SOLUTIONS)
+  const loadSnappyPreset = useCallback(() => {
+    setCompany("SnappyCommerce");
+    setRole("Full Stack Developer (Vue.js / Node.js / AI)");
+    setInterviewerBio(
+      "María Laura, IT Recruiter en Lopez HR SOLUTIONS buscando para Snappy Commerce. Llamada breve de screening a las 16:00 hs (rol Full Stack Semi Senior / Senior, remoto full-time con encuentros opcionales cada 15 días en CABA o Zona Norte). Valida: años de experiencia en desarrollo web (+3 años requeridos / +8 años reales), stack JavaScript/TypeScript, Node.js, Vue.js / React, APIs e integraciones, SQL / NoSQL (PostgreSQL, MongoDB, Redis), Git/CI/CD, testing, capacidad de usar herramientas de IA (Copilot, ChatGPT) y nivel de inglés intermedio (B2)."
+    );
+    setProfile(
+      "Guillermo Fernando Farfán Romero. Senior Full Stack Developer con +8 años de experiencia construyendo aplicaciones web completas, reactivas y microservicios escalables. Stack principal: TypeScript, JavaScript, React/Next.js, Vue.js (reactividad, Composition API), Node.js (Express, APIs REST), Python (FastAPI), PostgreSQL, MongoDB, Redis, Docker, GitHub Actions y testing automatizado (Jest, React Testing Library). Experiencia práctica integrando Inteligencia Artificial aplicada (LLMs, OpenAI API, Copilot en flujo diario de desarrollo). Radicado en Salta con perrita Luna, casa en Almagro (CABA) para encuentros quincenales opcionales, inglés B2 profesional."
+    );
+    setExtraInstructions(
+      "Screening en español con María Laura. Respuestas fluidas y conversacionales de exactamente 2 oraciones (25-35 palabras, Zero-Bullet Mandate). Resaltar versatilidad frontend/backend (TypeScript, Node.js, APIs, React/Vue.js) y uso activo de herramientas de IA (Copilot) para acelerar código y tests. Si preguntan por Vue.js: destacar dominio profundo de JavaScript/TypeScript, React y la facilidad inmediata con la Composition API y reactividad de Vue. Presencialidad: confirmar que vivís en Salta pero tenés casa en Almagro (CABA) y no tenés problema con los encuentros cada 15 días. Pretensión salarial: abierta al rango presupuestado (~3.8M - 4.2M ARS brutos o ~3.000 USD). NUNCA mencionar gatos."
+    );
+    setInterviewMode("screening");
+    syncTeleprompter({ interviewMode: "screening" });
+
+    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
+    setMemoryFilterCompany("SnappyCommerce");
+  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
+
   // Preset 1-Click: Mercado Libre - Charla Técnica con Experts (Alberto y Mario • Jueves 15 a 16 hs)
   const loadMeliTechPreset = useCallback(() => {
     setCompany("MercadoLibre");
@@ -1464,6 +1485,14 @@ export default function CopilotPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={loadSnappyPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 hover:text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.15)]"
+                    title="Cargar preset de Snappy Commerce (Full Stack Developer - 16:00 hs)"
+                  >
+                    🧡 Snappy Commerce
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setActiveTab("context")}
                     className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
                   >
@@ -1656,6 +1685,58 @@ export default function CopilotPage() {
                   </button>
                 </div>
               </div>
+            ) : company === "SnappyCommerce" ? (
+              <div className="rounded-2xl border border-orange-500/40 bg-gradient-to-r from-orange-950/40 via-[#0e121e]/85 to-amber-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(249,115,22,0.15)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🧡
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Entrevista Activa — Snappy Commerce</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-200 border border-orange-500/40 animate-pulse">
+                        Llamada Hoy • 16:00 hs
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        👤 María Laura (Lopez HR SOLUTIONS)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        Full Stack Developer
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
+                      Snappy Commerce — Full Stack Developer (Vue.js / Node.js / AI aplicada a eCommerce)
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Reclutadora: <strong className="text-orange-300">María Laura</strong> • Stack: <strong className="text-zinc-200">TypeScript, Vue.js / React, Node.js, APIs REST, PostgreSQL/MongoDB, Copilot & IA</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={loadSnappyPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.2)]"
+                    title="Recargar preset de Snappy Commerce"
+                  >
+                    ⚡ Recargar Preset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadItPatagoniaPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                  >
+                    🔵 IT Patagonia
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Stack
+                  </button>
+                </div>
+              </div>
             ) : company && role ? (
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -1741,6 +1822,14 @@ export default function CopilotPage() {
                     title="Activar preset técnico de IT Patagonia (DevOps & FinOps Sr)"
                   >
                     🔵 IT Patagonia (Líder Técnico)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadSnappyPreset}
+                    className="px-3 py-2 rounded-xl border border-orange-500/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(249,115,22,0.25)]"
+                    title="Activar preset de Snappy Commerce (Llamada 16:00 hs con María Laura)"
+                  >
+                    🧡 Snappy Commerce (16:00 hs)
                   </button>
                   <button
                     type="button"
@@ -2768,17 +2857,30 @@ export default function CopilotPage() {
                   <span>🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})</span>
                 </button>
 
+                {/* Botón Cargar Snappy Commerce */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
+                    setMemoryFilterCompany("SnappyCommerce");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 text-orange-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(249,115,22,0.2)]"
+                  title="Cargar el banco maestro de respuestas para Snappy Commerce (Full Stack Developer)"
+                >
+                  <span>🧡 Cargar Snappy Commerce ({SNAPPY_COMMERCE_MASTER_ANSWERS.length})</span>
+                </button>
+
                 {/* Botón Cargar Todas */}
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers([...VAIRIX_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS, ...IT_PATAGONIA_MASTER_ANSWERS]);
+                    importMasterAnswers([...VAIRIX_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS, ...IT_PATAGONIA_MASTER_ANSWERS, ...SNAPPY_COMMERCE_MASTER_ANSWERS]);
                     setMemoryFilterCompany("all");
                   }}
                   className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                  title="Cargar todas las respuestas maestras de VAIRIX, Mercado Libre, Globant e IT Patagonia juntas"
+                  title="Cargar todas las respuestas maestras de VAIRIX, Mercado Libre, Globant, IT Patagonia y Snappy Commerce juntas"
                 >
-                  <span>⚡ Cargar Todas ({VAIRIX_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length + IT_PATAGONIA_MASTER_ANSWERS.length})</span>
+                  <span>⚡ Cargar Todas ({VAIRIX_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length + IT_PATAGONIA_MASTER_ANSWERS.length + SNAPPY_COMMERCE_MASTER_ANSWERS.length})</span>
                 </button>
 
                 {/* Reemplazar Banco con Preset Activo */}
@@ -2788,17 +2890,18 @@ export default function CopilotPage() {
                     const isVairix = company === "VAIRIX";
                     const isMeli = company === "MercadoLibre";
                     const isItp = company === "ITPatagonia";
-                    const targetName = isVairix ? "VAIRIX (" + VAIRIX_MASTER_ANSWERS.length + ")" : isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : isItp ? "IT Patagonia (" + IT_PATAGONIA_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
-                    const answersToLoad = isVairix ? VAIRIX_MASTER_ANSWERS : isMeli ? MELI_NOSQL_MASTER_ANSWERS : isItp ? IT_PATAGONIA_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
+                    const isSnappy = company === "SnappyCommerce";
+                    const targetName = isVairix ? "VAIRIX (" + VAIRIX_MASTER_ANSWERS.length + ")" : isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : isItp ? "IT Patagonia (" + IT_PATAGONIA_MASTER_ANSWERS.length + ")" : isSnappy ? "Snappy Commerce (" + SNAPPY_COMMERCE_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
+                    const answersToLoad = isVairix ? VAIRIX_MASTER_ANSWERS : isMeli ? MELI_NOSQL_MASTER_ANSWERS : isItp ? IT_PATAGONIA_MASTER_ANSWERS : isSnappy ? SNAPPY_COMMERCE_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
                     if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
                       replaceMasterAnswers(answersToLoad);
-                      setMemoryFilterCompany(isVairix ? "VAIRIX" : isMeli ? "MercadoLibre" : isItp ? "ITPatagonia" : "Globant");
+                      setMemoryFilterCompany(isVairix ? "VAIRIX" : isMeli ? "MercadoLibre" : isItp ? "ITPatagonia" : isSnappy ? "SnappyCommerce" : "Globant");
                     }
                   }}
                   className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-1.5"
                   title="Reemplazar todo el banco con el preset de la empresa seleccionada"
                 >
-                  <span>🔄 Reemplazar ({company === "VAIRIX" ? "Solo VAIRIX" : company === "MercadoLibre" ? "Solo MELI" : company === "ITPatagonia" ? "Solo IT Patagonia" : "Solo Globant"})</span>
+                  <span>🔄 Reemplazar ({company === "VAIRIX" ? "Solo VAIRIX" : company === "MercadoLibre" ? "Solo MELI" : company === "ITPatagonia" ? "Solo IT Patagonia" : company === "SnappyCommerce" ? "Solo Snappy" : "Solo Globant"})</span>
                 </button>
 
                 <button
