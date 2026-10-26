@@ -61,8 +61,8 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
               extraInstructions: typeof p.extraInstructions === "string" ? p.extraInstructions : "",
               interviewerBio: typeof p.interviewerBio === "string" ? p.interviewerBio : "",
             }))
-            // Purgar perfiles de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS)
-            .filter((p) => !/company86|valentina|epam|evocs/i.test(p.company + " " + p.name + " " + (p.interviewerBio || "")));
+            // Purgar perfiles de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS / VAIRIX / Globant)
+            .filter((p) => !/company86|valentina|epam|evocs|vairix|globant/i.test(p.company + " " + p.name + " " + (p.interviewerBio || "")));
 
           if (validProfiles.length !== parsed.length) {
             try {
@@ -92,7 +92,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
                 favorite: Boolean(a.favorite),
                 createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
               }))
-              // Purgar respuestas maestras de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS)
+              // Purgar respuestas maestras de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS / VAIRIX / Globant)
               .filter((a) => {
                 const comp = (a.company || "").toLowerCase();
                 const q = (a.question || "").toLowerCase();
@@ -103,13 +103,19 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
                   comp.includes("valentina") ||
                   comp.includes("epam") ||
                   comp.includes("evocs") ||
+                  comp.includes("vairix") ||
+                  comp.includes("globant") ||
                   q.includes("valentina") ||
                   q.includes("puerto madero") ||
                   q.includes("epam") ||
+                  q.includes("vairix") ||
                   tags.includes("valentina") ||
                   tags.includes("company86") ||
                   tags.includes("epam") ||
-                  en.includes("angelica rodriguez")
+                  tags.includes("vairix") ||
+                  tags.includes("globant") ||
+                  en.includes("angelica rodriguez") ||
+                  en.includes("vairix")
                 );
               });
 

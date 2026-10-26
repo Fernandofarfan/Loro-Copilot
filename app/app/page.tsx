@@ -22,9 +22,7 @@ import {
 } from "../lib/interviewHelpers";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
-import { GLOBANT_AND_GCP_MASTER_ANSWERS } from "../lib/globantMasterAnswers";
 import { MELI_NOSQL_MASTER_ANSWERS } from "../lib/meliMasterAnswers";
-import { VAIRIX_MASTER_ANSWERS } from "../lib/vairixMasterAnswers";
 import { IT_PATAGONIA_MASTER_ANSWERS } from "../lib/itPatagoniaMasterAnswers";
 import { SNAPPY_COMMERCE_MASTER_ANSWERS } from "../lib/snappyCommerceMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
@@ -171,17 +169,17 @@ export default function CopilotPage() {
   const starStoriesRef = useRef(starStories);
   starStoriesRef.current = starStories;
 
-  // Estadísticas y filtrado del Banco de Memoria (Mercado Libre vs Globant vs VAIRIX)
+  // Estadísticas y filtrado del Banco de Memoria (Snappy Commerce vs IT Patagonia vs Mercado Libre)
+  const snappyAnswersCount = useMemo(() => {
+    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("snappy")).length;
+  }, [masterAnswers]);
+
+  const itpAnswersCount = useMemo(() => {
+    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("itpatagonia")).length;
+  }, [masterAnswers]);
+
   const meliAnswersCount = useMemo(() => {
     return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("mercadolibre")).length;
-  }, [masterAnswers]);
-
-  const globantAnswersCount = useMemo(() => {
-    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("globant")).length;
-  }, [masterAnswers]);
-
-  const vairixAnswersCount = useMemo(() => {
-    return masterAnswers.filter((a) => (a.company || "").toLowerCase().includes("vairix")).length;
   }, [masterAnswers]);
 
   const favoriteAnswersCount = useMemo(() => {
@@ -190,12 +188,12 @@ export default function CopilotPage() {
 
   const filteredMasterAnswers = useMemo(() => {
     return masterAnswers.filter((ans) => {
-      if (memoryFilterCompany === "MercadoLibre") {
+      if (memoryFilterCompany === "SnappyCommerce") {
+        if (!(ans.company || "").toLowerCase().includes("snappy")) return false;
+      } else if (memoryFilterCompany === "ITPatagonia") {
+        if (!(ans.company || "").toLowerCase().includes("itpatagonia")) return false;
+      } else if (memoryFilterCompany === "MercadoLibre") {
         if (!(ans.company || "").toLowerCase().includes("mercadolibre")) return false;
-      } else if (memoryFilterCompany === "Globant") {
-        if (!(ans.company || "").toLowerCase().includes("globant")) return false;
-      } else if (memoryFilterCompany === "VAIRIX") {
-        if (!(ans.company || "").toLowerCase().includes("vairix")) return false;
       } else if (memoryFilterCompany === "favorites") {
         if (!ans.favorite) return false;
       }
@@ -1172,45 +1170,6 @@ export default function CopilotPage() {
     setShowDossierWizard(false);
   };
 
-  // Preset 1-Click para la entrevista de VAIRIX - Senior Technical Architect (Romina Raffo De León)
-  const loadVairixPreset = useCallback(() => {
-    setCompany("VAIRIX");
-    setRole("Senior Technical Architect");
-    setInterviewerBio(
-      "Romina Raffo De León, IT Recruiter en VAIRIX. Primera llamada de screening y acercamiento para el rol de Senior Technical Architect (cliente en EE.UU.). Evalúa: perfil hands-on (diseñar arquitectura de alto nivel pero programar activamente en TypeScript y Python), experiencia en GenAI/LLM/RAG (pgvector, Vertex AI/OpenAI, embeddings, reranking) y MLOps/DevOps (Kubernetes, Cloud Run, Terraform), toma de decisiones técnicas con clientes en inglés fluido, y pretensión salarial contractor ($4.000 USD / $25-30/h)."
-    );
-    setProfile(
-      "Guillermo Fernando Farfán Romero. Senior Technical Architect e Ingeniero de Software con +8 años de experiencia en desarrollo de sistemas y ~4 años dedicados a arquitectura cloud, Kubernetes, DevOps y soluciones GenAI/RAG en TypeScript y Python."
-    );
-    setExtraInstructions(
-      "Respuestas conversacionales ultra-concisas (máximo 2 oraciones, 25-35 palabras, Zero-Bullet Mandate). Bilingüe: responder en inglés técnico fluido con [KEY], [EN], [PHO], [ES] si la pregunta es en inglés, o español profesional con terminología técnica si es en español. Pretensión contractor: $25-$30/h USD (o ~$4.000 USD/mes bruto). Mascota: perrita adoptada y rescatada Luna en Salta. NUNCA mencionar gatos. Regla estricta de experiencia: discriminar +8 años IT total vs ~4 años Cloud/DevOps/GenAI (nunca afirmar 8 años en cloud)."
-    );
-    setInterviewMode("screening");
-    syncTeleprompter({ interviewMode: "screening" });
-
-    importMasterAnswers(VAIRIX_MASTER_ANSWERS);
-    setMemoryFilterCompany("VAIRIX");
-  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
-
-  // Preset 1-Click para la entrevista de Globant / Intermedia
-  const loadGlobantPreset = useCallback(() => {
-    setCompany("Globant");
-    setRole("GCP Cloud Engineer");
-    setInterviewerBio(
-      "Marian Francheska Escalona, Recruiting Analyst en Globant. Entrevista inicial de screening (45 min) para Globant / Intermedia. Salto espontáneo a inglés (small talk, hobbies, Luna la perrita en Salta) y validación técnica de background en GCP, GCVE y Terraform."
-    );
-    setProfile(
-      "Guillermo Fernando Farfán Romero. Ingeniero de Infraestructura Cloud y Software con +8 años de experiencia global en IT/desarrollo y ~4 años dedicados a Google Cloud Platform (GCP), Terraform, Linux, Docker y redes empresariales."
-    );
-    setExtraInstructions(
-      "Respuestas conversacionales ultra-concisas (máximo 2 oraciones, 25-35 palabras). Bilingüe: responder en inglés fluido si pregunta en inglés (con [KEY], [EN], [PHO], [ES]) o español profesional con Spanglish técnico si pregunta en español. Pretensión contractor USD: $25-$30/h (o ~$4,000 USD/mes bruto). Mascota: perrita rescatada y adoptada Luna en Salta. NUNCA mencionar gatos. Nunca decir 8 años en GCP (discriminar +8 años IT total vs ~4 años GCP/Cloud)."
-    );
-    setInterviewMode("screening");
-    syncTeleprompter({ interviewMode: "screening" });
-
-    importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
-    setMemoryFilterCompany("Globant");
-  }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
   // Preset 1-Click: IT Patagonia — Charla Técnica con el Líder de Infraestructura (DevOps & FinOps Sr)
   const loadItPatagoniaPreset = useCallback(() => {
@@ -1430,58 +1389,103 @@ export default function CopilotPage() {
 
         {activeTab === "live" && (
           <div className="flex flex-col flex-1 gap-3">
-            {/* Mission & Target Intel Bar: VAIRIX / Mercado Libre / Globant */}
-            {company === "VAIRIX" ? (
-              <div className="rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(6,182,212,0.15)]">
+            {/* Mission & Target Intel Bar: Snappy Commerce / IT Patagonia / Mercado Libre */}
+            {company === "SnappyCommerce" ? (
+              <div className="rounded-2xl border border-orange-500/40 bg-gradient-to-r from-orange-950/40 via-[#0e121e]/85 to-amber-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(249,115,22,0.15)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    🔷
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🧡
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">Entrevista Activa — VAIRIX</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 animate-pulse">
-                        Miércoles • 10:30 hs
+                      <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Entrevista Activa — Snappy Commerce</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-200 border border-orange-500/40 animate-pulse">
+                        Martes • 17:30 hs
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        👤 Romina Raffo De León (IT Recruiter)
+                        👥 Patricio (Founder) & Nick (Tech Lead)
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        Senior Technical Architect
+                        Full Stack Developer (Técnica)
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
-                      VAIRIX — Senior Technical Architect (Nearshore / Cliente EE.UU.)
+                      Snappy Commerce — Full Stack Developer (Vue.js / Node.js / AI aplicada a eCommerce)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Hands-on: <strong className="text-zinc-300">TypeScript & Python</strong> • RAG: <strong className="text-zinc-300">pgvector, Embeddings & Reranking</strong> • MLOps: <strong className="text-zinc-300">K8s & CI/CD</strong> • Tarifa: <span className="text-emerald-400 font-semibold">$25-$30/h (o $4k USD)</span> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                      Panel: <strong className="text-orange-300">Patricio (Dueño) & Nick (Líder Técnico)</strong> • Foco: <strong className="text-zinc-200">Vue 3, Node.js, Concurrencia de Stock (Postgres/Redis), Pagos Idempotentes, pgvector & Vitest</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
                   <button
                     type="button"
-                    onClick={loadMeliTechPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]"
-                    title="Cargar preset técnico de Mercado Libre (Defensa Challenge & NoSQL)"
+                    onClick={loadSnappyPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.2)]"
+                    title="Recargar preset técnico de Snappy Commerce (Patricio & Nick)"
                   >
-                    🟡 MELI Técnica
-                  </button>
-                  <button
-                    type="button"
-                    onClick={loadGlobantPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
-                    title="Cargar preset de Globant"
-                  >
-                    Preset Globant
+                    ⚡ Recargar Preset
                   </button>
                   <button
                     type="button"
                     onClick={loadItPatagoniaPreset}
                     className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 hover:text-sky-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.15)]"
-                    title="Cargar preset técnico de IT Patagonia (DevOps & FinOps Sr)"
+                    title="Cargar preset técnico de IT Patagonia (Miércoles 11:00 hs)"
                   >
                     🔵 IT Patagonia (Técnica)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadMeliTechPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                    title="Cargar preset técnico de Mercado Libre"
+                  >
+                    🟡 MELI Técnica
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("context")}
+                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
+                  >
+                    ⚙️ Ver Stack
+                  </button>
+                </div>
+              </div>
+            ) : company === "ITPatagonia" ? (
+              <div className="rounded-2xl border border-sky-500/40 bg-gradient-to-r from-sky-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(14,165,233,0.15)]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🔵
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-sky-300 uppercase tracking-wider">Entrevista Técnica — IT Patagonia</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-200 border border-sky-500/40 animate-pulse">
+                        Miércoles • 11:00 hs
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        DevOps & FinOps Sr
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
+                        Clientes Bancarios & Factory
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
+                      IT Patagonia — DevOps & FinOps Sr (Arquitectura Híbrida & Operaciones)
+                    </p>
+                    <p className="text-[11px] text-zinc-400">
+                      Entrevistador: <strong className="text-sky-300">Líder Técnico de Área</strong> • Stack: <strong className="text-zinc-200">Hyper-V 2025, Proxmox, Veeam DRP, AD/WSUS, Zabbix, GCP Terraform & FinOps</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={loadItPatagoniaPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.2)]"
+                    title="Recargar preset técnico de IT Patagonia"
+                  >
+                    ⚡ Recargar Preset
                   </button>
                   <button
                     type="button"
@@ -1490,6 +1494,14 @@ export default function CopilotPage() {
                     title="Cargar preset técnico de Snappy Commerce (Patricio & Nick - Martes 17:30 hs)"
                   >
                     🧡 Snappy (Técnica)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadMeliTechPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                    title="Cargar preset técnico de Mercado Libre"
+                  >
+                    🟡 MELI Técnica
                   </button>
                   <button
                     type="button"
@@ -1562,115 +1574,6 @@ export default function CopilotPage() {
                   )}
                   <button
                     type="button"
-                    onClick={loadVairixPreset}
-                    className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98] inline-flex items-center gap-1.5"
-                    title="Cargar preset de VAIRIX"
-                  >
-                    <span>🔷 Preset VAIRIX</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={loadGlobantPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
-                    title="Cargar preset de Globant"
-                  >
-                    Preset Globant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("context")}
-                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
-                  >
-                    ⚙️ Ver Stack
-                  </button>
-                </div>
-              </div>
-            ) : company === "Globant" ? (
-              <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-[#0e121e]/80 to-indigo-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    🎯
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Entrevista — Globant</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        Completada
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        Bilingüe (Auto-Switch)
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
-                      Globant / Intermedia — GCP Cloud Engineer
-                    </p>
-                    <p className="text-[11px] text-zinc-400">
-                      Reclutadora: <strong className="text-zinc-300">Marian Francheska Escalona</strong> • Tarifa: <span className="text-emerald-400 font-semibold">$25-$30/h USD</span> • Small talk: <span className="text-purple-300">Luna en Salta</span> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={loadVairixPreset}
-                    className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    🔷 Cargar VAIRIX (Architect)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={loadMeliPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
-                  >
-                    🟡 Mercado Libre
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("context")}
-                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
-                  >
-                    ⚙️ Ver Stack
-                  </button>
-                </div>
-              </div>
-            ) : company === "ITPatagonia" ? (
-              <div className="rounded-2xl border border-sky-500/40 bg-gradient-to-r from-sky-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(14,165,233,0.15)]">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    🔵
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-sky-300 uppercase tracking-wider">Entrevista Técnica — IT Patagonia</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-200 border border-sky-500/40 animate-pulse">
-                        Miércoles • 11:00 hs
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        DevOps & FinOps Sr
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        Clientes Bancarios & Factory
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
-                      IT Patagonia — DevOps & FinOps Sr (Arquitectura Híbrida & Operaciones)
-                    </p>
-                    <p className="text-[11px] text-zinc-400">
-                      Entrevistador: <strong className="text-sky-300">Líder Técnico de Área</strong> • Stack: <strong className="text-zinc-200">Hyper-V 2025, Proxmox, Veeam DRP, AD/WSUS, Zabbix, GCP Terraform & FinOps</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={loadItPatagoniaPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.2)]"
-                    title="Recargar preset técnico de IT Patagonia"
-                  >
-                    ⚡ Recargar Preset
-                  </button>
-                  <button
-                    type="button"
                     onClick={loadSnappyPreset}
                     className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 hover:text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.15)]"
                     title="Cargar preset técnico de Snappy Commerce (Patricio & Nick - Martes 17:30 hs)"
@@ -1679,62 +1582,11 @@ export default function CopilotPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={loadVairixPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
-                  >
-                    🔷 VAIRIX
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("context")}
-                    className="px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all"
-                  >
-                    ⚙️ Ver Stack
-                  </button>
-                </div>
-              </div>
-            ) : company === "SnappyCommerce" ? (
-              <div className="rounded-2xl border border-orange-500/40 bg-gradient-to-r from-orange-950/40 via-[#0e121e]/85 to-amber-950/30 p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(249,115,22,0.15)]">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    🧡
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Entrevista Activa — Snappy Commerce</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-200 border border-orange-500/40 animate-pulse">
-                        Martes • 17:30 hs
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        👥 Patricio (Founder) & Nick (Tech Lead)
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        Full Stack Developer (Técnica)
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-bold text-zinc-100 mt-0.5">
-                      Snappy Commerce — Full Stack Developer (Vue.js / Node.js / AI aplicada a eCommerce)
-                    </p>
-                    <p className="text-[11px] text-zinc-400">
-                      Panel: <strong className="text-orange-300">Patricio (Dueño) & Nick (Líder Técnico)</strong> • Foco: <strong className="text-zinc-200">Vue 3, Node.js, Concurrencia de Stock (Postgres/Redis), Pagos Idempotentes, pgvector & Vitest</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={loadSnappyPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-orange-500/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.2)]"
-                    title="Recargar preset técnico de Snappy Commerce (Patricio & Nick)"
-                  >
-                    ⚡ Recargar Preset
-                  </button>
-                  <button
-                    type="button"
                     onClick={loadItPatagoniaPreset}
-                    className="px-2.5 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 hover:text-sky-200 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.15)]"
+                    title="Cargar preset técnico de IT Patagonia (DevOps & FinOps Sr)"
                   >
-                    🔵 IT Patagonia
+                    🔵 IT Patagonia (Técnica)
                   </button>
                   <button
                     type="button"
@@ -1748,13 +1600,13 @@ export default function CopilotPage() {
             ) : company && role ? (
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 sm:p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shrink-0">
                     <BriefcaseIcon />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-zinc-200">
-                        {role} en <span className="text-cyan-400">{company}</span>
+                        {role} en <span className="text-orange-400">{company}</span>
                       </span>
                     </div>
                   </div>
@@ -1762,10 +1614,17 @@ export default function CopilotPage() {
                 <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                   <button
                     type="button"
-                    onClick={loadVairixPreset}
-                    className="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all"
+                    onClick={loadSnappyPreset}
+                    className="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-zinc-950 text-xs font-bold transition-all"
                   >
-                    🔷 VAIRIX (Architect)
+                    🧡 Snappy (Técnica)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadItPatagoniaPreset}
+                    className="px-2.5 py-1.5 rounded-xl border border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-medium transition-all"
+                  >
+                    🔵 IT Patagonia
                   </button>
                   <button
                     type="button"
@@ -1784,67 +1643,52 @@ export default function CopilotPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-[#0e121e]/85 to-blue-950/30 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(6,182,212,0.15)]">
+              <div className="rounded-2xl border border-orange-500/40 bg-gradient-to-r from-orange-950/40 via-[#0e121e]/85 to-amber-950/30 p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_8px_30px_rgba(249,115,22,0.15)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
-                    🔷
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-base shrink-0 shadow-inner">
+                    🧡
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">Próxima Entrevista — VAIRIX</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 animate-pulse">
-                        Miércoles • 10:30 hs
+                      <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Próxima Entrevista — Snappy Commerce</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-200 border border-orange-500/40 animate-pulse">
+                        Martes • 17:30 hs
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                        👤 Romina Raffo De León
+                        👥 Patricio Mazza & Nick
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm font-semibold text-zinc-100">
-                      VAIRIX — Senior Technical Architect (TypeScript, GenAI/RAG, MLOps)
+                      Snappy Commerce — Full Stack Developer (Vue.js / Node.js / AI aplicada a eCommerce)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Perfil hands-on con clientes de EE.UU.: arquitectura, TypeScript/Python, pgvector, Kubernetes, y respuestas conversacionales concisas.
+                      Panel dual: Patricio (negocio, eCommerce y ROI) y Nick (Vue 3, concurrencia en Postgres/Redis, pagos y pgvector).
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
                     type="button"
-                    onClick={loadVairixPreset}
-                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                    onClick={loadSnappyPreset}
+                    className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-zinc-950 font-bold text-xs transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-[0.98] shrink-0"
                   >
-                    🚀 Activar VAIRIX (Architect)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={loadMeliTechPreset}
-                    className="px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
-                    title="Activar preset técnico de Mercado Libre (Defensa Challenge & NoSQL)"
-                  >
-                    🟡 MELI (Técnica)
+                    🚀 Activar Snappy Commerce (17:30 hs)
                   </button>
                   <button
                     type="button"
                     onClick={loadItPatagoniaPreset}
                     className="px-3 py-2 rounded-xl border border-sky-500/40 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(14,165,233,0.25)]"
-                    title="Activar preset técnico de IT Patagonia (DevOps & FinOps Sr)"
+                    title="Activar preset técnico de IT Patagonia (Miércoles 11:00 hs)"
                   >
-                    🔵 IT Patagonia (Líder Técnico)
+                    🔵 IT Patagonia (11:00 hs)
                   </button>
                   <button
                     type="button"
-                    onClick={loadSnappyPreset}
-                    className="px-3 py-2 rounded-xl border border-orange-500/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(249,115,22,0.25)]"
-                    title="Activar preset de Snappy Commerce (Llamada 16:00 hs con María Laura)"
+                    onClick={loadMeliTechPreset}
+                    className="px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-all shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+                    title="Activar preset técnico de Mercado Libre"
                   >
-                    🧡 Snappy Commerce (16:00 hs)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={loadGlobantPreset}
-                    className="px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium transition-all shrink-0"
-                  >
-                    Globant
+                    🟡 MELI (Técnica)
                   </button>
                 </div>
               </div>
@@ -2246,23 +2090,44 @@ export default function CopilotPage() {
                   <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight mb-2">
                     {company ? `Listo para responder preguntas de ${company}` : "Copiloto Listo para tu Entrevista"}
                   </h3>
-                  {company === "VAIRIX" && (
-                    <div className="mb-4 p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-left max-w-md w-full shadow-lg">
-                      <div className="flex items-center justify-between font-bold text-cyan-300 mb-2">
+                  {company === "SnappyCommerce" && (
+                    <div className="mb-4 p-3.5 rounded-xl bg-orange-950/40 border border-orange-500/30 text-xs text-left max-w-md w-full shadow-lg">
+                      <div className="flex items-center justify-between font-bold text-orange-300 mb-2">
                         <span className="flex items-center gap-1.5">
-                          <span>🔷</span>
-                          <span>Entrevista VAIRIX (Senior Technical Architect)</span>
+                          <span>🧡</span>
+                          <span>Entrevista Snappy Commerce (Full Stack Developer)</span>
                         </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-500/40">
-                          Screening / Acercamiento
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-200 border border-orange-500/40">
+                          Martes • 17:30 hs
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
-                        <div>💼 Rol: <span className="text-zinc-100 font-medium">Senior Technical Architect</span></div>
+                        <div>💼 Rol: <span className="text-zinc-100 font-medium">Full Stack Developer</span></div>
+                        <div>👥 Panel: <span className="text-orange-200 font-medium">Patricio (Founder) & Nick (Lead)</span></div>
+                        <div>⚡ Foco: <span className="text-orange-300 font-medium">Vue 3, Node.js, Concurrencia & AI</span></div>
                         <div>💵 Tarifa: <span className="text-emerald-400 font-medium">$4.000 USD / $25-30/h</span></div>
-                        <div>👤 Reclutadora: <span className="text-zinc-100 font-medium">Romina Raffo De León</span></div>
-                        <div>🌐 Idioma: <span className="text-cyan-300 font-medium">Bilingüe (Hands-on US)</span></div>
-                        <div>🐕 Mascota: <span className="text-cyan-300 font-medium">Luna (Salta)</span></div>
+                        <div>🐕 Mascota: <span className="text-orange-300 font-medium">Luna (Salta)</span></div>
+                        <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
+                      </div>
+                    </div>
+                  )}
+                  {company === "ITPatagonia" && (
+                    <div className="mb-4 p-3.5 rounded-xl bg-sky-950/40 border border-sky-500/30 text-xs text-left max-w-md w-full shadow-lg">
+                      <div className="flex items-center justify-between font-bold text-sky-300 mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <span>🔵</span>
+                          <span>Entrevista IT Patagonia (Técnica)</span>
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-200 border border-sky-500/40">
+                          Miércoles • 11:00 hs
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
+                        <div>💼 Rol: <span className="text-zinc-100 font-medium">DevOps & FinOps Sr</span></div>
+                        <div>👤 Panel: <span className="text-sky-200 font-medium">Líder Técnico de Área</span></div>
+                        <div>⚡ Foco: <span className="text-sky-300 font-medium">Hyper-V, Veeam, AD, Zabbix, GCP</span></div>
+                        <div>🏛️ Clientes: <span className="text-zinc-100 font-medium">Bancarios & Factory</span></div>
+                        <div>🐕 Mascota: <span className="text-sky-300 font-medium">Luna (Salta)</span></div>
                         <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
                       </div>
                     </div>
@@ -2284,27 +2149,6 @@ export default function CopilotPage() {
                         <div>📅 Horario: <span className="text-zinc-100 font-medium">Jueves 15:00 a 16:00 hs</span></div>
                         <div>⚡ Foco: <span className="text-amber-300 font-medium">Challenge Go & NoSQL Distribuido</span></div>
                         <div>🐕 Mascota: <span className="text-zinc-300 font-medium">Luna (Salta)</span></div>
-                        <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
-                      </div>
-                    </div>
-                  )}
-                  {company === "Globant" && (
-                    <div className="mb-4 p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-left max-w-md w-full shadow-lg">
-                      <div className="flex items-center justify-between font-bold text-purple-300 mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <span>🎯</span>
-                          <span>Entrevista Globant / Intermedia</span>
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/40">
-                          Screening HR
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
-                        <div>💼 Rol: <span className="text-zinc-100 font-medium">GCP Cloud Engineer</span></div>
-                        <div>💵 Tarifa: <span className="text-emerald-400 font-medium">$25-$30 USD/h</span></div>
-                        <div>👤 Reclutadora: <span className="text-zinc-100 font-medium">Francheska Escalona</span></div>
-                        <div>🌐 Idioma: <span className="text-purple-300 font-medium">Bilingüe (Auto-Switch)</span></div>
-                        <div>🐕 Mascota: <span className="text-purple-300 font-medium">Luna (Salta)</span></div>
                         <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
                       </div>
                     </div>
@@ -2445,7 +2289,7 @@ export default function CopilotPage() {
                   type="text"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Ej: Google, Globant, Mercado Libre..."
+                  placeholder="Ej: Snappy Commerce, IT Patagonia, Mercado Libre..."
                   className="w-full px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -2813,17 +2657,30 @@ export default function CopilotPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* Botón Cargar VAIRIX */}
+                {/* Botón Cargar Snappy Commerce */}
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers(VAIRIX_MASTER_ANSWERS);
-                    setMemoryFilterCompany("VAIRIX");
+                    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
+                    setMemoryFilterCompany("SnappyCommerce");
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.2)]"
-                  title="Cargar o actualizar las respuestas maestras preparadas para VAIRIX Senior Technical Architect"
+                  className="px-3 py-1.5 rounded-lg border border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 text-orange-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(249,115,22,0.2)]"
+                  title="Cargar el banco maestro de respuestas para Snappy Commerce (Full Stack Developer • Patricio & Nick)"
                 >
-                  <span>🔷 Cargar VAIRIX ({VAIRIX_MASTER_ANSWERS.length})</span>
+                  <span>🧡 Cargar Snappy Commerce ({SNAPPY_COMMERCE_MASTER_ANSWERS.length})</span>
+                </button>
+
+                {/* Botón Cargar IT Patagonia */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
+                    setMemoryFilterCompany("ITPatagonia");
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/60 text-sky-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(14,165,233,0.2)]"
+                  title="Cargar el banco maestro de respuestas para IT Patagonia (DevOps & FinOps Sr • Charla Técnica)"
+                >
+                  <span>🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})</span>
                 </button>
 
                 {/* Botón Cargar Mercado Libre */}
@@ -2839,77 +2696,45 @@ export default function CopilotPage() {
                   <span>🟡 Cargar Mercado Libre ({MELI_NOSQL_MASTER_ANSWERS.length})</span>
                 </button>
 
-                {/* Botón Cargar Globant */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
-                    setMemoryFilterCompany("Globant");
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-950/40 hover:bg-purple-900/60 text-purple-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
-                  title="Cargar el banco maestro de respuestas preparadas para Globant, Intermedia, GCP y GCVE"
-                >
-                  <span>🟣 Cargar Globant ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})</span>
-                </button>
-
-                {/* Botón Cargar IT Patagonia */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
-                    setMemoryFilterCompany("ITPatagonia");
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/60 text-sky-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(14,165,233,0.2)]"
-                  title="Cargar el banco maestro de respuestas para IT Patagonia (DevOps & FinOps Sr)"
-                >
-                  <span>🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})</span>
-                </button>
-
-                {/* Botón Cargar Snappy Commerce */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
-                    setMemoryFilterCompany("SnappyCommerce");
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 text-orange-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(249,115,22,0.2)]"
-                  title="Cargar el banco maestro de respuestas para Snappy Commerce (Full Stack Developer)"
-                >
-                  <span>🧡 Cargar Snappy Commerce ({SNAPPY_COMMERCE_MASTER_ANSWERS.length})</span>
-                </button>
-
                 {/* Botón Cargar Todas */}
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers([...VAIRIX_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS, ...GLOBANT_AND_GCP_MASTER_ANSWERS, ...IT_PATAGONIA_MASTER_ANSWERS, ...SNAPPY_COMMERCE_MASTER_ANSWERS]);
+                    importMasterAnswers([...SNAPPY_COMMERCE_MASTER_ANSWERS, ...IT_PATAGONIA_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS]);
                     setMemoryFilterCompany("all");
                   }}
                   className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-                  title="Cargar todas las respuestas maestras de VAIRIX, Mercado Libre, Globant, IT Patagonia y Snappy Commerce juntas"
+                  title="Cargar todas las respuestas maestras de Snappy Commerce, IT Patagonia y Mercado Libre juntas"
                 >
-                  <span>⚡ Cargar Todas ({VAIRIX_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length + GLOBANT_AND_GCP_MASTER_ANSWERS.length + IT_PATAGONIA_MASTER_ANSWERS.length + SNAPPY_COMMERCE_MASTER_ANSWERS.length})</span>
+                  <span>⚡ Cargar Todas ({SNAPPY_COMMERCE_MASTER_ANSWERS.length + IT_PATAGONIA_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length})</span>
                 </button>
 
                 {/* Reemplazar Banco con Preset Activo */}
                 <button
                   type="button"
                   onClick={() => {
-                    const isVairix = company === "VAIRIX";
                     const isMeli = company === "MercadoLibre";
                     const isItp = company === "ITPatagonia";
                     const isSnappy = company === "SnappyCommerce";
-                    const targetName = isVairix ? "VAIRIX (" + VAIRIX_MASTER_ANSWERS.length + ")" : isMeli ? "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")" : isItp ? "IT Patagonia (" + IT_PATAGONIA_MASTER_ANSWERS.length + ")" : isSnappy ? "Snappy Commerce (" + SNAPPY_COMMERCE_MASTER_ANSWERS.length + ")" : "Globant (" + GLOBANT_AND_GCP_MASTER_ANSWERS.length + ")";
-                    const answersToLoad = isVairix ? VAIRIX_MASTER_ANSWERS : isMeli ? MELI_NOSQL_MASTER_ANSWERS : isItp ? IT_PATAGONIA_MASTER_ANSWERS : isSnappy ? SNAPPY_COMMERCE_MASTER_ANSWERS : GLOBANT_AND_GCP_MASTER_ANSWERS;
+                    const targetName = isSnappy
+                      ? "Snappy Commerce (" + SNAPPY_COMMERCE_MASTER_ANSWERS.length + ")"
+                      : isItp
+                      ? "IT Patagonia (" + IT_PATAGONIA_MASTER_ANSWERS.length + ")"
+                      : "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")";
+                    const answersToLoad = isSnappy
+                      ? SNAPPY_COMMERCE_MASTER_ANSWERS
+                      : isItp
+                      ? IT_PATAGONIA_MASTER_ANSWERS
+                      : MELI_NOSQL_MASTER_ANSWERS;
                     if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
                       replaceMasterAnswers(answersToLoad);
-                      setMemoryFilterCompany(isVairix ? "VAIRIX" : isMeli ? "MercadoLibre" : isItp ? "ITPatagonia" : isSnappy ? "SnappyCommerce" : "Globant");
+                      setMemoryFilterCompany(isSnappy ? "SnappyCommerce" : isItp ? "ITPatagonia" : "MercadoLibre");
                     }
                   }}
                   className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-1.5"
                   title="Reemplazar todo el banco con el preset de la empresa seleccionada"
                 >
-                  <span>🔄 Reemplazar ({company === "VAIRIX" ? "Solo VAIRIX" : company === "MercadoLibre" ? "Solo MELI" : company === "ITPatagonia" ? "Solo IT Patagonia" : company === "SnappyCommerce" ? "Solo Snappy" : "Solo Globant"})</span>
+                  <span>🔄 Reemplazar ({company === "SnappyCommerce" ? "Solo Snappy" : company === "ITPatagonia" ? "Solo IT Patagonia" : "Solo MELI"})</span>
                 </button>
 
                 <button
@@ -2948,25 +2773,48 @@ export default function CopilotPage() {
               </div>
             </div>
 
-            {/* Banner contextual si está en VAIRIX y no tiene respuestas cargadas */}
-            {company === "VAIRIX" && vairixAnswersCount === 0 && (
-              <div className="p-3.5 rounded-xl bg-cyan-950/50 border border-cyan-500/50 text-cyan-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+            {/* Banner contextual si está en Snappy Commerce y no tiene respuestas cargadas */}
+            {company === "SnappyCommerce" && snappyAnswersCount === 0 && (
+              <div className="p-3.5 rounded-xl bg-orange-950/50 border border-orange-500/50 text-orange-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(249,115,22,0.15)]">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🔷</span>
+                  <span className="text-xl">🧡</span>
                   <div>
-                    <span className="font-bold text-cyan-100">Estás en la entrevista de VAIRIX (Senior Technical Architect)</span>
-                    <p className="text-[11px] text-cyan-300/80">Tu banco de memoria aún no tiene cargadas las respuestas de TypeScript, RAG, pgvector y MLOps.</p>
+                    <span className="font-bold text-orange-100">Estás en la entrevista de Snappy Commerce (Full Stack Developer • Patricio & Nick)</span>
+                    <p className="text-[11px] text-orange-300/80">Tu banco de memoria aún no tiene cargadas las {SNAPPY_COMMERCE_MASTER_ANSWERS.length} respuestas de Vue 3, Node.js, PostgreSQL y AI eCommerce.</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers(VAIRIX_MASTER_ANSWERS);
-                    setMemoryFilterCompany("VAIRIX");
+                    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
+                    setMemoryFilterCompany("SnappyCommerce");
                   }}
-                  className="px-3.5 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
+                  className="px-3.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
                 >
-                  ⚡ Cargar las {VAIRIX_MASTER_ANSWERS.length} Respuestas de VAIRIX
+                  ⚡ Cargar las {SNAPPY_COMMERCE_MASTER_ANSWERS.length} Respuestas de Snappy
+                </button>
+              </div>
+            )}
+
+            {/* Banner contextual si está en IT Patagonia y no tiene respuestas cargadas */}
+            {company === "ITPatagonia" && itpAnswersCount === 0 && (
+              <div className="p-3.5 rounded-xl bg-sky-950/50 border border-sky-500/50 text-sky-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(14,165,233,0.15)]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔵</span>
+                  <div>
+                    <span className="font-bold text-sky-100">Estás en la entrevista de IT Patagonia (DevOps & FinOps Sr • Charla Técnica)</span>
+                    <p className="text-[11px] text-sky-300/80">Tu banco de memoria aún no tiene cargadas las {IT_PATAGONIA_MASTER_ANSWERS.length} respuestas de Hyper-V 2025, Veeam, AD y FinOps.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
+                    setMemoryFilterCompany("ITPatagonia");
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-sky-400 hover:bg-sky-300 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
+                >
+                  ⚡ Cargar las {IT_PATAGONIA_MASTER_ANSWERS.length} Respuestas de IT Patagonia
                 </button>
               </div>
             )}
@@ -3018,16 +2866,31 @@ export default function CopilotPage() {
 
                 <button
                   type="button"
-                  onClick={() => setMemoryFilterCompany("VAIRIX")}
+                  onClick={() => setMemoryFilterCompany("SnappyCommerce")}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    memoryFilterCompany === "VAIRIX"
-                      ? "bg-cyan-400 text-zinc-950 font-bold shadow-[0_0_12px_rgba(34,211,238,0.35)]"
-                      : "bg-cyan-950/30 text-cyan-300 hover:bg-cyan-900/40 border border-cyan-700/40"
+                    memoryFilterCompany === "SnappyCommerce"
+                      ? "bg-orange-500 text-zinc-950 font-bold shadow-[0_0_12px_rgba(249,115,22,0.35)]"
+                      : "bg-orange-950/30 text-orange-300 hover:bg-orange-900/40 border border-orange-700/40"
                   }`}
                 >
-                  <span>🔷 VAIRIX</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "VAIRIX" ? "bg-zinc-950/20 text-zinc-950" : "bg-cyan-500/20 text-cyan-300"}`}>
-                    {vairixAnswersCount}
+                  <span>🧡 Snappy Commerce</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "SnappyCommerce" ? "bg-zinc-950/20 text-zinc-950" : "bg-orange-500/20 text-orange-300"}`}>
+                    {snappyAnswersCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMemoryFilterCompany("ITPatagonia")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    memoryFilterCompany === "ITPatagonia"
+                      ? "bg-sky-400 text-zinc-950 font-bold shadow-[0_0_12px_rgba(56,189,248,0.35)]"
+                      : "bg-sky-950/30 text-sky-300 hover:bg-sky-900/40 border border-sky-700/40"
+                  }`}
+                >
+                  <span>🔵 IT Patagonia</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "ITPatagonia" ? "bg-zinc-950/20 text-zinc-950" : "bg-sky-500/20 text-sky-300"}`}>
+                    {itpAnswersCount}
                   </span>
                 </button>
 
@@ -3043,21 +2906,6 @@ export default function CopilotPage() {
                   <span>🟡 Mercado Libre</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "MercadoLibre" ? "bg-zinc-950/20 text-zinc-950" : "bg-yellow-500/20 text-yellow-300"}`}>
                     {meliAnswersCount}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMemoryFilterCompany("Globant")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    memoryFilterCompany === "Globant"
-                      ? "bg-purple-500 text-white font-bold shadow-[0_0_12px_rgba(168,85,247,0.35)]"
-                      : "bg-purple-950/30 text-purple-300 hover:bg-purple-900/40 border border-purple-700/40"
-                  }`}
-                >
-                  <span>🟣 Globant / GCP</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${memoryFilterCompany === "Globant" ? "bg-white/20 text-white" : "bg-purple-500/20 text-purple-300"}`}>
-                    {globantAnswersCount}
                   </span>
                 </button>
 
@@ -3107,7 +2955,7 @@ export default function CopilotPage() {
                 </p>
                 <p className="text-xs max-w-md mx-auto mb-4 text-zinc-400">
                   {masterAnswers.length === 0
-                    ? `Cargá las respuestas de VAIRIX (${VAIRIX_MASTER_ANSWERS.length}), Mercado Libre (${MELI_NOSQL_MASTER_ANSWERS.length}) o de Globant (${GLOBANT_AND_GCP_MASTER_ANSWERS.length}) para tener respuestas instantáneas (<50ms) en vivo.`
+                    ? `Cargá las respuestas de Snappy Commerce (${SNAPPY_COMMERCE_MASTER_ANSWERS.length}), IT Patagonia (${IT_PATAGONIA_MASTER_ANSWERS.length}) o Mercado Libre (${MELI_NOSQL_MASTER_ANSWERS.length}) para tener respuestas instantáneas (<50ms) en vivo.`
                     : "Prueba seleccionando 'Todas' o borrando el término del buscador."}
                 </p>
                 {masterAnswers.length === 0 && (
@@ -3115,12 +2963,22 @@ export default function CopilotPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        importMasterAnswers(VAIRIX_MASTER_ANSWERS);
-                        setMemoryFilterCompany("VAIRIX");
+                        importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
+                        setMemoryFilterCompany("SnappyCommerce");
                       }}
-                      className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)]"
+                      className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.3)]"
                     >
-                      🔷 Cargar VAIRIX ({VAIRIX_MASTER_ANSWERS.length})
+                      🧡 Cargar Snappy Commerce ({SNAPPY_COMMERCE_MASTER_ANSWERS.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
+                        setMemoryFilterCompany("ITPatagonia");
+                      }}
+                      className="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.3)]"
+                    >
+                      🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})
                     </button>
                     <button
                       type="button"
@@ -3132,52 +2990,42 @@ export default function CopilotPage() {
                     >
                       🟡 Cargar Mercado Libre ({MELI_NOSQL_MASTER_ANSWERS.length})
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        importMasterAnswers(GLOBANT_AND_GCP_MASTER_ANSWERS);
-                        setMemoryFilterCompany("Globant");
-                      }}
-                      className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-[0_0_12px_rgba(168,85,247,0.3)]"
-                    >
-                      🟣 Cargar Globant ({GLOBANT_AND_GCP_MASTER_ANSWERS.length})
-                    </button>
                   </div>
                 )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[600px] overflow-y-auto pr-1">
                 {filteredMasterAnswers.map((ans) => {
-                  const isVairix = (ans.company || "").toLowerCase().includes("vairix");
-                  const isMeli = (ans.company || "").toLowerCase().includes("mercadolibre");
-                  const isGlobant = (ans.company || "").toLowerCase().includes("globant");
+                  const isSnappy = (ans.company || "").toLowerCase().includes("snappy");
+                  const isItp = (ans.company || "").toLowerCase().includes("patagonia") || (ans.company || "").toLowerCase().includes("itpatagonia");
+                  const isMeli = (ans.company || "").toLowerCase().includes("mercadolibre") || (ans.company || "").toLowerCase().includes("meli");
                   return (
                     <div
                       key={ans.id}
                       className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
-                        isVairix
-                          ? "border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-zinc-950 to-zinc-950 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.05)]"
+                        isSnappy
+                          ? "border-orange-500/30 bg-gradient-to-br from-orange-950/20 via-zinc-950 to-zinc-950 hover:border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.05)]"
+                          : isItp
+                          ? "border-sky-500/30 bg-gradient-to-br from-sky-950/20 via-zinc-950 to-zinc-950 hover:border-sky-500/50 shadow-[0_0_15px_rgba(14,165,233,0.05)]"
                           : isMeli
                           ? "border-yellow-500/30 bg-gradient-to-br from-yellow-950/20 via-zinc-950 to-zinc-950 hover:border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.05)]"
-                          : isGlobant
-                          ? "border-purple-500/30 bg-gradient-to-br from-purple-950/20 via-zinc-950 to-zinc-950 hover:border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.05)]"
                           : "border-zinc-800 bg-zinc-950 hover:border-zinc-700"
                       }`}
                     >
                       <div>
                         <div className="flex items-center justify-between text-[11px] mb-2 gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {isVairix ? (
-                              <span className="px-2 py-0.5 rounded-md bg-cyan-400/15 border border-cyan-400/30 text-cyan-300 font-bold text-[10px] tracking-wide">
-                                🔷 VAIRIX
+                            {isSnappy ? (
+                              <span className="px-2 py-0.5 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-300 font-bold text-[10px] tracking-wide">
+                                🧡 Snappy Commerce
+                              </span>
+                            ) : isItp ? (
+                              <span className="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-300 font-bold text-[10px] tracking-wide">
+                                🔵 IT Patagonia
                               </span>
                             ) : isMeli ? (
                               <span className="px-2 py-0.5 rounded-md bg-yellow-400/15 border border-yellow-400/30 text-yellow-300 font-bold text-[10px] tracking-wide">
                                 🟡 Mercado Libre
-                              </span>
-                            ) : isGlobant ? (
-                              <span className="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold text-[10px] tracking-wide">
-                                🟣 Globant
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 font-bold text-[10px]">
