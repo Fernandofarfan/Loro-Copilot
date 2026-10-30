@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { detectExperienceQuestion } from "../lib/interviewHelpers";
+import { TURN_PANEL_KEYS } from "../hooks/useTeleprompter";
 
 interface TeleprompterData {
   question?: string;
@@ -146,6 +147,32 @@ export default function TeleprompterPage() {
   const [showNumbersSheet, setShowNumbersSheet] = useState(false);
   const [silenceBridgeVisible, setSilenceBridgeVisible] = useState(false);
   const [camouMode, setCamouMode] = useState<"normal" | "ide" | "terminal">("normal");
+  const camouModeRef = useRef(camouMode);
+  camouModeRef.current = camouMode;
+  const lastQuestionRef = useRef("");
+
+  // Única entrada de datos externos (BC y storage-event): merge shallow + reset de
+  // paneles del turno anterior solo cuando llega una pregunta NUEVA.
+  const applyIncomingData = useCallback((incoming: TeleprompterData) => {
+    if (incoming.camouMode === "normal" || incoming.camouMode === "ide" || incoming.camouMode === "terminal") {
+      setCamouMode(incoming.camouMode);
+    }
+    const q = typeof incoming.question === "string" ? incoming.question : "";
+    const isNewQuestion = q.length > 0 && q !== lastQuestionRef.current;
+    if (q) lastQuestionRef.current = q;
+    setData((prev) => {
+      const merged = { ...prev, ...incoming };
+      if (isNewQuestion) {
+        for (const key of TURN_PANEL_KEYS) {
+          if (!(key in incoming)) delete (merged as Record<string, unknown>)[key];
+        }
+      }
+      return merged;
+    });
+    // El pánico solo se levanta con una pregunta NUEVA: los re-envíos del mismo stream
+    // (question idéntica en cada chunk) deben dejar la pantalla oculta.
+    if (isNewQuestion) setIsPanicHidden(false);
+  }, []);
   const bcRef = useRef<BroadcastChannel | null>(null);
   const [telegraphicMode, setTelegraphicMode] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -157,7 +184,9 @@ export default function TeleprompterPage() {
   useEffect(() => {
     try {
       localStorage.setItem("loro_teleprompter_telegraphic", String(telegraphicMode));
-    } catch {}
+    } catch (e) {
+      console.warn("[teleprompter] localStorage no persistió (¿cuota llena?)", e);
+    }
   }, [telegraphicMode]);
 
   useEffect(() => {
@@ -187,7 +216,11 @@ export default function TeleprompterPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (isValidTeleprompterData(parsed)) {
-          setData(parsed);
+          if (parsed.camouMode === "normal" || parsed.camouMode === "ide" || parsed.camouMode === "terminal") {
+            setCamouMode(parsed.camouMode);
+          }
+          // Merge (no replace): lo persistido puede ser un delta
+          setData((prev) => ({ ...prev, ...parsed }));
         }
       }
     } catch {}
@@ -201,9 +234,13 @@ export default function TeleprompterPage() {
         if (event.data?.camouMode) {
           setCamouMode(event.data.camouMode);
         }
+        // Pánico remoto desde /app: ocultar el contenido sin tocar el resto del estado
+        if (event.data?.command === "TOGGLE_PANIC") {
+          setIsPanicHidden((prev) => !prev);
+          return;
+        }
         if (isValidTeleprompterData(event.data)) {
-          setData(event.data);
-          setIsPanicHidden(false); // restaurar ante nueva pregunta
+          applyIncomingData(event.data);
         }
       };
     }
@@ -214,23 +251,46 @@ export default function TeleprompterPage() {
         try {
           const parsed = JSON.parse(e.newValue);
           if (isValidTeleprompterData(parsed)) {
-            setData(parsed);
-            setIsPanicHidden(false);
+            applyIncomingData(parsed);
           }
         } catch {}
       }
     };
     window.addEventListener("storage", handleStorage);
 
-    // Atajos de teclado: Escape (Pánico), F8 / Alt+S (Camuflaje Seguro), F4 (Cierre de Oro)
+    // Atajos de teclado: Escape (Pánico), F8 / Alt+S (Camuflaje Seguro), T (Telegráfico), F4 (Cierre de Oro)
     const handleKeyDown = (e: KeyboardEvent) => {
       setSilenceBridgeVisible(false);
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
+      if (e.repeat) return;
+
       if (e.key === "Escape") {
         setIsPanicHidden((prev) => !prev);
+        return;
       }
       if (e.key === "F8" || (e.altKey && e.key.toLowerCase() === "s")) {
         e.preventDefault();
-        setCamouMode((curr) => (curr === "normal" ? "ide" : "normal"));
+        const curr = camouModeRef.current;
+        const next = curr === "normal" ? "ide" : curr === "ide" ? "terminal" : "normal";
+        setCamouMode(next);
+        bcRef.current?.postMessage({ type: "CAMOU_MODE", camouMode: next });
+        try {
+          const raw = localStorage.getItem("loro_teleprompter_data");
+          const parsed = raw ? JSON.parse(raw) : {};
+          parsed.camouMode = next;
+          localStorage.setItem("loro_teleprompter_data", JSON.stringify(parsed));
+        } catch (e) {
+          console.warn("[teleprompter] localStorage no persistió (¿cuota llena?)", e);
+        }
+        return;
+      }
+      // T: Modo Telegráfico (el mismo toggle del botón de la UI)
+      if ((e.key === "t" || e.key === "T") && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        setTelegraphicMode((t) => !t);
+        return;
       }
       if (e.key === "F4") {
         e.preventDefault();
@@ -245,7 +305,7 @@ export default function TeleprompterPage() {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [applyIncomingData]);
 
   useEffect(() => {
     if (autoScroll && !isPanicHidden) {
@@ -276,9 +336,41 @@ export default function TeleprompterPage() {
     return () => clearInterval(timer);
   }, [karaokePacer, data.isGenerating, mainText, pacerWpm]);
 
+  // El PiP es una vista de SOLO LECTURA viva: los handlers de React no viajan al clon,
+  // así que se re-clona el HUD ante cada cambio de estado y se deshabilitan los controles.
+  const pipWinRef = useRef<Window | null>(null);
+
+  const refreshPip = useCallback(() => {
+    const pipWin = pipWinRef.current;
+    if (!pipWin || pipWin.closed) return;
+    const root = document.getElementById("loro-hud-root");
+    if (!root) return;
+    const clone = root.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll("button, input, select, textarea").forEach((el) => {
+      el.setAttribute("disabled", "true");
+    });
+    clone.querySelectorAll("a[href]").forEach((el) => el.removeAttribute("href"));
+    pipWin.document.body.replaceChildren(clone);
+  }, []);
+
+  useEffect(() => {
+    refreshPip();
+    // pacerWordIdx a propósito fuera de las deps: el karaoke del PiP no precisa 4Hz de clones
+  }, [refreshPip, data, camouMode, isPanicHidden, telegraphicMode, opacity, fontSize, silenceBridgeVisible, bionicReading, karaokePacer, showNumbersSheet]);
+
   const openPip = async () => {
     if (typeof window !== "undefined" && "documentPictureInPicture" in window) {
       try {
+        // Si ya hay un PiP abierto, enfocarlo: un segundo requestWindow() cierra el
+        // anterior y su pagehide podría anular la ref de la ventana nueva.
+        const existing = (
+          window as unknown as { documentPictureInPicture?: { window?: Window | null } }
+        ).documentPictureInPicture?.window;
+        if (existing && !existing.closed) {
+          existing.focus();
+          return;
+        }
+
         const pipWin = await (window as unknown as {
           documentPictureInPicture: {
             requestWindow: (opts: { width: number; height: number }) => Promise<Window>;
@@ -286,6 +378,13 @@ export default function TeleprompterPage() {
         }).documentPictureInPicture.requestWindow({
           width: 560,
           height: 380,
+        });
+        pipWinRef.current = pipWin;
+        pipWin.addEventListener("pagehide", () => {
+          // Guard de identidad: el pagehide de una ventana vieja no debe anular la nueva
+          if (pipWinRef.current === pipWin) {
+            pipWinRef.current = null;
+          }
         });
 
         Array.from(document.styleSheets).forEach((sheet) => {
@@ -304,11 +403,8 @@ export default function TeleprompterPage() {
           }
         });
 
-        const root = document.getElementById("loro-hud-root");
-        if (root) {
-          pipWin.document.body.className = "bg-[#09090b] text-[#f4f4f5]";
-          pipWin.document.body.appendChild(root.cloneNode(true));
-        }
+        pipWin.document.body.className = "bg-[#09090b] text-[#f4f4f5]";
+        refreshPip();
       } catch (err) {
         console.warn("Error al abrir PiP:", err);
       }
@@ -316,8 +412,12 @@ export default function TeleprompterPage() {
   };
 
   if (isPanicHidden) {
+    // Mismo id que el HUD activo: el PiP clona este nodo para ocultarse durante el pánico
     return (
-      <main className="min-h-screen bg-[#09090b] text-zinc-600 flex items-center justify-center p-4 font-mono text-xs select-none">
+      <main
+        id="loro-hud-root"
+        className="min-h-screen bg-[#09090b] text-zinc-600 flex items-center justify-center p-4 font-mono text-xs select-none"
+      >
         <span>Pantalla en pausa. Presioná Escape para reanudar.</span>
       </main>
     );
@@ -391,9 +491,17 @@ export default function TeleprompterPage() {
         /\b(any questions for (me|us)|do you have questions|preguntas para (nosotros|m[ií])|alguna pregunta antes de terminar|questions before we wrap up|any other questions)\b/i.test(data.question)
       ) && (
         <section
+          role="button"
+          tabIndex={0}
           onClick={() => bcRef.current?.postMessage({ type: "TRIGGER_REVERSE_QUESTIONS" })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              bcRef.current?.postMessage({ type: "TRIGGER_REVERSE_QUESTIONS" });
+            }
+          }}
           className="mb-2 p-2 rounded-lg bg-emerald-950/90 border border-emerald-400 text-emerald-100 text-xs font-semibold flex items-center justify-between shadow-lg animate-pulse cursor-pointer hover:bg-emerald-900/90 transition-all"
-          title="Clic para disparar Cierre de Oro (F4)"
+          title="Clic o Enter para disparar Cierre de Oro (F4)"
         >
           <div className="flex items-center gap-1.5">
             <span className="text-base">🎯</span>
@@ -408,9 +516,17 @@ export default function TeleprompterPage() {
       {/* Frase Puente de Rescate ante Silencio Incómodo (>3.5s) */}
       {silenceBridgeVisible && (
         <section
+          role="button"
+          tabIndex={0}
           onClick={() => setSilenceBridgeVisible(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setSilenceBridgeVisible(false);
+            }
+          }}
           className="mb-2.5 p-2 rounded-lg bg-emerald-950/90 border border-emerald-400 text-emerald-100 text-[0.88em] shadow-[0_0_20px_rgba(16,185,129,0.35)] animate-pulse cursor-pointer transition-all"
-          title="Hacé clic o hablá para descartar"
+          title="Clic, Enter o hablá para descartar"
         >
           <div className="flex justify-between items-center text-[10px] text-emerald-300 font-bold uppercase mb-0.5">
             <span>⏳ Ganá Tiempo con Elegancia (Frase Puente)</span>
@@ -431,6 +547,7 @@ export default function TeleprompterPage() {
               type="button"
               onClick={() => setShowNumbersSheet(false)}
               className="text-zinc-500 hover:text-zinc-300 text-xs px-1"
+              aria-label="Cerrar"
             >
               ✕
             </button>
@@ -874,11 +991,20 @@ export default function TeleprompterPage() {
 
         <button
           type="button"
-          onClick={() =>
-            setCamouMode((curr) =>
-              curr === "normal" ? "ide" : curr === "ide" ? "terminal" : "normal"
-            )
-          }
+          onClick={() => {
+            const curr = camouMode;
+            const next = curr === "normal" ? "ide" : curr === "ide" ? "terminal" : "normal";
+            setCamouMode(next);
+            bcRef.current?.postMessage({ type: "CAMOU_MODE", camouMode: next });
+            try {
+              const raw = localStorage.getItem("loro_teleprompter_data");
+              const parsed = raw ? JSON.parse(raw) : {};
+              parsed.camouMode = next;
+              localStorage.setItem("loro_teleprompter_data", JSON.stringify(parsed));
+            } catch (e) {
+              console.warn("[teleprompter] localStorage no persistió (¿cuota llena?)", e);
+            }
+          }}
           className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
             camouMode !== "normal"
               ? "bg-purple-950 text-purple-300 border border-purple-500/50 animate-pulse"
@@ -967,9 +1093,9 @@ export default function TeleprompterPage() {
             type="button"
             onClick={openPip}
             className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/40 transition-colors"
-            title="Abrir en ventana flotante Always-on-Top nativa sobre Meet/Zoom"
+            title="Abrir en ventana flotante Always-on-Top nativa sobre Meet/Zoom (solo lectura: los controles viven en la pestaña del HUD)"
           >
-            📌 PiP
+            📌 PiP (solo lectura)
           </button>
         )}
 
@@ -982,6 +1108,7 @@ export default function TeleprompterPage() {
             step="0.05"
             value={opacity}
             onChange={(e) => setOpacity(parseFloat(e.target.value))}
+            aria-label="Opacidad del HUD"
             className="w-12 h-1 bg-zinc-700 rounded accent-emerald-400 cursor-pointer"
           />
         </div>

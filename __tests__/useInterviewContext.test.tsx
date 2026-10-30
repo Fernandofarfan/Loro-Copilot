@@ -106,4 +106,66 @@ describe("useInterviewContext", () => {
     expect(storedAnswers).toHaveLength(1);
     expect(storedAnswers[0].company).toBe("General");
   });
+
+  it("NO debe purgar contenido nuevo que mencione procesos viejos tras la migración única", async () => {
+    // Primer mount: dispara la migración y sella la versión de datos
+    const first = renderHook(() => useInterviewContext());
+    await new Promise((r) => setTimeout(r, 0));
+    first.unmount();
+
+    // El usuario guarda después una respuesta legítima que menciona "Globant"
+    localStorage.setItem(
+      "loro-master-answers:v1",
+      JSON.stringify([
+        { id: "new", question: "Consulting experience", enText: "I worked with Globant as a client", company: "Reforest" },
+      ])
+    );
+
+    const { result } = renderHook(() => useInterviewContext());
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.masterAnswers).toHaveLength(1);
+    expect(result.current.masterAnswers[0].id).toBe("new");
+  });
+
+  it("debe sincronizar LS_KEY cuando otra pestaña actualiza el contexto via storage event", async () => {
+    const { result } = renderHook(() => useInterviewContext());
+    await new Promise((r) => setTimeout(r, 0));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "copiloto:context:v1",
+          newValue: JSON.stringify({
+            company: "SyncedCompany",
+            role: "Staff Engineer",
+            profile: "Go, Kubernetes",
+            extraInstructions: "Direct answers",
+            interviewerBio: "Tech Lead",
+            modelId: "gemini-flash-latest",
+            fontSize: 18,
+          }),
+        })
+      );
+    });
+
+    expect(result.current.company).toBe("SyncedCompany");
+    expect(result.current.role).toBe("Staff Engineer");
+    expect(result.current.profile).toBe("Go, Kubernetes");
+    expect(result.current.extraInstructions).toBe("Direct answers");
+    expect(result.current.interviewerBio).toBe("Tech Lead");
+    expect(result.current.modelId).toBe("gemini-flash-latest");
+    expect(result.current.fontSize).toBe(18);
+  });
+
+  it("debe marcar storageQuotaExceeded cuando se despacha el evento loro:quota-exceeded", async () => {
+    const { result } = renderHook(() => useInterviewContext());
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.storageQuotaExceeded).toBe(false);
+    act(() => {
+      window.dispatchEvent(new CustomEvent("loro:quota-exceeded", { detail: { key: "test" } }));
+    });
+    expect(result.current.storageQuotaExceeded).toBe(true);
+  });
 });

@@ -32,6 +32,16 @@ describe("companyDossier", () => {
     expect(vairix?.techStack).toContain("AI / LLM / RAG");
     expect(vairix?.techStack).toContain("pgvector");
     expect(vairix?.notableTools.some((t) => t.includes("Langfuse"))).toBe(true);
+
+    const itp = getCompanyDossier("ITPatagonia");
+    expect(itp?.canonicalName).toBe("IT Patagonia");
+    expect(itp?.techStack).toContain("Microsoft Hyper-V 2025 (Failover Cluster)");
+    expect(itp?.techStack).toContain("Proxmox VE (Corosync / KVM)");
+    expect(itp?.techStack).toContain("Huawei Cloud");
+    expect(itp?.techStack).toContain("AWS");
+    expect(itp?.techStack).toContain("Azure");
+    expect(itp?.techStack).not.toContain("Google Cloud Platform (GCP)");
+    expect(getCompanyDossier("IT Patagonia")?.canonicalName).toBe("IT Patagonia");
   });
 
   it("devuelve undefined para empresas desconocidas", () => {

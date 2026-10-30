@@ -1,21 +1,31 @@
 import type PostHogJs from "posthog-js";
 
+// Eventos reales emitidos en el código (23). Agregar acá antes de usar un nombre nuevo:
+// el union es la única validación que tiene la analítica.
 export type FunnelEvent =
-  | "page_view"
-  | "session_started"
-  | "session_ended"
-  | "audio_source_selected"
-  | "model_selected"
-  | "answer_requested"
-  | "answer_stream_started"
-  | "answer_stream_completed"
+  | "answer_copied"
   | "answer_feedback"
-  | "teleprompter_opened"
-  | "rescue_phrase_clicked"
-  | "tts_played"
-  | "simulator_started"
-  | "simulator_turn_completed"
-  | "simulator_feedback_generated";
+  | "deepgram_connected"
+  | "earbud_whisper_played"
+  | "hub_copilot_click"
+  | "hub_practice_click"
+  | "screen_vision_captured"
+  | "session_error"
+  | "session_stopped"
+  | "sim_answer_closed"
+  | "sim_avatar_video_fallback"
+  | "sim_camera_denied"
+  | "sim_camera_toggled"
+  | "sim_cross_sell_click"
+  | "sim_email_submit"
+  | "sim_feedback_shown"
+  | "sim_interview_outcome"
+  | "sim_mic_toggled"
+  | "sim_question_asked"
+  | "sim_session_finished"
+  | "sim_session_start"
+  | "sim_share_whatsapp"
+  | "sim_tts_error";
 
 let posthogClient: typeof PostHogJs | null = null;
 
@@ -39,7 +49,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-export function track(event: FunnelEvent | string, properties?: Record<string, any>) {
+export function track(event: FunnelEvent, properties?: Record<string, unknown>) {
   try {
     if (process.env.NODE_ENV === "development") {
       console.log(`📊 [Track] ${event}`, properties || {});
@@ -53,7 +63,7 @@ export function track(event: FunnelEvent | string, properties?: Record<string, a
   }
 }
 
-export function identify(distinctId: string, properties?: Record<string, any>) {
+export function identify(distinctId: string, properties?: Record<string, unknown>) {
   try {
     if (process.env.NODE_ENV === "development") {
       console.log(`👤 [Identify] ${distinctId}`, properties || {});

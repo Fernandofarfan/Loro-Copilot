@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CopyIcon, CheckIcon } from "./Icons";
 
 export interface RescuePhrase {
@@ -46,12 +46,20 @@ interface RescuePhrasesProps {
 export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: RescuePhrasesProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const handleCopy = (phrase: RescuePhrase, index: number) => {
-    navigator.clipboard.writeText(phrase.en);
+    navigator.clipboard?.writeText(phrase.en).catch(() => {});
     setCopiedIndex(index);
     onSelect?.(phrase);
-    setTimeout(() => setCopiedIndex(null), 1500);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedIndex(null), 1500);
   };
 
   return (
@@ -91,6 +99,7 @@ export function RescuePhrases({ phrases = DEFAULT_RESCUE_PHRASES, onSelect }: Re
                 <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
                   <span className="text-sm">{phrase.icon}</span>
                   <span className="tracking-tight">{phrase.label}</span>
+                  <kbd className="px-1 py-0.5 rounded bg-zinc-800/80 border border-zinc-700 text-[9px] font-mono text-zinc-400">Alt+{idx + 1}</kbd>
                 </span>
                 <span
                   className={`transition-colors duration-150 p-1 rounded-md ${

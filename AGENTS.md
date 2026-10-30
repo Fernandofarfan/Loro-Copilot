@@ -4,11 +4,11 @@ Contexto para agentes de IA que trabajen en este repo.
 
 ## Qué es esto
 
-**Loro Copilot** — herramienta **personal** de Guillermo Fernando Farfán Romero (no un producto multi-usuario). Escucha la entrevista por micrófono, audio de pestaña (Meet/Zoom) o **Audio Dual** (mic = candidato, pestaña/VB-CABLE = entrevistador), transcribe con Deepgram Nova-2 multicanal y genera respuestas ancladas a su CV y al banco Globant.
+**Loro Copilot** — herramienta **personal** de Guillermo Fernando Farfán Romero (no un producto multi-usuario). Escucha la entrevista por micrófono, audio de pestaña (Meet/Zoom) o **Audio Dual** (mic = candidato, pestaña/VB-CABLE = entrevistador), transcribe con Deepgram Nova-2 multicanal y genera respuestas ancladas a su CV y a los bancos maestros por empresa.
 
-Uso actual: preparación del screening **Globant / Intermedia** (GCP Cloud Engineer, Marian Francheska Escalona, ~45 min, salto a inglés, GCP / GCVE / Terraform). El perfil (Salta, Luna, +8 años IT / ~4 años cloud, $4.000 USD / $25–30/h) está hardcodeado **a propósito**.
+Uso actual: presets activos **Snappy Commerce** (Full Stack, Patricio & Nick), **IT Patagonia** (DevOps & FinOps Sr, Ricardo) y **Mercado Libre** (NoSQL Service Team). El perfil (Salta, Luna, +8 años IT / ~4 años cloud, $4.000 USD / $25–30/h) está hardcodeado **a propósito**.
 
-Deploy: Next.js 14 (App Router) en Vercel, proyecto `loro-copilot`. URL: `https://loro-copilot.vercel.app`.
+Deploy: **ninguno**. Proyecto 100% personal que corre en local (`npm run dev`). No se publica, no se vende, no es multi-usuario y no hay deploy en Vercel ni en ningún otro lado.
 
 ### Capacidades reales (cableadas)
 
@@ -21,11 +21,11 @@ Teleprompter HUD pop-out (lectura biónica, Panic `Escape`, camuflaje IDE/Termin
 - Speech Coach **en vivo en `/app` no está**: `app/lib/speechCoach.ts` + tests sí; `analyzeSpeech` no se importa en el copiloto. El simulador usa `countFillers`.
 - “Prompt Caching / KV-Cache”: solo prefijo estático al inicio del user prompt. Sin APIs de cache de proveedores.
 - Extensión Chrome: código en `extension/`; la app **no** consume `LORO_EXT_DG_MESSAGE`.
-- Company dossier: **9 empresas**, no 20+.
+- Company dossier: **11 empresas**, no 20+.
 - RAG: ranking léxico + recencia en `cvChunker.ts`, no embeddings.
 - Gaze tracker: heurística de luminosidad ~4 FPS, no ML.
 - Glassdoor/Blind: pegado de texto, no scraping.
-- No hay `.github/workflows/ci.yml`. Antes de push a `main`: `npm test` y `npx tsc --noEmit`.
+- CI: `.github/workflows/ci.yml` (jobs `unit` con lint+typecheck+test+build y `e2e` con Playwright). Antes de push a `main`: `npm test` y `npx tsc --noEmit`.
 
 ## Cómo correrlo y probarlo
 
@@ -37,32 +37,35 @@ npm run dev
 
 ### Comandos de validación
 
-- **Tests unitarios:** `npm test` — Vitest, **207 tests en 26 archivos** de `__tests__/`.
+- **Tests unitarios:** `npm test` — Vitest, **280 tests en 32 archivos** de `__tests__/`.
 - **Tipos:** `npx tsc --noEmit`.
 - **Build:** `npm run build`.
-- **E2E:** `npm run test:e2e` — Playwright smoke (título, URLs, waitlist 400). No cubre audio/SSE/HUD. No corre en CI.
+- **E2E:** `npm run test:e2e` — Playwright 7 tests: smoke (home, simulador, teleprompter, waitlist 400, waitlist sin Origin, token 503) + pregunta manual con SSE mockeado (sin Deepgram real). Requiere `npx playwright install chromium`. No cubre audio real, streaming real ni HUD pop-out. Corre en CI.
 
 ## Estructura de archivos
 
-- `app/app/page.tsx` — Copiloto en vivo: audio dual (hardware/VB-CABLE), barge-in ~4.5 s, hotkeys `F2`/`F3`/`F4`/`` ` ``, Screen Vision `Ctrl+Shift+S` (re-pide `getDisplayMedia` en cada captura), Susurro al Oído, Cierre de Oro, Eye Coach (luminosidad), Fact Ledger, Radar CV, paste Glassdoor/Blind, scorecard, STAR, preset **Activar Entrevista Globant**, Deepgram + HUD.
+- `app/app/page.tsx` — Copiloto en vivo: audio dual (hardware/VB-CABLE), barge-in 1.5–3 s (tab/dual vs mic), hotkeys `F2`/`F3`/`F4`/`` ` ``/`Ctrl+Shift+S`/`Ctrl+Shift+Q`/`F8`/`Alt+1..4` (nunca `Ctrl+1..3`: lo reserva el navegador), Screen Vision (re-pide `getDisplayMedia` en cada captura), Susurro al Oído, Cierre de Oro, Eye Coach (luminosidad), Fact Ledger, Radar CV, paste Glassdoor/Blind, scorecard, STAR, presets **Snappy / IT Patagonia / MELI**, Deepgram + HUD.
 - `app/simulador/page.tsx` — Simulador: personalidades FAANG, gimnasio 25 s, pushback, radar CV, espejo acústico + `countFillers`, inyección de JD, TTS, feedback. Gate de email al ver el reporte.
 - `app/teleprompter/page.tsx` — HUD: Jeff Dean pills, YAGNI, alineación webcam, modo `T`, puente anti-silencio, trigger cards, fonética, camuflaje IDE/Terminal, `documentPictureInPicture`, biónica, pacer, `[WHY_NOT]` / `[EDGE_CASES]` / dry-run, Panic `Escape` vía `BroadcastChannel` + `localStorage`.
-- `app/components/` — `AnswerCard`, `ArchitectureCanvas`, `RescuePhrases`, etc.
+- `app/components/` — `AnswerCard`, `ArchitectureCanvas`, `RescuePhrases`, `ModelCatalog` (catálogo `MODELS` compartido), etc.
 - `app/hooks/useInterviewContext.ts` — Perfiles, `interviewerBio`, `masterAnswers`, `starStories` en `localStorage`.
 - `app/hooks/useDeepgram.ts` — WS Deepgram, mic/tab/dual, worklet PCM16, VAD, barge-in ≥15 chars, reconnect (máx. 3), prefetch especulativo.
 - `app/hooks/useAnswerStream.ts` — SSE, `getInstantBridge`, trigger cards, fonética, punchline, trap detector, Fact Ledger, STAR, anti-slop, visión.
 - `app/hooks/useTeleprompter.ts` — Pop-out HUD y sync.
-- `app/hooks/useScreenVision.ts` — Un frame WebP por captura; no es share persistente.
-- `app/hooks/useEarbudWhisper.ts` — TTS 1.5x del punchline. Riesgo: puede fugarse al mic de la call si el output no está en auricular.
+- `app/hooks/useScreenVision.ts` — Un frame JPEG (calidad 0.85) por captura; no es share persistente.
+- `app/hooks/useEarbudWhisper.ts` — TTS 1.45x del punchline. Riesgo: puede fugarse al mic de la call si el output no está en auricular.
 - `app/hooks/useGazeTracker.ts` — Luminosidad vertical de webcam, privado en el browser.
 - `app/api/answer/route.ts` — SSE Edge: transpile, 2 oraciones / 25–35 palabras, `interviewerBio`, `[DRY_RUN]`, `[EDGE_CASES]`, `[WHY_NOT]`, clasificación de pregunta, dossier de empresa, Fact Ledger, STAR, visión, reverse questions, trap detector. Prefijo de prompt ordenado (no KV-Cache de proveedor).
 - `app/api/deepgram-token/route.ts` — Grant Deepgram **TTL 120 s**. Nunca expone la API key permanente en prod.
 - `app/api/simulador/route.ts` — Preguntas por personalidad + `pushbackMode` + feedback JSON.
+- `app/api/simulador/tts/route.ts` — Voz TTS del entrevistador (OpenAI, fallback `tts-1`).
 - `app/api/waitlist/route.ts` — Google Form + rate limit.
 - `app/api/summary/route.ts` — Scorecard FAANG + post-mortem + thank-you note.
-- `app/lib/globantMasterAnswers.ts` — Banco maestro Globant/GCP/GCVE + enciclopedia base (preset 1-click).
-- `app/lib/companyDossier.ts` — **9** empresas (Globant/Intermedia incluido).
+- `app/lib/meliMasterAnswers.ts` / `snappyCommerceMasterAnswers.ts` / `itPatagoniaMasterAnswers.ts` — Bancos maestros por empresa (presets 1-click). Los bancos se cargan con `import()` diferido en `/app`.
+- `archive/` — Bancos fuera de línea (`globantMasterAnswers.ts`, `vairixMasterAnswers.ts` + su test, script generador). No se importan en la app ni corren en Vitest.
+- `app/lib/companyDossier.ts` — **11** empresas (Globant/Intermedia e IT Patagonia incluidos).
 - `app/lib/cvChunker.ts` — Chunking + ranking léxico/recencia (RAG local, sin embeddings).
+- `app/lib/promptUtils.ts` — `sanitizeForPrompt` compartido por las rutas API.
 - `app/lib/speechCoach.ts` — `analyzeSpeech` / `countFillers`. Cableado: simulador (`countFillers`) y tests. No el copiloto live.
 - `app/lib/security.ts` — `verifyOrigin`, rate limit in-memory (Upstash si hay env), `CAPACITY_CLOSED`.
 - `app/lib/interviewHelpers.ts` — Puente, fonética, trigger cards, `classifyQuestionType`, parser de bloques, `findMatchingAnswer`.
@@ -70,7 +73,7 @@ npm run dev
 - `public/pcm-worklet.js` — Downsample PCM16 16 kHz estéreo, RMS, filtro, noise gate, VAD.
 - `extension/` — MV3 localhost. **No integrada** con Next.
 - `docs/` — ver `docs/README.md`.
-- `__tests__/` — 26 archivos, 207 tests: `antiSlopFilter`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `llm`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `speechCoach`, `starStories`, `tacticalImprovements`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useInterviewContext`, `useTeleprompter`, `vulnerabilityRadar`.
+- `__tests__/` — 32 archivos, 280 tests: `answerRoute`, `antiSlopFilter`, `apiRoutes`, `codeEvaluator`, `companyDossier`, `cvChunker`, `deepgramToken`, `excalidrawExport`, `factLedger`, `firmnessAndStarMatch`, `gazeTracker`, `interviewHelpers`, `itPatagoniaPreset`, `llm`, `meliMasterAnswers`, `mermaidParser`, `parseBlocks`, `salaryNegotiation`, `screenVision`, `security`, `simuladorPersonas`, `snappyCommerceMasterAnswers`, `speechCoach`, `starStories`, `tacticalImprovements`, `timelineRAG`, `useAnswerStream`, `useDeepgram`, `useEarbudWhisper`, `useInterviewContext`, `useTeleprompter`, `vulnerabilityRadar`.
 
 ## Convenciones de código
 
@@ -78,7 +81,7 @@ npm run dev
 - **Analytics**: `track()` / `identify()` en `app/lib/track.ts`. Eventos `snake_case`.
 - **Disparo de respuestas**: manual o por fin de turno (`UtteranceEnd` / VAD), controlado por el usuario.
 - **Runtime `edge`**: `export const runtime = "edge"` en `app/api/`. Sin `fs` / `net`.
-- **Seguridad**: toda ruta API nueva llama `verifyOrigin(req)` y `checkRateLimit(req)`.
+- **Seguridad**: toda ruta API nueva llama `verifyOrigin(req)` + `checkRateLimitAsync(req)` + `checkCapacity()` (+ `verifySharedSecret(req)` si es ruta LLM).
 
 ## Variables de entorno
 
@@ -94,12 +97,13 @@ npm run dev
 | `NEXT_PUBLIC_SITE_URL` | No | Allowlist de Origin. |
 | `CAPACITY_CLOSED` | No | `1` cierra answer/token con 503. |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | No | Rate limit global; si no, Map por isolate. |
+| `LORO_SHARED_TOKEN` / `NEXT_PUBLIC_LORO_SHARED_TOKEN` | No | Token anti-abuso de rutas LLM (header `x-loro-token`). Definir ambas o ninguna. |
 | `GFORM_ACTION` | No | Waitlist. |
 
-## Flujo de deploy
+## Flujo de trabajo (sin deploy)
 
-- `main` despliega a producción en Vercel al hacer `git push`.
-- Correr `npm test` y `npx tsc --noEmit` antes de pushear. No hay GitHub Actions.
+- **No hay deploy**: el proyecto corre local con `npm run dev` y no se publica en Vercel ni en ningún host.
+- Correr `npm test` y `npx tsc --noEmit` antes de commitear/pushear. CI en `.github/workflows/ci.yml` (lint + typecheck + test + build + e2e) verifica `main`.
 
 ## Perfil del candidato y reglas de experiencia
 

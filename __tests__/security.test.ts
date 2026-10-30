@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { checkRateLimit, checkRateLimitAsync, verifyOrigin, checkCapacity } from "../app/lib/security";
+import { checkRateLimit, checkRateLimitAsync, verifyOrigin, verifySharedSecret, checkCapacity } from "../app/lib/security";
 import { POST as waitlistPOST } from "../app/api/waitlist/route";
 
 describe("security", () => {
@@ -194,6 +194,43 @@ describe("security", () => {
       (process.env as any).NODE_ENV = originalEnv;
       if (originalVercelUrl) process.env.VERCEL_URL = originalVercelUrl;
       else delete process.env.VERCEL_URL;
+    });
+  });
+
+  describe("verifySharedSecret", () => {
+    const originalEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it("debe permitir todo cuando LORO_SHARED_TOKEN no está configurado", () => {
+      delete process.env.LORO_SHARED_TOKEN;
+      const req = new Request("http://localhost:3000/api/answer", { method: "POST" });
+      expect(verifySharedSecret(req).ok).toBe(true);
+    });
+
+    it("debe rechazar sin header cuando LORO_SHARED_TOKEN está configurado", () => {
+      process.env.LORO_SHARED_TOKEN = "secreto-test";
+      const req = new Request("http://localhost:3000/api/answer", { method: "POST" });
+      const res = verifySharedSecret(req);
+      expect(res.ok).toBe(false);
+      expect(res.status).toBe(401);
+    });
+
+    it("debe rechazar token incorrecto y aceptar el correcto", () => {
+      process.env.LORO_SHARED_TOKEN = "secreto-test";
+      const badReq = new Request("http://localhost:3000/api/answer", {
+        method: "POST",
+        headers: { "x-loro-token": "otro" },
+      });
+      expect(verifySharedSecret(badReq).ok).toBe(false);
+
+      const okReq = new Request("http://localhost:3000/api/answer", {
+        method: "POST",
+        headers: { "x-loro-token": "secreto-test" },
+      });
+      expect(verifySharedSecret(okReq).ok).toBe(true);
     });
   });
 

@@ -1,35 +1,22 @@
 import { NextResponse } from "next/server";
 import {
-  streamGemini,
-  streamAnthropic,
-  streamOpenAI,
-  streamOpenCode,
+  streamForProvider,
+  buildCandidates,
   resolveProvider,
   resolveModel,
-  FALLBACK_MODELS,
-  parseModelJson,
-  fetchWithTimeout,
+  completeJsonForProvider,
   type Provider,
 } from "../../lib/llm";
-import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
+import { verifyOrigin, verifySharedSecret, checkRateLimitAsync, checkCapacity } from "../../lib/security";
 import {
   analyzeCvVulnerabilities,
-  buildVulnerabilitySystemPrompt,
 } from "../../lib/vulnerabilityRadar";
 import {
-  PERSONA_DIRECTIVES,
   buildInterviewerSystemPrompt,
-  type Persona,
 } from "../../lib/simuladorPersonas";
+import { sanitizeForPrompt } from "../../lib/promptUtils";
 
 export const runtime = "edge";
-
-// Escapa caracteres XML de delimitación para evitar inyección de prompt via inputs de usuario
-function sanitizeForPrompt(text: string): string {
-  return text
-    .replace(/</g, "‹")   // reemplazar < por guillemet izquierdo (similar visual, no interpretable como tag)
-    .replace(/>/g, "›");  // reemplazar > por guillemet derecho
-}
 
 const SYSTEM_PROMPT_INTERVIEWER = buildInterviewerSystemPrompt("standard");
 
@@ -64,139 +51,16 @@ Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura:
 }`;
 
 async function getFeedbackJson(provider: Provider, models: string[], systemPrompt: string, userContent: string): Promise<Response> {
-  let lastError = "";
-
-  if (provider === "openai" || provider === "opencode" || provider === "openrouter") {
-    const isOpencode = provider === "opencode" || provider === "openrouter";
-    const apiKey = isOpencode
-      ? process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY
-      : process.env.OPENAI_API_KEY;
-    const rawBaseUrl = isOpencode
-      ? process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"
-      : "https://api.openai.com/v1";
-    const baseUrl = rawBaseUrl.replace(/\/$/, "");
-
-    if (!apiKey) return new Response(`Falta API key para ${provider}.`, { status: 500 });
-
-    for (const model of models) {
-      if (!model) continue;
-      try {
-        const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-            ...(isOpencode ? { "x-opencode-session": "loro-simulador-session" } : {}),
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userContent },
-            ],
-            temperature: 0.2,
-            response_format: { type: "json_object" },
-          }),
-        }, 25_000);
-
-        if (res.ok) {
-          const j = await res.json();
-          const content = j.choices?.[0]?.message?.content;
-          if (content) {
-            return NextResponse.json(parseModelJson(content));
-          }
-        }
-        lastError = await res.text().catch(() => "");
-      } catch (err: unknown) {
-        lastError = err instanceof Error ? err.message : String(err);
-      }
-    }
+  try {
+    const parsed = await completeJsonForProvider(provider, models, systemPrompt, userContent, {
+      temperature: 0.2,
+      maxTokens: 4096,
+    });
+    return NextResponse.json(parsed);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(`Error generando feedback: ${msg}`, { status: 502 });
   }
-
-  if (provider === "anthropic") {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return new Response("Falta ANTHROPIC_API_KEY.", { status: 500 });
-
-    for (const model of models) {
-      if (!model) continue;
-      try {
-        const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: 2048,
-            system: systemPrompt,
-            messages: [{ role: "user", content: userContent }],
-          }),
-        }, 25_000);
-
-        if (res.ok) {
-          const j = await res.json();
-          const text = j.content?.[0]?.text;
-          if (text) {
-            return NextResponse.json(parseModelJson(text));
-          }
-        }
-        lastError = await res.text().catch(() => "");
-      } catch (err: unknown) {
-        lastError = err instanceof Error ? err.message : String(err);
-      }
-    }
-  }
-
-  // Gemini feedback
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) {
-    if (provider === "gemini") {
-      return new Response("Falta GEMINI_API_KEY en las variables de entorno.", { status: 500 });
-    }
-    return new Response(`Error generando feedback (${provider}): ${lastError || "No se pudo obtener respuesta del modelo."}`, { status: 502 });
-  }
-
-  const geminiModels = provider === "gemini" ? models : FALLBACK_MODELS.gemini;
-  for (const model of geminiModels) {
-    if (!model) continue;
-    try {
-      const res = await fetchWithTimeout(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": geminiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: userContent }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 4096,
-              responseMimeType: "application/json",
-            },
-          }),
-        },
-        25_000
-      );
-
-      if (res.ok) {
-        const j = await res.json();
-        const text = j.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          return NextResponse.json(parseModelJson(text));
-        }
-      }
-      lastError = await res.text().catch(() => "");
-    } catch (err: unknown) {
-      lastError = err instanceof Error ? err.message : String(err);
-    }
-  }
-
-  return new Response(`Error generando feedback: ${lastError}`, { status: 502 });
 }
 
 export async function POST(req: Request) {
@@ -210,6 +74,12 @@ export async function POST(req: Request) {
   const originCheck = verifyOrigin(req);
   if (!originCheck.ok) {
     return new Response(originCheck.error || "No autorizado", { status: originCheck.status || 403 });
+  }
+
+  // 1b. Token compartido (solo si LORO_SHARED_TOKEN está configurado)
+  const secretCheck = verifySharedSecret(req);
+  if (!secretCheck.ok) {
+    return new Response(secretCheck.error || "No autorizado", { status: secretCheck.status || 401 });
   }
 
   // 2. Rate Limiting (40 req/min)
@@ -236,6 +106,7 @@ export async function POST(req: Request) {
     questionsCount?: number;
     pushbackMode?: boolean;
     jobDescription?: string;
+    image?: string;
   };
   try {
     body = await req.json();
@@ -248,6 +119,14 @@ export async function POST(req: Request) {
   const company = sanitizeForPrompt((body.company || "").slice(0, 200));
   const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
   const jobDescription = sanitizeForPrompt((body.jobDescription || "").slice(0, 4000));
+  const rawImage = typeof body.image === "string" ? body.image : null;
+  const image =
+    rawImage && rawImage.startsWith("data:image/") && rawImage.length <= 3_000_000
+      ? {
+          mimeType: rawImage.slice(5, rawImage.indexOf(";")),
+          data: rawImage.slice(rawImage.indexOf(",") + 1),
+        }
+      : null;
 
   // Manejo de escaneo de radar de vulnerabilidades previo a la entrevista
   if (action === "vulnerability-radar") {
@@ -262,8 +141,8 @@ export async function POST(req: Request) {
   const answerLang = body.answerLang === "en" ? "en" : "es";
 
   const history = (body.history || []).slice(0, 20).map((h) => ({
-    question: String(h?.question || "").slice(0, 600),
-    answer: String(h?.answer || "").slice(0, 2000),
+    question: sanitizeForPrompt(String(h?.question || "")).slice(0, 600),
+    answer: sanitizeForPrompt(String(h?.answer || "")).slice(0, 2000),
   }));
   const historyText = history.length > 0
     ? history.map((h, i) => `Pregunta ${i + 1}: ${h.question}\nRespuesta ${i + 1}: ${h.answer}`).join("\n\n")
@@ -295,16 +174,13 @@ export async function POST(req: Request) {
     ? SYSTEM_PROMPT_FEEDBACK
     : buildInterviewerSystemPrompt(body.persona || "standard", !!body.pushbackMode);
 
-  const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
+  const candidates = buildCandidates(provider, model, 3);
 
   try {
     if (isFeedback) {
       return await getFeedbackJson(provider, candidates, systemPrompt, userContent);
     } else {
-      if (provider === "anthropic") return await streamAnthropic(candidates, userContent, systemPrompt);
-      if (provider === "opencode" || provider === "openrouter") return await streamOpenCode(candidates, userContent, systemPrompt);
-      if (provider === "openai") return await streamOpenAI(candidates, userContent, systemPrompt);
-      return await streamGemini(candidates, userContent, systemPrompt);
+      return await streamForProvider[provider](candidates, userContent, systemPrompt, { image });
     }
   } catch (err: unknown) {
     return new Response(`Error del modelo: ${err instanceof Error ? err.message : "desconocido"}`, { status: 502 });

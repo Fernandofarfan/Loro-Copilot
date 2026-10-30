@@ -53,13 +53,38 @@ export interface TeleprompterPayload {
   interviewMode?: "technical" | "screening";
   experienceAlert?: boolean;
   camouMode?: "normal" | "ide" | "terminal";
-  command?: "TRIGGER_REVERSE_QUESTIONS" | "SET_CAMOUFLAGE" | "TOGGLE_SCREEN_SAFE_MODE";
+  command?: "TRIGGER_REVERSE_QUESTIONS" | "SET_CAMOUFLAGE" | "TOGGLE_SCREEN_SAFE_MODE" | "TOGGLE_PANIC";
 }
 
 const STORAGE_KEY = "loro_teleprompter_data";
 const CHANNEL_NAME = "loro_teleprompter_channel";
 
-export function useTeleprompter(options?: { onMessage?: (data: any) => void }) {
+// Claves de paneles/avisos que pertenecen a UN turno: al cambiar de pregunta se
+// limpian, porque el merge nunca borra claves ausentes (ni el de persist ni el del HUD).
+export const TURN_PANEL_KEYS: Array<keyof TeleprompterPayload> = [
+  "alert",
+  "matchedStory",
+  "bridge",
+  "triggerCards",
+  "edgeCases",
+  "whyNot",
+  "dryRun",
+  "surgicalPhonetics",
+  "scalePills",
+  "yagni",
+  "instantTrap",
+  "instantWhyNot",
+  "firmnessAlert",
+  "keyWords",
+];
+
+export type TeleprompterInboundMessage =
+  | { type: "CAMOU_MODE"; camouMode: "normal" | "ide" | "terminal" }
+  | { type: "TRIGGER_REVERSE_QUESTIONS" }
+  | { type: "TOGGLE_PANIC" }
+  | Record<string, unknown>;
+
+export function useTeleprompter(options?: { onMessage?: (data: TeleprompterInboundMessage) => void }) {
   const bcRef = useRef<BroadcastChannel | null>(null);
   const winRef = useRef<Window | null>(null);
   const checkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -101,8 +126,32 @@ export function useTeleprompter(options?: { onMessage?: (data: any) => void }) {
   const syncTeleprompter = useCallback((payload: TeleprompterPayload, persist = true) => {
     if (persist) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      } catch {}
+        // Merge con lo persistido: un delta (p.ej. solo camouMode) no debe pisar el
+        // último payload completo — un HUD reabierto arrancaría en blanco
+        let merged: TeleprompterPayload = payload;
+        try {
+          const prev = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+          if (prev && typeof prev === "object") {
+            merged = { ...prev, ...payload };
+            // Turno nuevo (cambió la pregunta): limpiar a mano los paneles del turno
+            // anterior para que no reaparezcan al reabrir el HUD
+            const prevQ = typeof prev.question === "string" ? prev.question : "";
+            const newQ = typeof payload.question === "string" ? payload.question : "";
+            if (newQ && newQ !== prevQ) {
+              for (const key of TURN_PANEL_KEYS) {
+                if (!(key in payload)) delete (merged as Record<string, unknown>)[key];
+              }
+            }
+          }
+        } catch {}
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      } catch (e) {
+        // Cuota llena o storage no disponible: avisar pero no romper la UI
+        console.warn("[teleprompter] localStorage no persistió (¿cuota llena?)", e);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("loro:quota-exceeded", { detail: { key: STORAGE_KEY } }));
+        }
+      }
     }
 
     if (bcRef.current) {

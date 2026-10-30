@@ -2,6 +2,8 @@
 // siguiente chunk mientras suena el actual, para que la latencia percibida sea
 // la de la primera oración y no la del texto completo.
 
+import { apiFetch } from "../lib/apiFetch";
+
 // Extrae las oraciones completas de un buffer en streaming y devuelve el
 // resto (posible oración a medio llegar). Sin lookbehind: los regex no se
 // transpilan y el lookbehind rompe el bundle entero en Safari iOS < 16.4.
@@ -95,7 +97,7 @@ export class TtsQueue {
       abort.abort();
     }, 12_000);
     try {
-      const res = await fetch("/api/simulador/tts", {
+      const res = await apiFetch("/api/simulador/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, lang: this.lang }),

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { ChevronDownIcon } from "./Icons";
 
 export interface DropdownOption<T = string> {
@@ -39,29 +39,35 @@ export function Dropdown<T extends string = string>({
   const selected = options.find((o) => o.id === value) || options[0];
 
   useEffect(() => {
+    if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
+    // capture: true para interceptar Escape antes del listener de pánico de window en /app
+    document.addEventListener("keydown", handleEsc, true);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
+      document.removeEventListener("keydown", handleEsc, true);
     };
-  }, []);
+  }, [open]);
 
   return (
     <div ref={ref} className={`relative inline-block text-left ${className}`}>
-      {title && <label className="block text-[11px] font-semibold text-zinc-400 mb-1">{title}</label>}
+      {title && <span className="block text-[11px] font-semibold text-zinc-400 mb-1">{title}</span>}
       <button
         type="button"
         disabled={disabled}
-        aria-label={ariaLabel}
+        aria-label={ariaLabel || title}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => !disabled && setOpen((prev) => !prev)}

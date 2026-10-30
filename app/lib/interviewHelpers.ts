@@ -911,6 +911,17 @@ function canonicalizeToken(token: string): string {
   return CANONICAL_SYNONYMS[token.toLowerCase()] || token;
 }
 
+// Tolera variantes morfológicas del español/inglés (cotizar/cotización, armar/armarlo,
+// ambiente/ambientes) sin abrir la puerta a temas distintos: exige 5 caracteres de prefijo común.
+function tokensEquivalent(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length < 5 || b.length < 5) return false;
+  const max = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < max && a[i] === b[i]) i += 1;
+  return i >= 5;
+}
+
 /**
  * Busca coincidencias en el banco de memoria local con alta precisión semántica y balance de longitud.
  * Aísla automáticamente las memorias por empresa y por rol/puesto sin borrar el aprendizaje de otras entrevistas.
@@ -947,6 +958,8 @@ export function findMatchingAnswer(
       ? [item.question, ...item.question.split("/").map((p) => p.trim()).filter(Boolean)]
       : [item.question];
 
+    const itemTagTokens = (item.tags || []).map((tg) => canonicalizeToken(tg.toLowerCase().trim()));
+
     let itemBestScore = 0;
 
     for (const partText of questionParts) {
@@ -958,15 +971,14 @@ export function findMatchingAnswer(
       // solo por coincidir en palabras genéricas ("cluster", "manejaste")
       const queryTech = queryTokens.filter((t) => DISTINCTIVE_CONCEPTS.has(t));
       if (queryTech.length > 0) {
-        const itemTagTokens = (item.tags || []).map((tg) => canonicalizeToken(tg.toLowerCase().trim()));
         const itemTech = new Set([...itemTokens, ...itemTagTokens]);
         if (!queryTech.some((t) => itemTech.has(t))) continue;
       }
 
-      // 1. Intersección de tokens significativos exactos y canónicos
+      // 1. Intersección de tokens significativos con tolerancia morfológica
       let intersection = 0;
       queryTokens.forEach((qToken) => {
-        if (itemTokens.includes(qToken)) {
+        if (itemTokens.some((iToken) => tokensEquivalent(qToken, iToken))) {
           intersection += 1;
         }
       });
@@ -1012,8 +1024,12 @@ export function findMatchingAnswer(
       let tagMatches = 0;
       item.tags.forEach((tag) => {
         const cleanTag = tag.toLowerCase().trim();
-        const canonicalTag = canonicalizeToken(cleanTag);
-        if (cleanTag && (query.toLowerCase().includes(cleanTag) || queryTokens.includes(canonicalTag))) {
+        if (!cleanTag) return;
+        const tagParts = tokenize(cleanTag).map(canonicalizeToken);
+        const allPartsMatch =
+          tagParts.length > 0 &&
+          tagParts.every((t) => queryTokens.some((q) => tokensEquivalent(q, t)));
+        if (query.toLowerCase().includes(cleanTag) || allPartsMatch) {
           tagMatches++;
         }
       });

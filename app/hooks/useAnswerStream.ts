@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { apiFetch } from "../lib/apiFetch";
 import {
   parseBlocks,
   checkInstantGreeting,
@@ -17,6 +18,7 @@ import {
   type SurgicalPhonetic,
   type InstantTrapResult,
   type ScaleLatencyPill,
+  type STARStory,
 } from "../lib/interviewHelpers";
 import { parseModelJson } from "../lib/llm";
 import { track } from "../lib/track";
@@ -106,12 +108,19 @@ export function useAnswerStream() {
   sessionFactsRef.current = sessionFacts;
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  // El trap detector tiene su propio controller: comparte destino con la request pero
+  // debe poder abortarse aunque la respuesta principal se adopte de un prefetch.
+  const trapAbortRef = useRef<AbortController | null>(null);
   const speculativeJobRef = useRef<{
     questionPrefix: string;
     controller: AbortController;
     responsePromise: Promise<Response | null>;
+    ttlTimer?: ReturnType<typeof setTimeout>;
   } | null>(null);
   const idCounterRef = useRef(1);
+  // Solo la request más reciente puede apagar isGenerating: el finally de una request
+  // abortada llega como microtask DESPUÉS de que la nueva ya marcó isGenerating=true.
+  const activeRequestSeqRef = useRef(0);
   const punchlineTriggeredRef = useRef(false);
   const generationStartTimeRef = useRef(0);
   // M4: Rastreo de historias STAR usadas en la sesión para deprioritización
@@ -124,7 +133,14 @@ export function useAnswerStream() {
       } catch {}
       abortControllerRef.current = null;
     }
+    if (trapAbortRef.current) {
+      try {
+        trapAbortRef.current.abort();
+      } catch {}
+      trapAbortRef.current = null;
+    }
     if (speculativeJobRef.current) {
+      if (speculativeJobRef.current.ttlTimer) clearTimeout(speculativeJobRef.current.ttlTimer);
       try {
         speculativeJobRef.current.controller.abort();
       } catch {}
@@ -211,6 +227,12 @@ export function useAnswerStream() {
         } catch {}
         abortControllerRef.current = null;
       }
+      if (trapAbortRef.current) {
+        try {
+          trapAbortRef.current.abort();
+        } catch {}
+        trapAbortRef.current = null;
+      }
       setIsGenerating(false);
       setGenerationError(null);
       punchlineTriggeredRef.current = false;
@@ -218,11 +240,25 @@ export function useAnswerStream() {
       const startTime = Date.now();
       generationStartTimeRef.current = startTime;
       const currentId = idCounterRef.current++;
+      const mySeq = ++activeRequestSeqRef.current;
+
+      // Sync al HUD preservando la alerta ya emitida (el trap detector llega async y no
+      // debe ser pisado por los chunks del stream principal que traen alert="").
+      let lastHudPayload: TeleprompterPayload | null = null;
+      const hudSync = (payload: TeleprompterPayload, persist = true) => {
+        const merged: TeleprompterPayload = {
+          ...payload,
+          alert: payload.alert || lastHudPayload?.alert || "",
+        };
+        lastHudPayload = merged;
+        syncTeleprompter?.(merged, persist);
+      };
 
       // 1. Verificación de Saludo / Small talk instantáneo (<10ms)
       const greetingMatch = checkInstantGreeting(question, company);
       if (greetingMatch && type === "answer") {
         if (speculativeJobRef.current) {
+          if (speculativeJobRef.current.ttlTimer) clearTimeout(speculativeJobRef.current.ttlTimer);
           try {
             speculativeJobRef.current.controller.abort();
           } catch {}
@@ -265,6 +301,7 @@ export function useAnswerStream() {
         const memoryMatch = findMatchingAnswer(question, masterAnswers, 0.48, company, role);
         if (memoryMatch) {
           if (speculativeJobRef.current) {
+            if (speculativeJobRef.current.ttlTimer) clearTimeout(speculativeJobRef.current.ttlTimer);
             try {
               speculativeJobRef.current.controller.abort();
             } catch {}
@@ -342,7 +379,7 @@ export function useAnswerStream() {
       setAnswers((prev) => [initialAnswer, ...prev].slice(0, MAX_ANSWERS));
       setIsGenerating(true);
 
-      syncTeleprompter?.({
+      hudSync({
         question,
         enText: instantBridge.bridgeEn,
         esText: instantBridge.bridgeEs,
@@ -362,10 +399,12 @@ export function useAnswerStream() {
 
       // Stream 2: Detector Asíncrono de Trampas / Red Flags en segundo plano (solo en preguntas verbales)
       if (type === "answer" && mode !== "vision_coding" && question.length >= 10) {
-        fetch("/api/answer", {
+        const trapController = new AbortController();
+        trapAbortRef.current = trapController;
+        apiFetch("/api/answer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
+          signal: trapController.signal,
           body: JSON.stringify({
             question,
             role,
@@ -383,9 +422,17 @@ export function useAnswerStream() {
               setAnswers((prev) =>
                 prev.map((a) => (a.id === currentId ? { ...a, alert: trapAlert } : a))
               );
+              // Si ya arrancó otra request, no tocar el HUD con el lastHudPayload viejo.
+              // Solo la alerta: el spread de lastHudPayload re-enviaba la question de esta
+              // request y pisaba displays que ya cambiaron (frases de rescate, repregunta).
+              if (activeRequestSeqRef.current === mySeq) {
+                hudSync({ alert: trapAlert });
+              }
             }
           })
-          .catch(() => {});
+          .catch((err) => {
+            console.debug("[trap_detector] sin alerta (falla silenciosa tolerada)", err);
+          });
       }
 
       try {
@@ -423,14 +470,18 @@ export function useAnswerStream() {
         ) {
           const specJob = speculativeJobRef.current;
           speculativeJobRef.current = null;
+          if (specJob.ttlTimer) clearTimeout(specJob.ttlTimer);
           try {
             const maybeRes = await specJob.responsePromise;
             if (maybeRes && maybeRes.ok) {
               res = maybeRes;
+              // La request adopta el controller del prefetch; abortar el propio (sin fetch
+              // asociado en este camino) para no dejar un controller huérfano sin dueño.
+              try { controller.abort(); } catch {}
               abortControllerRef.current = specJob.controller;
             } else {
               try { specJob.controller.abort(); } catch {}
-              res = await fetch("/api/answer", {
+              res = await apiFetch("/api/answer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 signal: controller.signal,
@@ -439,7 +490,7 @@ export function useAnswerStream() {
             }
           } catch {
             try { specJob.controller.abort(); } catch {}
-            res = await fetch("/api/answer", {
+            res = await apiFetch("/api/answer", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               signal: controller.signal,
@@ -448,12 +499,13 @@ export function useAnswerStream() {
           }
         } else {
           if (speculativeJobRef.current) {
+            if (speculativeJobRef.current.ttlTimer) clearTimeout(speculativeJobRef.current.ttlTimer);
             try {
               speculativeJobRef.current.controller.abort();
             } catch {}
             speculativeJobRef.current = null;
           }
-          res = await fetch("/api/answer", {
+          res = await apiFetch("/api/answer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
@@ -463,10 +515,18 @@ export function useAnswerStream() {
 
         if (!res.ok) {
           const errText = await res.text().catch(() => "");
-          const errMsg =
-            res.status === 503
-              ? "Capacidad temporalmente agotada."
-              : errText || `Error del servidor (${res.status})`;
+          let errMsg: string;
+          if (res.status === 401 || res.status === 403) {
+            errMsg = "Token o credenciales inválidas. Verificá LORO_SHARED_TOKEN en .env.local.";
+          } else if (res.status === 429) {
+            errMsg = "Límite de solicitudes alcanzado. Esperá unos segundos antes de consultar nuevamente.";
+          } else if (res.status === 502 || res.status === 504) {
+            errMsg = "El proveedor LLM no responde o agotó el tiempo de espera. Probá cambiar de modelo en el selector superior.";
+          } else if (res.status === 503) {
+            errMsg = "Capacidad temporalmente agotada o servidor cerrado (CAPACITY_CLOSED). Esperá un minuto y volvé a intentar.";
+          } else {
+            errMsg = errText || `Error del servidor (${res.status}). Reintentá en unos segundos.`;
+          }
           setGenerationError(errMsg);
           setAnswers((prev) =>
             prev.map((a) =>
@@ -475,12 +535,16 @@ export function useAnswerStream() {
                 : a
             )
           );
-          setIsGenerating(false);
+          // El HUD no debe quedar en "GENERANDO" tras un error
+          if (activeRequestSeqRef.current === mySeq) {
+            setIsGenerating(false);
+            hudSync({ isGenerating: false });
+          }
           return;
         }
 
         if (!res.body) {
-          throw new Error("Respuesta sin body legible.");
+          throw new Error("La respuesta del servidor llegó vacía. Reintentá la pregunta.");
         }
 
         const reader = res.body.getReader();
@@ -531,7 +595,7 @@ export function useAnswerStream() {
                       phoText: parsed.phoText,
                       cleanText: parsed.cleanText,
                       bilingual: parsed.bilingual,
-                      alert: parsed.alert,
+                      alert: parsed.alert || a.alert,
                       cheats: parsed.cheats,
                       snippet: parsed.snippet,
                       keyWords: parsed.keyWords || [],
@@ -551,7 +615,7 @@ export function useAnswerStream() {
             // Sincronizar Teleprompter por BroadcastChannel sin bloquear disco (localStorage) en streaming continuo
             if (now - lastTeleprompterSync >= TELEPROMPTER_THROTTLE_MS) {
               lastTeleprompterSync = now;
-              syncTeleprompter?.(
+              hudSync(
                 {
                   question,
                   enText: parsed.enText || parsed.cleanText,
@@ -630,7 +694,7 @@ export function useAnswerStream() {
                   phoText: finalParsed.phoText,
                   cleanText: finalParsed.cleanText,
                   bilingual: finalParsed.bilingual,
-                  alert: finalParsed.alert,
+                  alert: finalParsed.alert || a.alert,
                   cheats: finalParsed.cheats,
                   snippet: finalParsed.snippet,
                   keyWords: finalParsed.keyWords || [],
@@ -649,7 +713,7 @@ export function useAnswerStream() {
           )
         );
 
-        syncTeleprompter?.({
+        hudSync({
           question,
           enText: finalParsed.enText || finalParsed.cleanText,
           phoText: finalParsed.phoText,
@@ -681,9 +745,14 @@ export function useAnswerStream() {
               .filter((a) => a.id !== currentId || (a.cleanText || a.text || "").trim().length > 0)
               .map((a) => (a.id === currentId && !a.done ? { ...a, done: true } : a))
           );
+          if (activeRequestSeqRef.current === mySeq) hudSync({ isGenerating: false });
         } else {
           console.error("Error en streaming de respuesta:", err);
-          const errMsg = err instanceof Error ? err.message : "Error de conexión";
+          const baseMsg = err instanceof Error && err.message ? err.message : "Error de conexión";
+          const isFetchFailed = /failed to fetch|network error|connection refused/i.test(baseMsg);
+          const errMsg = isFetchFailed
+            ? "No se pudo conectar con el backend local (/api/answer). Verificá que 'npm run dev' siga corriendo."
+            : `${baseMsg} — revisá tu conexión y volvé a intentar`;
           setGenerationError(errMsg);
           setAnswers((prev) =>
             prev.map((a) =>
@@ -692,12 +761,16 @@ export function useAnswerStream() {
                 : a
             )
           );
+          if (activeRequestSeqRef.current === mySeq) hudSync({ isGenerating: false });
         }
       } finally {
-        setIsGenerating(false);
+        // Solo la request vigente apaga el estado: el finally de una request abortada
+        // puede ejecutarse después de que la siguiente ya marcó isGenerating=true.
+        if (activeRequestSeqRef.current === mySeq) setIsGenerating(false);
       }
     },
-    [stopGenerating]
+    // Todo el estado se lee por refs: la identidad del callback debe ser estable
+    []
   );
 
   // Genera 4 preguntas típicas reales usando el LLM con JSON estructurado (Fase 1.2)
@@ -717,7 +790,7 @@ export function useAnswerStream() {
       model?: string;
       signal?: AbortSignal;
     }): Promise<MasterAnswer[]> => {
-      const res = await fetch("/api/answer", {
+      const res = await apiFetch("/api/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal,
@@ -775,9 +848,17 @@ export function useAnswerStream() {
       company?: string;
       role?: string;
       profile?: string;
+      interviewerBio?: string;
+      extraInstructions?: string;
       provider?: string;
       model?: string;
       detectedLang?: string;
+      simpleEnglish?: boolean;
+      dialect?: string;
+      bilingualMode?: boolean;
+      previousAnswers?: string[];
+      facts?: SessionFact[];
+      starStories?: STARStory[];
     }) => {
       if (isGenerating || !params.question || params.question.trim().length < 30) return;
 
@@ -789,6 +870,7 @@ export function useAnswerStream() {
       }
 
       if (speculativeJobRef.current) {
+        if (speculativeJobRef.current.ttlTimer) clearTimeout(speculativeJobRef.current.ttlTimer);
         try {
           speculativeJobRef.current.controller.abort();
         } catch {}
@@ -797,7 +879,7 @@ export function useAnswerStream() {
 
       const controller = new AbortController();
       // Prevenir "Unhandled Runtime Error: AbortError" si el pre-fetch es cancelado antes o no es consumido
-      const responsePromise = fetch("/api/answer", {
+      const responsePromise = apiFetch("/api/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -807,18 +889,37 @@ export function useAnswerStream() {
           company: params.company || "",
           role: params.role || "",
           profile: params.profile || "",
+          interviewerBio: params.interviewerBio || "",
+          extraInstructions: params.extraInstructions || "",
           provider: params.provider || "opencode",
           model: params.model || "deepseek-v4-flash",
           detectedLang: params.detectedLang || "en",
           type: "answer",
           mode: "default",
+          simpleEnglish: params.simpleEnglish ?? false,
+          dialect: params.dialect || "general",
+          bilingualMode: params.bilingualMode ?? false,
+          previousAnswers: (params.previousAnswers || []).slice(-5),
+          facts: params.facts || sessionFactsRef.current,
+          starStories: params.starStories || [],
         }),
       }).catch(() => null);
+
+      // TTL: un prefetch que nunca se consume (la pregunta final llegó distinta o no llegó)
+      // no debe mantener la Response viva indefinidamente. El chequeo de identidad hace
+      // inocuo el timer aunque el job ya se haya consumido/descartado en otro camino.
+      const ttlTimer = setTimeout(() => {
+        if (speculativeJobRef.current?.controller === controller) {
+          try { controller.abort(); } catch {}
+          speculativeJobRef.current = null;
+        }
+      }, 60_000);
 
       speculativeJobRef.current = {
         questionPrefix: params.question,
         controller,
         responsePromise,
+        ttlTimer,
       };
     },
     [isGenerating]
@@ -829,6 +930,7 @@ export function useAnswerStream() {
     isGenerating,
     generationStartTimeRef,
     generationError,
+    clearGenerationError: () => setGenerationError(null),
     sessionFacts,
     clearSessionFacts: () => setSessionFacts([]),
     sessionTokens,

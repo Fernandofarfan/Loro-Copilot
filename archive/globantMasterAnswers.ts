@@ -1,4 +1,4 @@
-import { MasterAnswer } from "./interviewHelpers";
+import { MasterAnswer } from "../app/lib/interviewHelpers";
 
 /**
  * Banco Globant/Intermedia — alineado al CV EN_Cloud_DevOps_Architect.pdf

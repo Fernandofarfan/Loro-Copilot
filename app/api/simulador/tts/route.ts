@@ -1,4 +1,4 @@
-import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../../lib/security";
+import { verifyOrigin, verifySharedSecret, checkRateLimitAsync, checkCapacity } from "../../../lib/security";
 import { fetchWithTimeout } from "../../../lib/llm";
 
 export const runtime = "edge";
@@ -54,6 +54,12 @@ export async function POST(req: Request) {
     return new Response(originCheck.error || "No autorizado", { status: originCheck.status || 403 });
   }
 
+  // 1b. Token compartido (solo si LORO_SHARED_TOKEN está configurado)
+  const secretCheck = verifySharedSecret(req);
+  if (!secretCheck.ok) {
+    return new Response(secretCheck.error || "No autorizado", { status: secretCheck.status || 401 });
+  }
+
   // 2. Rate Limiting (60 TTS por minuto por IP)
   const rl = await checkRateLimitAsync(req, { limit: 60, windowMs: 60_000, keyPrefix: "tts" });
   if (!rl.allowed) {
@@ -69,8 +75,14 @@ export async function POST(req: Request) {
   }
 
   let body: { text?: string; lang?: string };
+  const rawBody = await req.text().catch(() => "");
+  if (!rawBody || rawBody.length > 10_000) {
+    return new Response(rawBody ? "Body demasiado grande." : "Body inválido", {
+      status: rawBody ? 413 : 400,
+    });
+  }
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return new Response("Body inválido", { status: 400 });
   }

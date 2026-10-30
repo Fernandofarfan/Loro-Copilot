@@ -45,16 +45,23 @@ export function useScreenVision({ onVisionResult, onError }: UseScreenVisionOpti
       video.srcObject = displayStream;
 
       await new Promise<void>((resolve, reject) => {
+        // Timeout: si onloadedmetadata nunca llega, el share quedaría colgado para siempre
+        // con isCapturing=true y el indicador de "compartiendo pantalla" encendido.
+        const metaTimer = setTimeout(() => reject(new Error("Timeout esperando el frame de captura.")), 5000);
         video.onloadedmetadata = () => {
+          clearTimeout(metaTimer);
           video.play().then(resolve).catch(reject);
         };
-        video.onerror = () => reject(new Error("Error al reproducir el video de captura."));
+        video.onerror = () => {
+          clearTimeout(metaTimer);
+          reject(new Error("Error al reproducir el video de captura."));
+        };
       });
 
       // Pequeña espera para asegurar que el frame tenga contenido renderizado
       await new Promise((r) => setTimeout(r, 100));
 
-      // 3. Dibujar en Canvas y comprimir a WebP
+      // 3. Dibujar en Canvas y comprimir a JPEG (calidad 0.85)
       const canvas = document.createElement("canvas");
       const maxDim = 1280;
       let width = video.videoWidth || 1280;

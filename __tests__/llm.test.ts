@@ -52,8 +52,18 @@ describe("llm utilities", () => {
       expect(resolveModel("anthropic")).toContain("claude");
     });
 
-    it("debe respetar modelo solicitado explícitamente", () => {
-      expect(resolveModel("gemini", "custom-model-id")).toBe("custom-model-id");
+    it("debe respetar modelo solicitado si está en la allowlist", () => {
+      expect(resolveModel("gemini", "gemini-flash-lite-latest")).toBe("gemini-flash-lite-latest");
+      expect(resolveModel("opencode", "kimi-k3")).toBe("kimi-k3");
+    });
+
+    it("debe rechazar modelos fuera de la allowlist y caer al default del proveedor", () => {
+      expect(resolveModel("gemini", "custom-model-id")).toContain("gemini");
+      expect(resolveModel("gemini", "custom-model-id")).not.toBe("custom-model-id");
+      // Inyección de path estilo Gemini: jamás debe propagarse al request
+      expect(resolveModel("gemini", "foo:generateContent?alt=sse")).not.toContain(":");
+      // gpt-4o está en FALLBACK_MODELS.openai (permitido); claude-opus no lo está
+      expect(resolveModel("openai", "claude-opus-4")).toBe("gpt-4o-mini");
     });
 
     it("debe mantener fallbacks acotados a máximo 3 modelos por proveedor", () => {

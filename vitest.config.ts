@@ -6,15 +6,13 @@ export default defineConfig({
     // El resto (helpers, lib, api) corre en node por defecto.
     environment: "node",
     pool: "threads",
-    exclude: ["**/node_modules/**", "**/e2e/**", "**/.next/**"],
+    exclude: ["**/node_modules/**", "**/e2e/**", "**/.next/**", "**/archive/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary", "html"],
       include: [
-        "app/lib/security.ts",
-        "app/lib/interviewHelpers.ts",
-        "app/hooks/useInterviewContext.ts",
-        "app/hooks/useTeleprompter.ts",
+        "app/lib/*.ts",
+        "app/hooks/*.ts",
       ],
       exclude: [
         "app/lib/llm.ts",

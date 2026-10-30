@@ -1,4 +1,4 @@
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://loro-copilot.vercel.app";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 export const APP_NAME = "Loro Copilot";
 
 export type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
@@ -40,6 +40,62 @@ export const FALLBACK_MODELS: Record<Provider, string[]> = {
   ).slice(0, 3),
 };
 
+export type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
+
+// Catálogo único de modelos compartido por /app y /simulador
+export const MODELS: ModelOption[] = [
+  // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
+  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
+  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
+  { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
+  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
+  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
+  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
+  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
+
+  // ♾️ Ilimitados / Free (OpenCode Go)
+  { id: "longcat-2-5-preview-free", label: "LongCat 2.5 Free ♾️", provider: "opencode", model: "longcat-2.5-preview-free", tag: "Ilimitado" },
+  { id: "step-5-preview-free", label: "Step 5 Preview Free ♾️", provider: "opencode", model: "step-5-preview-free", tag: "Ilimitado" },
+  { id: "cat-jam-free", label: "Cat Jam Free ♾️", provider: "opencode", model: "cat-jam-free", tag: "Ilimitado" },
+
+  // 🚀 Nivel Pro / Senior (Alta Precisión & Calidad)
+  { id: "gpt-6-luna", label: "GPT 6 Luna 🚀", provider: "opencode", model: "gpt-6-luna", tag: "Top Tier" },
+  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🎯", provider: "opencode", model: "gpt-5.6-luna", tag: "Top Tier" },
+  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1k req)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
+  { id: "mimo-v2-6-pro", label: "MiMo V2.6 Pro 🎯", provider: "opencode", model: "mimo-v2.6-pro", tag: "Senior / Pro" },
+  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Senior / Pro" },
+  { id: "kimi-k3", label: "Kimi K3 🧠", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
+  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
+  { id: "space-bunny", label: "Space Bunny 🐰", provider: "opencode", model: "space-bunny", tag: "Balanceado" },
+
+  // 🌌 Nivel Razonamiento / Deep Think & Grok
+  { id: "grok-4-7", label: "Grok 4.7 🌌", provider: "opencode", model: "grok-4.7", tag: "Deep Think" },
+  { id: "grok-4-6", label: "Grok 4.6 🌌", provider: "opencode", model: "grok-4.6", tag: "Deep Think" },
+  { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠", provider: "opencode", model: "qwen3.8-max", tag: "Deep Think" },
+  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Deep Think" },
+  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
+  { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Deep Think" },
+  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
+  { id: "minimax-m2-7", label: "MiniMax M2.7", provider: "opencode", model: "minimax-m2.7", tag: "Deep Think" },
+  { id: "longcat-2-0", label: "LongCat 2.0 🐱", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
+  { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen3.7-plus", tag: "Deep Think" },
+  { id: "muse-spark-1-3", label: "Muse Spark 1.3 ⚡", provider: "opencode", model: "muse-spark-1.3-contributor", tag: "Deep Think" },
+  { id: "deepseek-v4-vision", label: "DeepSeek V4 Vision 👁️", provider: "opencode", model: "deepseek-v4-flash-vision-exp", tag: "Vision" },
+
+  // Direct Providers
+  { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
+  { id: "claude-haiku", label: "Claude 3.5 Haiku 🧠", provider: "anthropic", model: "claude-3-5-haiku-20241022", tag: "Anthropic" },
+];
+
+export const DEFAULT_MODEL_ID = "glm-5-3-flash";
+
+// Modelos OpenCode multimodales para visión (los más estables con imágenes en vivo).
+// Única fuente: lo usan streamOpenCode y el modo vision_coding de /api/answer.
+export const OPENCODE_VISION_MODELS = ["mimo-v2.5", "kimi-k3", "glm-5.3-flash"];
+
 export function resolveProvider(requested?: string): Provider {
   const req = (requested || "").toLowerCase();
   if (req === "gemini" || req === "anthropic" || req === "openai" || req === "openrouter" || req === "opencode") {
@@ -56,8 +112,32 @@ export function resolveProvider(requested?: string): Provider {
   return "opencode";
 }
 
+// Allowlist por proveedor: catálogo de la UI + defaults + fallbacks + env vars del operador.
+// Un `model` arbitrario del body permitiría forzar modelos caros (abuso de costo) o
+// inyectar segments en la URL de Gemini (streamGemini interpola el modelo en el path).
+function allowedModelsFor(provider: Provider): Set<string> {
+  const envModel =
+    provider === "anthropic"
+      ? process.env.ANTHROPIC_MODEL
+      : provider === "openai"
+        ? process.env.OPENAI_MODEL
+        : provider === "gemini"
+          ? process.env.GEMINI_MODEL
+          : process.env.OPENCODE_MODEL || process.env.OPENROUTER_MODEL;
+  return new Set([
+    ...MODELS.filter((m) => m.provider === provider).map((m) => m.model),
+    DEFAULT_MODELS[provider],
+    ...FALLBACK_MODELS[provider],
+    ...(envModel ? [envModel] : []),
+  ]);
+}
+
 export function resolveModel(provider: Provider, requested?: string): string {
-  if (requested && requested.trim()) return requested.trim();
+  const req = (requested || "").trim();
+  if (req) {
+    if (allowedModelsFor(provider).has(req)) return req;
+    console.warn(`[llm] Modelo '${req}' fuera de la allowlist de '${provider}'; se usa el modelo por defecto.`);
+  }
   if (provider === "anthropic") return process.env.ANTHROPIC_MODEL || DEFAULT_MODELS.anthropic;
   if (provider === "openai") return process.env.OPENAI_MODEL || DEFAULT_MODELS.openai;
   if (provider === "gemini") return process.env.GEMINI_MODEL || DEFAULT_MODELS.gemini;
@@ -290,7 +370,7 @@ export async function streamAnthropic(
 ): Promise<Response> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response("Falta ANTHROPIC_API_KEY en Vercel para usar Claude.", { status: 500 });
+    return new Response("Falta ANTHROPIC_API_KEY en .env.local para usar Claude.", { status: 500 });
   }
 
   const maxTokens = options.maxTokens ?? 8192;
@@ -365,7 +445,7 @@ export async function streamOpenAI(
 ): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return new Response("Falta OPENAI_API_KEY en Vercel para usar GPT.", { status: 500 });
+    return new Response("Falta OPENAI_API_KEY en .env.local para usar GPT.", { status: 500 });
   }
 
   let detail = "";
@@ -459,7 +539,7 @@ export async function streamOpenCode(
   const candidateModels = Array.from(
     new Set(
       [
-        ...(options.image && isOpenCodeHost ? ["mimo-v2.5", "kimi-k3", "glm-5.3-flash"] : []),
+        ...(options.image && isOpenCodeHost ? OPENCODE_VISION_MODELS : []),
         ...models,
         ...(envModel ? [envModel] : []),
         ...(isOpenCodeHost
@@ -588,6 +668,26 @@ export async function streamOpenCode(
 
 export const streamOpenRouter = streamOpenCode;
 
+type StreamFn = (
+  models: string[],
+  userContent: string,
+  systemPrompt: string,
+  options?: LLMOptions
+) => Promise<Response>;
+
+// Dispatch unificado por proveedor: evita el ternario de 4 vías repetido en cada ruta API
+export const streamForProvider: Record<Provider, StreamFn> = {
+  gemini: streamGemini,
+  anthropic: streamAnthropic,
+  openai: streamOpenAI,
+  opencode: streamOpenCode,
+  openrouter: streamOpenRouter,
+};
+
+export function buildCandidates(provider: Provider, model: string, limit = 3): string[] {
+  return Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, limit);
+}
+
 // Helper para parsear JSON retornado por modelos evitando markdown fences
 export function parseModelJson(text: string): unknown {
   const cleaned = (text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
@@ -607,4 +707,146 @@ export function parseModelJson(text: string): unknown {
     }
     throw new Error("JSON inválido del modelo");
   }
+}
+
+// ---------- Completación JSON no-streaming ----------
+// Dispatch + fallback de proveedores idéntico a los stream*, pero devolviendo el JSON
+// ya parseado (feedback del simulador y futuros consumidores). Lanza Error con mensaje
+// descriptivo si ningún modelo responde.
+export async function completeJsonForProvider(
+  provider: Provider,
+  models: string[],
+  systemPrompt: string,
+  userContent: string,
+  options: { temperature?: number; maxTokens?: number; timeoutMs?: number } = {}
+): Promise<unknown> {
+  const temperature = options.temperature ?? 0.2;
+  const maxTokens = options.maxTokens ?? 4096;
+  const timeoutMs = options.timeoutMs ?? 25_000;
+  let lastError = "";
+
+  if (provider === "openai" || provider === "opencode" || provider === "openrouter") {
+    const isOpencode = provider === "opencode" || provider === "openrouter";
+    const apiKey = isOpencode
+      ? process.env.OPENCODE_API_KEY || process.env.OPENROUTER_API_KEY
+      : process.env.OPENAI_API_KEY;
+    const rawBaseUrl = isOpencode
+      ? process.env.OPENCODE_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1"
+      : "https://api.openai.com/v1";
+    const baseUrl = rawBaseUrl.replace(/\/$/, "");
+
+    if (!apiKey) throw new Error(`Falta API key para ${provider}.`);
+
+    for (const model of models) {
+      if (!model) continue;
+      try {
+        const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            ...(isOpencode ? { "x-opencode-session": "loro-simulador-session" } : {}),
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userContent },
+            ],
+            temperature,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" },
+          }),
+        }, timeoutMs);
+
+        if (res.ok) {
+          const j = await res.json();
+          const content = j.choices?.[0]?.message?.content;
+          if (content) return parseModelJson(content);
+        }
+        lastError = await res.text().catch(() => "");
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+    }
+  }
+
+  if (provider === "anthropic") {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("Falta ANTHROPIC_API_KEY.");
+
+    for (const model of models) {
+      if (!model) continue;
+      try {
+        const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userContent }],
+            temperature,
+          }),
+        }, timeoutMs);
+
+        if (res.ok) {
+          const j = await res.json();
+          const text = j.content?.[0]?.text;
+          if (text) return parseModelJson(text);
+        }
+        lastError = await res.text().catch(() => "");
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+    }
+  }
+
+  // Gemini como último recurso (mismo comportamiento que el dispatch streaming)
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    throw new Error(`Error generando JSON (${provider}): ${lastError || "No se pudo obtener respuesta del modelo."}`);
+  }
+
+  const geminiModels = provider === "gemini" ? models : FALLBACK_MODELS.gemini;
+  for (const model of geminiModels) {
+    if (!model) continue;
+    try {
+      const res = await fetchWithTimeout(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: userContent }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              temperature,
+              maxOutputTokens: maxTokens,
+              responseMimeType: "application/json",
+            },
+          }),
+        },
+        timeoutMs
+      );
+
+      if (res.ok) {
+        const j = await res.json();
+        const text = j.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return parseModelJson(text);
+      }
+      lastError = await res.text().catch(() => "");
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  throw new Error(`Error generando JSON: ${lastError || "Sin respuesta del modelo."}`);
 }

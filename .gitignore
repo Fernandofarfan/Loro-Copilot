@@ -5,6 +5,8 @@ node_modules
 
 # Testing
 coverage
+test-results/
+playwright-report/
 
 # Next.js build output
 .next/
@@ -30,6 +32,9 @@ next-env.d.ts
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Generado por postinstall (scripts/copy-pdf-worker.js)
+public/pdf.worker.min.mjs
 
 # Scratch
 scratch/

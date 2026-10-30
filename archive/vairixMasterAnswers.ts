@@ -1,4 +1,4 @@
-import { MasterAnswer } from "./interviewHelpers";
+import { MasterAnswer } from "../app/lib/interviewHelpers";
 
 /**
  * Banco Maestro VAIRIX — Senior Technical Architect

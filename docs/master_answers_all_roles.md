@@ -1,6 +1,6 @@
 # Banco personal de Fernando — 107 Q&A / 12 capítulos
 
-Enciclopedia de Guillermo Fernando Farfán Romero (Salta, Luna, B2, GCP/GCVE). No es un banco genérico para terceros. El screening Globant/Intermedia usa además `app/lib/globantMasterAnswers.ts` (preset 1-click). Pretensión canónica: **$4.000 USD/mes o $25–30/h contractor** (alineada con `AGENTS.md`; no $23–26).
+Enciclopedia de Guillermo Fernando Farfán Romero (Salta, Luna, B2, GCP/GCVE). No es un banco genérico para terceros. El banco `app/lib/globantMasterAnswers.ts` quedó fuera de línea en `archive/` (presets activos: Snappy Commerce, IT Patagonia y Mercado Libre). Pretensión canónica: **$4.000 USD/mes o $25–30/h contractor** (alineada con `AGENTS.md`; no $23–26).
 
 ## CAPÍTULO 1: SMALL TALK Y PREGUNTAS CASUALES (EL FILTRO COTIDIANO DE RRHH)
 

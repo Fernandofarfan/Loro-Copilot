@@ -8,6 +8,22 @@ interface RateLimitRecord {
 
 const ipBuckets = new Map<string, RateLimitRecord>();
 
+// IP del cliente confiable: x-real-ip lo setea el edge (Vercel) y no es spoofable.
+// NUNCA usar el primer valor de x-forwarded-for: el cliente lo prependea y rota
+// buckets falsos, bypassando el rate limit completo.
+function getClientIp(req: Request): string {
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp && realIp.trim()) return realIp.trim();
+  for (const header of ["x-vercel-forwarded-for", "x-forwarded-for"]) {
+    const raw = req.headers.get(header);
+    if (raw) {
+      const last = raw.split(",").pop()?.trim();
+      if (last) return last;
+    }
+  }
+  return "127.0.0.1";
+}
+
 function lazyCleanIpBuckets(now: number) {
   // Limpieza lazy si el tamaño supera 100 registros para evitar fugas en runtime Edge
   if (ipBuckets.size > 100) {
@@ -33,8 +49,7 @@ export async function checkRateLimitAsync(
 
   if (restUrl && restToken) {
     try {
-      const forwarded = req.headers.get("x-forwarded-for");
-      const ip = (forwarded ? forwarded.split(",")[0].trim() : req.headers.get("x-real-ip")) || "127.0.0.1";
+      const ip = getClientIp(req);
       const key = `rl:${options.keyPrefix || "global"}:${ip}`;
       const expireSeconds = Math.ceil(options.windowMs / 1000);
 
@@ -87,8 +102,7 @@ export function checkRateLimit(
   req: Request,
   options: { limit: number; windowMs: number; keyPrefix?: string } = { limit: 30, windowMs: 60_000 }
 ): { allowed: boolean; remaining: number; reset: number; retryAfterSeconds: number } {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip = (forwarded ? forwarded.split(",")[0].trim() : req.headers.get("x-real-ip")) || "127.0.0.1";
+  const ip = getClientIp(req);
   const key = `${options.keyPrefix || "global"}:${ip}`;
   const now = Date.now();
 
@@ -179,6 +193,21 @@ export function verifyOrigin(req: Request): { ok: boolean; status?: number; erro
   }
 
   return { ok: true };
+}
+
+// Verificación opcional de token compartido para frenar el abuso de costos en rutas LLM.
+// Solo se enforcea si LORO_SHARED_TOKEN está configurado (default: passthrough).
+// El cliente lo envía como header `x-loro-token` vía app/lib/apiFetch.ts.
+export function verifySharedSecret(req: Request): { ok: boolean; status?: number; error?: string } {
+  const expected = process.env.LORO_SHARED_TOKEN;
+  if (!expected) return { ok: true };
+  const provided = req.headers.get("x-loro-token");
+  if (provided && provided === expected) return { ok: true };
+  return {
+    ok: false,
+    status: 401,
+    error: "Token compartido ausente o inválido (ver LORO_SHARED_TOKEN / NEXT_PUBLIC_LORO_SHARED_TOKEN).",
+  };
 }
 
 // Kill Switch: si CAPACITY_CLOSED=1, frena el consumo de APIs LLM y STT

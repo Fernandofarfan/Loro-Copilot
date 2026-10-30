@@ -6,7 +6,7 @@ const nextConfig = (phase) => {
 
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' " : ""}https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://us-assets.i.posthog.com https://us.i.posthog.com;
+    script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' " : ""}https://us-assets.i.posthog.com https://us.i.posthog.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' blob: data: https:;
     font-src 'self' data: https://fonts.gstatic.com;
@@ -14,8 +14,8 @@ const nextConfig = (phase) => {
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'self';
-    connect-src 'self' https://api.deepgram.com wss://api.deepgram.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://openrouter.ai https://api.opencode.ai https://cdn.jsdelivr.net https://us.i.posthog.com https://us-assets.i.posthog.com https://docs.google.com;
-    worker-src 'self' blob: https://cdn.jsdelivr.net;
+    connect-src 'self' https://api.deepgram.com wss://api.deepgram.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://openrouter.ai https://api.opencode.ai https://us.i.posthog.com https://us-assets.i.posthog.com https://docs.google.com;
+    worker-src 'self' blob:;
   `.replace(/\s{2,}/g, " ").trim();
 
   return {

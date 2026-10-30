@@ -1,23 +1,14 @@
 import {
-  streamAnthropic,
-  streamOpenAI,
-  streamGemini,
-  streamOpenCode,
+  streamForProvider,
+  buildCandidates,
   resolveProvider,
   resolveModel,
-  FALLBACK_MODELS,
   type Provider,
 } from "../../lib/llm";
-import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
+import { verifyOrigin, verifySharedSecret, checkRateLimitAsync, checkCapacity } from "../../lib/security";
+import { sanitizeForPrompt } from "../../lib/promptUtils";
 
 export const runtime = "edge";
-
-// Escapa caracteres XML de delimitación para evitar inyección de prompt via inputs de usuario
-function sanitizeForPrompt(text: string): string {
-  return text
-    .replace(/</g, "‹")   // reemplazar < por guillemet izquierdo (similar visual, no interpretable como tag)
-    .replace(/>/g, "›");  // reemplazar > por guillemet derecho
-}
 
 const SYSTEM_PROMPT = `Sos un entrevistador y director de contratación técnico de nivel Staff/FAANG. Tu tarea es evaluar con máximo rigor la transcripción de una entrevista técnica/profesional que acaba de terminar y brindarle un análisis de nivel élite al candidato.
 
@@ -68,6 +59,12 @@ export async function POST(req: Request) {
     return new Response(originCheck.error || "No autorizado", { status: originCheck.status || 403 });
   }
 
+  // 1b. Token compartido (solo si LORO_SHARED_TOKEN está configurado)
+  const secretCheck = verifySharedSecret(req);
+  if (!secretCheck.ok) {
+    return new Response(secretCheck.error || "No autorizado", { status: secretCheck.status || 401 });
+  }
+
   // 2. Rate Limiting (20 summaries por minuto por IP)
   const rl = await checkRateLimitAsync(req, { limit: 20, windowMs: 60_000, keyPrefix: "summary" });
   if (!rl.allowed) {
@@ -86,8 +83,16 @@ export async function POST(req: Request) {
     model?: string;
     provider?: string;
   };
+  // Tope duro de tamaño: una transcripción/facts inflados multiplican tokens y costo
+  const rawBody = await req.text().catch(() => "");
+  if (!rawBody || rawBody.length > 400_000) {
+    return new Response(rawBody ? "Body demasiado grande." : "Body inválido.", {
+      status: rawBody ? 413 : 400,
+    });
+  }
+
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return new Response("Body inválido.", { status: 400 });
   }
@@ -99,18 +104,18 @@ export async function POST(req: Request) {
   const role = sanitizeForPrompt((body.role || "").slice(0, 1500));
   const transcript = sanitizeForPrompt((body.transcript || "").slice(0, 12000));
   const factsList = Array.isArray(body.facts) && body.facts.length > 0
-    ? body.facts.map((f) => `- ${sanitizeForPrompt(String(f))}`).join("\n")
+    ? body.facts
+        .slice(-30)
+        .map((f) => `- ${sanitizeForPrompt(String(f)).slice(0, 500)}`)
+        .join("\n")
     : "(Ningún hecho específico registrado)";
 
   const userContent = `## EMPRESA\n${company || "(sin especificar)"}\n\n## ROL\n${role || "(sin especificar)"}\n\n## PERFIL\n${profile || "(sin especificar)"}\n\n## HECHOS Y DECISIONES TÉCNICAS CONFIRMADAS (Fact Ledger)\n${factsList}\n\n## TRANSCRIPCIÓN\n${transcript || "(sin transcripción)"}`;
 
-  const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
+  const candidates = buildCandidates(provider, model, 3);
 
   try {
-    if (provider === "anthropic") return await streamAnthropic(candidates, userContent, SYSTEM_PROMPT);
-    if (provider === "opencode" || provider === "openrouter") return await streamOpenCode(candidates, userContent, SYSTEM_PROMPT);
-    if (provider === "openai") return await streamOpenAI(candidates, userContent, SYSTEM_PROMPT);
-    return await streamGemini(candidates, userContent, SYSTEM_PROMPT);
+    return await streamForProvider[provider](candidates, userContent, SYSTEM_PROMPT);
   } catch (err: unknown) {
     return new Response(`Error generando resumen: ${err instanceof Error ? err.message : "desconocido"}`, { status: 502 });
   }

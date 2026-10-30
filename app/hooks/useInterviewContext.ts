@@ -27,6 +27,57 @@ const LS_KEY = "copiloto:context:v1";
 const LS_PROFILES_KEY = "loro-saved-profiles";
 const LS_ANSWERS_KEY = "loro-master-answers:v1";
 const LS_STAR_STORIES_KEY = "loro-star-stories:v1";
+// Versionado de datos de localStorage: la purga de procesos finalizados corre UNA sola vez
+// (migración), nunca por contenido en cada carga — así no se borra data futura del usuario.
+const LS_DATA_VERSION_KEY = "loro-context-data-version";
+const DATA_VERSION = 2;
+
+function isObsoleteProfileText(text: string): boolean {
+  return /company86|valentina|epam|evocs|vairix|globant/i.test(text);
+}
+
+export function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn(`[context] localStorage no persistió ${key} (¿cuota llena?)`, e);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("loro:quota-exceeded", { detail: { key } }));
+    }
+    return false;
+  }
+}
+
+// Normalización compartida entre la carga inicial y el sync multi-pestaña: lo que
+// escriba otra pestaña debe quedar igual de saneado que lo que carga esta.
+function normalizeStoredAnswer(a: Record<string, unknown>): MasterAnswer {
+  return {
+    id: String(a.id || `ans_${Date.now()}`),
+    question: String(a.question || ""),
+    enText: String(a.enText || ""),
+    esText: typeof a.esText === "string" ? a.esText : "",
+    category: typeof a.category === "string" ? a.category : "General",
+    tags: Array.isArray(a.tags) ? a.tags.map(String) : [],
+    role: typeof a.role === "string" ? a.role : "",
+    company: typeof a.company === "string" ? a.company : "",
+    favorite: Boolean(a.favorite),
+    createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
+  };
+}
+
+function normalizeStoredStory(s: Record<string, unknown>): STARStory {
+  return {
+    id: String(s.id || `star_${Date.now()}`),
+    title: String(s.title || ""),
+    situation: String(s.situation || ""),
+    task: String(s.task || ""),
+    action: String(s.action || ""),
+    result: String(s.result || ""),
+    tags: Array.isArray(s.tags) ? s.tags.map(String) : [],
+    createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
+  };
+}
 
 export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", availableModelIds: string[] = []) {
   const [company, setCompany] = useState("");
@@ -47,6 +98,15 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
   // Carga inicial de localStorage (solo una vez en montaje)
   useEffect(() => {
     try {
+      // Migración única: solo purga procesos obsoletos si esta versión de datos aún no se aplicó
+      const shouldPurge = (() => {
+        try {
+          return Number(localStorage.getItem(LS_DATA_VERSION_KEY) || "0") < DATA_VERSION;
+        } catch {
+          return true;
+        }
+      })();
+
       const storedProfiles = localStorage.getItem(LS_PROFILES_KEY);
       if (storedProfiles) {
         const parsed = JSON.parse(storedProfiles);
@@ -61,13 +121,11 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
               extraInstructions: typeof p.extraInstructions === "string" ? p.extraInstructions : "",
               interviewerBio: typeof p.interviewerBio === "string" ? p.interviewerBio : "",
             }))
-            // Purgar perfiles de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS / VAIRIX / Globant)
-            .filter((p) => !/company86|valentina|epam|evocs|vairix|globant/i.test(p.company + " " + p.name + " " + (p.interviewerBio || "")));
+            // Purgar perfiles de procesos finalizados (solo en la migración única)
+            .filter((p) => !shouldPurge || !isObsoleteProfileText(p.company + " " + p.name + " " + (p.interviewerBio || "")));
 
           if (validProfiles.length !== parsed.length) {
-            try {
-              localStorage.setItem(LS_PROFILES_KEY, JSON.stringify(validProfiles));
-            } catch {}
+            safeSetItem(LS_PROFILES_KEY, JSON.stringify(validProfiles));
           }
           setSavedProfiles(validProfiles);
         }
@@ -79,21 +137,11 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
           const parsed = JSON.parse(storedAnswers);
           if (Array.isArray(parsed)) {
             const validAnswers: MasterAnswer[] = parsed
-              .filter((a): a is MasterAnswer => Boolean(a && typeof a === "object" && typeof a.question === "string" && typeof a.enText === "string"))
-              .map((a) => ({
-                id: String(a.id || `ans_${Date.now()}`),
-                question: String(a.question || ""),
-                enText: String(a.enText || ""),
-                esText: typeof a.esText === "string" ? a.esText : "",
-                category: typeof a.category === "string" ? a.category : "General",
-                tags: Array.isArray(a.tags) ? a.tags.map(String) : [],
-                role: typeof a.role === "string" ? a.role : "",
-                company: typeof a.company === "string" ? a.company : "",
-                favorite: Boolean(a.favorite),
-                createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
-              }))
-              // Purgar respuestas maestras de procesos finalizados (Valentina / COMPANY86 / EPAM / EVOCS / VAIRIX / Globant)
+              .filter((a): a is Record<string, unknown> => Boolean(a && typeof a === "object" && typeof a.question === "string" && typeof a.enText === "string"))
+              .map((a) => normalizeStoredAnswer(a))
+              // Purgar respuestas maestras de procesos finalizados (solo en la migración única)
               .filter((a) => {
+                if (!shouldPurge) return true;
                 const comp = (a.company || "").toLowerCase();
                 const q = (a.question || "").toLowerCase();
                 const tags = (a.tags || []).join(" ").toLowerCase();
@@ -120,9 +168,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
               });
 
             if (validAnswers.length !== parsed.length) {
-              try {
-                localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(validAnswers));
-              } catch {}
+              safeSetItem(LS_ANSWERS_KEY, JSON.stringify(validAnswers));
             }
             setMasterAnswers(validAnswers);
           } else {
@@ -141,27 +187,17 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
           const parsed = JSON.parse(storedStories);
           if (Array.isArray(parsed)) {
             const valid: STARStory[] = parsed
-              .filter((s): s is STARStory => Boolean(s && typeof s === "object" && typeof s.title === "string"))
-              .map((s) => ({
-                id: String(s.id || `star_${Date.now()}`),
-                title: String(s.title || ""),
-                situation: String(s.situation || ""),
-                task: String(s.task || ""),
-                action: String(s.action || ""),
-                result: String(s.result || ""),
-                tags: Array.isArray(s.tags) ? s.tags.map(String) : [],
-                createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
-              }))
-              // Purgar historias de procesos finalizados
+              .filter((s): s is Record<string, unknown> => Boolean(s && typeof s === "object" && typeof s.title === "string"))
+              .map((s) => normalizeStoredStory(s))
+              // Purgar historias de procesos finalizados (solo en la migración única)
               .filter((s) => {
+                if (!shouldPurge) return true;
                 const text = (s.title + " " + s.situation + " " + s.task + " " + s.action + " " + s.result).toLowerCase();
                 return !(text.includes("epam") || text.includes("valentina") || text.includes("company86"));
               });
 
             if (valid.length !== parsed.length) {
-              try {
-                localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(valid));
-              } catch {}
+              safeSetItem(LS_STAR_STORIES_KEY, JSON.stringify(valid));
             }
             setStarStories(valid);
           } else {
@@ -178,10 +214,10 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
       if (raw) {
         const saved = JSON.parse(raw);
         if (saved && typeof saved === "object") {
-          const isObsoleteCompany = typeof saved.company === "string" && /company86|valentina|epam|evocs/i.test(saved.company);
-          const isObsoleteBio = typeof saved.interviewerBio === "string" && /valentina|epam|angelica|company86|evocs/i.test(saved.interviewerBio);
-          const isObsoleteRole = typeof saved.role === "string" && /epam|valentina/i.test(saved.role);
-          const isObsoleteExtra = typeof saved.extraInstructions === "string" && /epam|valentina|puerto madero/i.test(saved.extraInstructions);
+          const isObsoleteCompany = shouldPurge && typeof saved.company === "string" && /company86|valentina|epam|evocs/i.test(saved.company);
+          const isObsoleteBio = shouldPurge && typeof saved.interviewerBio === "string" && /valentina|epam|angelica|company86|evocs/i.test(saved.interviewerBio);
+          const isObsoleteRole = shouldPurge && typeof saved.role === "string" && /epam|valentina/i.test(saved.role);
+          const isObsoleteExtra = shouldPurge && typeof saved.extraInstructions === "string" && /epam|valentina|puerto madero/i.test(saved.extraInstructions);
 
           if (!isObsoleteCompany && typeof saved.company === "string") setCompany(saved.company);
           if (!isObsoleteRole && typeof saved.role === "string") setRole(saved.role);
@@ -190,18 +226,16 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
           if (!isObsoleteBio && typeof saved.interviewerBio === "string") setInterviewerBio(saved.interviewerBio);
 
           if (isObsoleteCompany || isObsoleteBio || isObsoleteRole || isObsoleteExtra) {
-            try {
-              localStorage.setItem(
-                LS_KEY,
-                JSON.stringify({
-                  ...saved,
-                  company: isObsoleteCompany ? "" : saved.company,
-                  role: isObsoleteRole ? "" : saved.role,
-                  interviewerBio: isObsoleteBio ? "" : saved.interviewerBio,
-                  extraInstructions: isObsoleteExtra ? "" : saved.extraInstructions,
-                })
-              );
-            } catch {}
+            safeSetItem(
+              LS_KEY,
+              JSON.stringify({
+                ...saved,
+                company: isObsoleteCompany ? "" : saved.company,
+                role: isObsoleteRole ? "" : saved.role,
+                interviewerBio: isObsoleteBio ? "" : saved.interviewerBio,
+                extraInstructions: isObsoleteExtra ? "" : saved.extraInstructions,
+              })
+            );
           }
 
           const validModels = availableModelIdsRef.current;
@@ -209,6 +243,15 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
             setModelId(saved.modelId);
           }
           if (typeof saved.fontSize === "number" && !isNaN(saved.fontSize)) setFontSize(saved.fontSize);
+        }
+      }
+
+      if (shouldPurge) {
+        try {
+          localStorage.setItem(LS_DATA_VERSION_KEY, String(DATA_VERSION));
+        } catch (e) {
+          // Cuota llena o storage no disponible: avisar pero no romper la UI
+          console.warn("[context] localStorage no persistió (¿cuota llena?)", e);
         }
       }
     } catch (e) {
@@ -219,26 +262,76 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
     }
   }, []);
 
+  const [storageQuotaExceeded, setStorageQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const onQuota = () => setStorageQuotaExceeded(true);
+    window.addEventListener("loro:quota-exceeded", onQuota);
+    return () => window.removeEventListener("loro:quota-exceeded", onQuota);
+  }, []);
+
   // Auto-persistir contexto al cambiar
   useEffect(() => {
     if (!initialLoadDone.current) return;
-    try {
-      localStorage.setItem(
-        LS_KEY,
-        JSON.stringify({ company, role, profile, extraInstructions, interviewerBio, modelId, fontSize })
-      );
-    } catch (e) {
-      console.warn("Error persistiendo contexto", e);
-    }
+    safeSetItem(
+      LS_KEY,
+      JSON.stringify({ company, role, profile, extraInstructions, interviewerBio, modelId, fontSize })
+    );
   }, [company, role, profile, extraInstructions, interviewerBio, modelId, fontSize]);
+
+  // Multi-pestaña: otra pestaña puede escribir las mismas claves. Sin este listener la
+  // primera pestaña que escriba pisa los cambios de la otra (last-write-wins = pérdida).
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.newValue == null) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (e.key === LS_KEY) {
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            if (typeof parsed.company === "string") setCompany(parsed.company);
+            if (typeof parsed.role === "string") setRole(parsed.role);
+            if (typeof parsed.profile === "string") setProfile(parsed.profile);
+            if (typeof parsed.extraInstructions === "string") setExtraInstructions(parsed.extraInstructions);
+            if (typeof parsed.interviewerBio === "string") setInterviewerBio(parsed.interviewerBio);
+            if (typeof parsed.modelId === "string") setModelId(parsed.modelId);
+            if (typeof parsed.fontSize === "number") setFontSize(parsed.fontSize);
+          }
+          return;
+        }
+        if (!Array.isArray(parsed)) return;
+        if (e.key === LS_PROFILES_KEY) {
+          setSavedProfiles(
+            parsed.filter(
+              (p): p is SavedProfile =>
+                Boolean(p && typeof p === "object" && typeof p.name === "string" && p.name.trim())
+            )
+          );
+        } else if (e.key === LS_ANSWERS_KEY) {
+          setMasterAnswers(
+            parsed
+              .filter((a) => Boolean(a && typeof a === "object" && typeof a.question === "string" && typeof a.enText === "string"))
+              .map((a) => normalizeStoredAnswer(a))
+          );
+        } else if (e.key === LS_STAR_STORIES_KEY) {
+          setStarStories(
+            parsed
+              .filter((s) => Boolean(s && typeof s === "object" && typeof s.title === "string"))
+              .map((s) => normalizeStoredStory(s))
+          );
+        }
+      } catch {
+        // Valor corrupto proveniente de otra pestaña: ignorar
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const saveProfile = useCallback((name: string) => {
     if (!name.trim()) return;
     setSavedProfiles((prev) => {
       const updated = [...prev.filter((p) => p.name !== name), { name, company, role, profile, extraInstructions, interviewerBio }];
-      try {
-        localStorage.setItem(LS_PROFILES_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_PROFILES_KEY, JSON.stringify(updated));
       return updated;
     });
   }, [company, role, profile, extraInstructions, interviewerBio]);
@@ -246,9 +339,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
   const deleteProfile = useCallback((name: string) => {
     setSavedProfiles((prev) => {
       const updated = prev.filter((p) => p.name !== name);
-      try {
-        localStorage.setItem(LS_PROFILES_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_PROFILES_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -257,7 +348,9 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
     setSavedProfiles([]);
     try {
       localStorage.removeItem(LS_PROFILES_KEY);
-    } catch {}
+    } catch (e) {
+      console.warn("[context] Error removiendo perfiles de localStorage", e);
+    }
   }, []);
 
   const loadProfile = useCallback((profileName: string) => {
@@ -295,9 +388,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
       const updated = existingIdx >= 0
         ? prev.map((a, i) => (i === existingIdx ? newEntry : a))
         : [newEntry, ...prev];
-      try {
-        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_ANSWERS_KEY, JSON.stringify(updated));
       return updated;
     });
   }, [role, company]);
@@ -306,9 +397,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
     if (!newAnswers || newAnswers.length === 0) return;
     setMasterAnswers((prev) => {
       const combined = [...newAnswers, ...prev.filter(p => !newAnswers.some(n => n.id === p.id || (n.question === p.question && n.company === p.company)))];
-      try {
-        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(combined));
-      } catch {}
+      safeSetItem(LS_ANSWERS_KEY, JSON.stringify(combined));
       return combined;
     });
   }, []);
@@ -316,17 +405,13 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
   const replaceMasterAnswers = useCallback((newAnswers: MasterAnswer[]) => {
     if (!newAnswers || newAnswers.length === 0) return;
     setMasterAnswers(newAnswers);
-    try {
-      localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(newAnswers));
-    } catch {}
+    safeSetItem(LS_ANSWERS_KEY, JSON.stringify(newAnswers));
   }, []);
 
   const deleteMasterAnswer = useCallback((id: string) => {
     setMasterAnswers((prev) => {
       const updated = prev.filter((a) => a.id !== id);
-      try {
-        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_ANSWERS_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -334,9 +419,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
   const toggleFavoriteMasterAnswer = useCallback((id: string) => {
     setMasterAnswers((prev) => {
       const updated = prev.map((a) => a.id === id ? { ...a, favorite: !a.favorite } : a);
-      try {
-        localStorage.setItem(LS_ANSWERS_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_ANSWERS_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -345,7 +428,9 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
     setMasterAnswers([]);
     try {
       localStorage.removeItem(LS_ANSWERS_KEY);
-    } catch {}
+    } catch (e) {
+      console.warn("[context] Error limpiando respuestas maestras", e);
+    }
   }, []);
 
   const saveSTARStory = useCallback((story: Omit<STARStory, "id"> & { id?: string }) => {
@@ -360,9 +445,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
       const updated = existingIdx >= 0
         ? prev.map((s, idx) => (idx === existingIdx ? newStory : s))
         : [newStory, ...prev];
-      try {
-        localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_STAR_STORIES_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -370,9 +453,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
   const deleteSTARStory = useCallback((id: string) => {
     setStarStories((prev) => {
       const updated = prev.filter((s) => s.id !== id);
-      try {
-        localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(updated));
-      } catch {}
+      safeSetItem(LS_STAR_STORIES_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -384,9 +465,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
         ...newStories,
         ...prev.filter((p) => !newStories.some((n) => n.id === p.id || n.title === p.title)),
       ];
-      try {
-        localStorage.setItem(LS_STAR_STORIES_KEY, JSON.stringify(combined));
-      } catch {}
+      safeSetItem(LS_STAR_STORIES_KEY, JSON.stringify(combined));
       return combined;
     });
   }, []);
@@ -424,6 +503,7 @@ export function useInterviewContext(defaultModelId: string = "glm-5-3-flash", av
     deleteSTARStory,
     importSTARStories,
     isLoaded,
+    storageQuotaExceeded,
   };
 }
 

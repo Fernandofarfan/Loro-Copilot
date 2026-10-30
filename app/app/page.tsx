@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { track } from "../lib/track";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, memo } from "react";
+import { apiFetch } from "../lib/apiFetch";
 import { BrandLogo } from "../lib/BrandLogo";
 import { AnswerCard } from "../components/AnswerCard";
-import { RescuePhrases, type RescuePhrase } from "../components/RescuePhrases";
+import { RescuePhrases, DEFAULT_RESCUE_PHRASES, type RescuePhrase } from "../components/RescuePhrases";
 import { ListenText } from "../components/ListenText";
 import { Dropdown } from "../components/Dropdown";
 import { extractTextFromPdf } from "../lib/pdf";
@@ -12,7 +12,6 @@ import {
   parseInterviewMarkdownToMasterAnswers,
   detectQuestionLanguage,
   extractCurrentTurnQuestion,
-  isIncompleteQuestion,
   isActionableQuestion,
   getAdaptiveDebounceMs,
   detectExperienceQuestion,
@@ -22,98 +21,156 @@ import {
 } from "../lib/interviewHelpers";
 import { chunkCv, selectRelevantCvChunks } from "../lib/cvChunker";
 import { analyzeCvVulnerabilities, type VulnerabilityItem } from "../lib/vulnerabilityRadar";
-import { MELI_NOSQL_MASTER_ANSWERS } from "../lib/meliMasterAnswers";
-import { IT_PATAGONIA_MASTER_ANSWERS } from "../lib/itPatagoniaMasterAnswers";
-import { SNAPPY_COMMERCE_MASTER_ANSWERS } from "../lib/snappyCommerceMasterAnswers";
 import { MarkdownText } from "../components/MarkdownText";
-import { useInterviewContext, type STARStory } from "../hooks/useInterviewContext";
+import { useInterviewContext } from "../hooks/useInterviewContext";
 import { useDeepgram, type TranscriptLine, type AudioMode } from "../hooks/useDeepgram";
-import { useAnswerStream, type Answer } from "../hooks/useAnswerStream";
+import { useAnswerStream } from "../hooks/useAnswerStream";
 import { useTeleprompter } from "../hooks/useTeleprompter";
 import { useScreenVision } from "../hooks/useScreenVision";
 import { useEarbudWhisper } from "../hooks/useEarbudWhisper";
 import { useGazeTracker } from "../hooks/useGazeTracker";
 import {
   SparkleIcon,
-  OpenAIMark,
-  AnthropicMark,
-  GoogleMark,
   BriefcaseIcon,
   DocIcon,
-  UserIcon,
   CopyIcon,
   MicIcon,
-  SettingsIcon,
   ExternalLinkIcon,
-  TrashIcon,
 } from "../components/Icons";
+import { MODELS, DEFAULT_MODEL_ID, ProviderIcon } from "../components/ModelCatalog";
 
-function OpenCodeMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-    </svg>
-  );
+// Bancos de respuestas (~180 KB de datos): chunk separado, cargado bajo demanda en mount
+type Banks = { snappy: MasterAnswer[]; itp: MasterAnswer[]; meli: MasterAnswer[] };
+type BankKey = keyof Banks;
+let banksPromise: Promise<Banks> | null = null;
+function loadBanks(): Promise<Banks> {
+  if (!banksPromise) {
+    banksPromise = Promise.all([
+      import("../lib/snappyCommerceMasterAnswers"),
+      import("../lib/itPatagoniaMasterAnswers"),
+      import("../lib/meliMasterAnswers"),
+    ])
+      .then(([snappy, itp, meli]) => ({
+        snappy: snappy.SNAPPY_COMMERCE_MASTER_ANSWERS,
+        itp: itp.IT_PATAGONIA_MASTER_ANSWERS,
+        meli: meli.MELI_NOSQL_MASTER_ANSWERS,
+      }))
+      .catch((err) => {
+        // Sin esto, un import() fallido deja rejections sin manejar y los conteos
+        // congelados en "…". Se limpia la promesa para permitir reintento en el próximo click.
+        console.error("[banks] No se pudieron cargar los bancos maestros:", err);
+        banksPromise = null;
+        return { snappy: [], itp: [], meli: [] };
+      });
+  }
+  return banksPromise;
 }
 
-type Provider = "gemini" | "anthropic" | "openai" | "openrouter" | "opencode";
+type TranscriptListener = () => void;
 
-function ProviderIcon({ provider }: { provider: Provider }) {
-  return (
-    <span className="dd-icon">
-      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : provider === "opencode" || provider === "openrouter" ? <OpenCodeMark /> : <GoogleMark />}
-    </span>
-  );
+class TranscriptStore {
+  private lines: TranscriptLine[] = [];
+  private listeners = new Set<TranscriptListener>();
+
+  subscribe = (cb: TranscriptListener) => {
+    this.listeners.add(cb);
+    return () => {
+      this.listeners.delete(cb);
+    };
+  };
+
+  getSnapshot = () => this.lines;
+
+  update = (updater: (prev: TranscriptLine[]) => TranscriptLine[]) => {
+    this.lines = updater(this.lines);
+    this.listeners.forEach((cb) => cb());
+  };
+
+  setLines = (lines: TranscriptLine[]) => {
+    this.lines = lines;
+    this.listeners.forEach((cb) => cb());
+  };
 }
 
-type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
-const MODELS: ModelOption[] = [
-  // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
-  { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
-  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
-  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
+const LiveTranscriptTicker = memo(function LiveTranscriptTicker({
+  store,
+  sttStatus,
+  audioMode,
+  isGenerating,
+  onTrigger,
+}: {
+  store: TranscriptStore;
+  sttStatus: string;
+  audioMode: AudioMode;
+  isGenerating: boolean;
+  onTrigger: () => void;
+}) {
+  const lines = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  if (sttStatus !== "live") return null;
 
-  // ♾️ Ilimitados / Free (OpenCode Go)
-  { id: "longcat-2-5-preview-free", label: "LongCat 2.5 Free ♾️", provider: "opencode", model: "longcat-2.5-preview-free", tag: "Ilimitado" },
-  { id: "step-5-preview-free", label: "Step 5 Preview Free ♾️", provider: "opencode", model: "step-5-preview-free", tag: "Ilimitado" },
-  { id: "cat-jam-free", label: "Cat Jam Free ♾️", provider: "opencode", model: "cat-jam-free", tag: "Ilimitado" },
+  return (
+    <div className="px-4 py-3 rounded-2xl bg-[#0a0e1a]/90 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs shadow-[0_0_20px_rgba(16,185,129,0.1)] animate-in fade-in">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <span className="relative flex h-2.5 w-2.5 shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+        </span>
+        <span className="font-semibold text-emerald-300 shrink-0">
+          {audioMode === "tab" ? "Escuchando Pestaña:" : audioMode === "dual" ? "Escuchando Entrevistador:" : "Escuchando Mic:"}
+        </span>
+        <span className="font-mono text-zinc-200 truncate">
+          {lines.length > 0 ? (
+            `"${lines[lines.length - 1].text}"`
+          ) : (
+            <span className="text-zinc-500 italic">Esperando que hable el entrevistador...</span>
+          )}
+        </span>
+      </div>
+      {lines.length > 0 && (
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onTrigger}
+            disabled={isGenerating}
+            className="px-3 py-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-bold text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all active:scale-95 disabled:opacity-50"
+            title="Generar respuesta inmediata para lo que acaba de decir el entrevistador"
+          >
+            <span>⚡</span>
+            <span>Responder Turno</span>
+          </button>
+          <span className="text-[11px] font-mono text-zinc-500 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.04]">
+            {lines.length} turnos
+          </span>
+        </div>
+      )}
+    </div>
+  );
+});
 
-  // 🚀 Nivel Pro / Senior (Alta Precisión & Calidad)
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
-  { id: "gpt-6-luna", label: "GPT 6 Luna 🚀", provider: "opencode", model: "gpt-6-luna", tag: "Top Tier" },
-  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🎯", provider: "opencode", model: "gpt-5.6-luna", tag: "Top Tier" },
-  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1k req)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
-  { id: "mimo-v2-6-pro", label: "MiMo V2.6 Pro 🎯", provider: "opencode", model: "mimo-v2.6-pro", tag: "Senior / Pro" },
-  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Senior / Pro" },
-  { id: "kimi-k3", label: "Kimi K3 🧠", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
-  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
-  { id: "space-bunny", label: "Space Bunny 🐰", provider: "opencode", model: "space-bunny", tag: "Balanceado" },
+const LiveMonitorListen = memo(function LiveMonitorListen({
+  store,
+  sttStatus,
+}: {
+  store: TranscriptStore;
+  sttStatus: string;
+}) {
+  const lines = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const text = useMemo(() => lines.map((l) => l.text).join(" ").slice(-150), [lines]);
 
-  // 🌌 Nivel Razonamiento / Deep Think & Grok
-  { id: "grok-4-7", label: "Grok 4.7 🌌", provider: "opencode", model: "grok-4.7", tag: "Deep Think" },
-  { id: "grok-4-6", label: "Grok 4.6 🌌", provider: "opencode", model: "grok-4.6", tag: "Deep Think" },
-  { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠", provider: "opencode", model: "qwen3.8-max", tag: "Deep Think" },
-  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Deep Think" },
-  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
-  { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Deep Think" },
-  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
-  { id: "minimax-m2-7", label: "MiniMax M2.7", provider: "opencode", model: "minimax-m2.7", tag: "Deep Think" },
-  { id: "longcat-2-0", label: "LongCat 2.0 🐱", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
-  { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen3.7-plus", tag: "Deep Think" },
-  { id: "muse-spark-1-3", label: "Muse Spark 1.3 ⚡", provider: "opencode", model: "muse-spark-1.3-contributor", tag: "Deep Think" },
-  { id: "deepseek-v4-vision", label: "DeepSeek V4 Vision 👁️", provider: "opencode", model: "deepseek-v4-flash-vision-exp", tag: "Vision" },
-
-  // Direct Providers
-  { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
-  { id: "claude-haiku", label: "Claude 3.5 Haiku 🧠", provider: "anthropic", model: "claude-3-5-haiku-20241022", tag: "Anthropic" },
-];
+  return (
+    <div className="flex-1 min-w-[200px] flex items-center justify-end">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.06] text-zinc-400 text-xs max-w-md w-full justify-between backdrop-blur-sm">
+        <span className="flex items-center gap-1.5 text-[10px] uppercase font-mono tracking-wider text-zinc-500 shrink-0">
+          <span className={`w-1.5 h-1.5 rounded-full ${sttStatus === "live" ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+          Monitor
+        </span>
+        <div className="truncate text-zinc-300 text-right">
+          <ListenText text={text} />
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export default function CopilotPage() {
   const [activeTab, setActiveTab] = useState<"live" | "context" | "memory">("live");
@@ -122,7 +179,7 @@ export default function CopilotPage() {
   const [dialect, setDialect] = useState<"rioplatense" | "neutro" | "english">("rioplatense");
   const [bilingualMode, setBilingualMode] = useState(true);
   const [autoRespond, setAutoRespond] = useState(true);
-  const [transcriptLines, setTranscriptLines] = useState<TranscriptLine[]>([]);
+  const transcriptStoreRef = useRef<TranscriptStore>(new TranscriptStore());
   const [manualQuestion, setManualQuestion] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
@@ -164,7 +221,10 @@ export default function CopilotPage() {
     deleteSTARStory,
     importSTARStories,
     isLoaded: isContextLoaded,
-  } = useInterviewContext("glm-5-3-flash", MODELS.map((m) => m.id));
+    storageQuotaExceeded,
+  } = useInterviewContext(DEFAULT_MODEL_ID, MODELS.map((m) => m.id));
+
+  const [quotaAlertDismissed, setQuotaAlertDismissed] = useState(false);
 
   const starStoriesRef = useRef(starStories);
   starStoriesRef.current = starStories;
@@ -259,15 +319,34 @@ export default function CopilotPage() {
   }, [selectedMicId]);
 
   const [interviewMode, setInterviewMode] = useState<"technical" | "screening">("technical");
-  const [screenSafeMode, setScreenSafeMode] = useState(false);
+  // Estado único de camuflaje, compartido con el HUD (F8 cicla normal → ide → terminal)
+  const [camouMode, setCamouMode] = useState<"normal" | "ide" | "terminal">("normal");
+  const camouModeRef = useRef(camouMode);
+  camouModeRef.current = camouMode;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("loro_teleprompter_data");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.camouMode === "normal" || parsed?.camouMode === "ide" || parsed?.camouMode === "terminal") {
+          setCamouMode(parsed.camouMode);
+        }
+      }
+    } catch {}
+  }, []);
   const interviewModeRef = useRef<"technical" | "screening">("technical");
   interviewModeRef.current = interviewMode;
 
   // Hook de Teleprompter HUD Pop-out con soporte de mensajes bidireccionales
   const { isOpen: isTeleprompterOpen, openTeleprompter, syncTeleprompter } = useTeleprompter({
-    onMessage: (msg: { type?: string }) => {
+    onMessage: (msg: { type?: string; camouMode?: "normal" | "ide" | "terminal" }) => {
       if (msg?.type === "TRIGGER_REVERSE_QUESTIONS") {
         keyboardHandlersRef.current?.handleReverseQuestions?.();
+      }
+      // El HUD puede cambiar el camuflaje con F8/Alt+S o su botón: reflejarlo acá
+      if (msg?.type === "CAMOU_MODE" && msg.camouMode) {
+        setCamouMode(msg.camouMode);
       }
     },
   });
@@ -279,7 +358,7 @@ export default function CopilotPage() {
   const earbudWhisper = useEarbudWhisper({ defaultEnabled: false });
 
   // Hook de Gaze Tracker (Asistente de Contacto Visual con la Cámara)
-  const gazeTracker = useGazeTracker({ defaultEnabled: false } as any);
+  const gazeTracker = useGazeTracker();
 
   // Hook de Respuestas LLM & Streaming
   const {
@@ -293,13 +372,32 @@ export default function CopilotPage() {
     resetSessionTokens,
     usedStoryIndicesRef,
     resetUsedStories,
-    requestAnswer,
+    requestAnswer: requestAnswerBase,
     startSpeculativePreFetch,
-    stopGenerating,
+    stopGenerating: stopGeneratingBase,
+    clearGenerationError,
     clearAnswers,
     setAnswerFeedback,
     generateWarmupAnswers,
   } = useAnswerStream();
+
+  // speechSynthesis es global: sin estos wrappers, un susurro viejo sigue sonando hasta el
+  // punchline del próximo request (y se filtra al micrófono de la call). stopIfActive solo
+  // corta si el earbud es el que habla: el TTS manual ("Escuchar") comparte la cola y no
+  // debe morir con cada request.
+  const stopEarbudRef = useRef<() => void>(() => {});
+  stopEarbudRef.current = earbudWhisper.stopIfActive;
+  const requestAnswer = useCallback(
+    (params: Parameters<typeof requestAnswerBase>[0]) => {
+      stopEarbudRef.current();
+      return requestAnswerBase(params);
+    },
+    [requestAnswerBase]
+  );
+  const stopGenerating = useCallback(() => {
+    stopEarbudRef.current();
+    stopGeneratingBase();
+  }, [stopGeneratingBase]);
 
   const isGeneratingRef = useRef(isGenerating);
   isGeneratingRef.current = isGenerating;
@@ -311,6 +409,8 @@ export default function CopilotPage() {
   answersRef.current = answers;
 
   const lastProcessedLineIdRef = useRef<number | string | null>(null);
+  const lastInterimCommitRef = useRef(0);
+  const lastCommittedLineIdRef = useRef<number | string | null>(null);
 
   const selectedModel = MODELS.find((m) => m.id === modelId) || MODELS[0];
 
@@ -335,7 +435,7 @@ export default function CopilotPage() {
       });
     }
 
-    setTranscriptLines((prev) => {
+    const upsert = (prev: TranscriptLine[]) => {
       const idx = prev.findIndex((l) => l.id === line.id);
       if (idx >= 0) {
         const next = [...prev];
@@ -343,11 +443,27 @@ export default function CopilotPage() {
         return next;
       }
       return [...prev.slice(-250), line];
-    });
+    };
+
+    // Ref crudo siempre al día (lo leen el debounce, el prefetch y el resumen): incluye
+    // también los interims que el throttle de render deja afuera.
+    transcriptLinesRef.current = upsert(transcriptLinesRef.current);
+
+    // Los interims de Deepgram llegan varios por segundo: commitearlos a la UI a ~4 fps
+    // para no re-renderizar el copiloto entero en cada frame. Los finales van inmediatos,
+    // y una línea con id nuevo también (en Dual cada speaker genera id propio: skipearla
+    // dejaría un hueco visible en el state hasta el flush del UtteranceEnd).
+    const now = Date.now();
+    const isNewLine = line.id !== lastCommittedLineIdRef.current;
+    if (line.final || isNewLine || now - lastInterimCommitRef.current >= 250) {
+      lastInterimCommitRef.current = now;
+      lastCommittedLineIdRef.current = line.id;
+      transcriptStoreRef.current.update(upsert);
+    }
   }, [stopGenerating, syncTeleprompter]);
 
-  const transcriptLinesRef = useRef<TranscriptLine[]>(transcriptLines);
-  transcriptLinesRef.current = transcriptLines;
+  // El ref es la fuente cruda (se actualiza en handleTranscript); el state es una vista throttled
+  const transcriptLinesRef = useRef<TranscriptLine[]>([]);
 
   const utteranceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -363,8 +479,50 @@ export default function CopilotPage() {
   // Auto-referencia para reintentar el fin de turno sin esperar otro UtteranceEnd (Deepgram manda uno solo por pausa)
   const handleUtteranceEndRef = useRef<((force?: boolean) => void) | null>(null);
 
+  // Helper unificado para derivar contexto de pregunta (CV chunks, STAR match, alertas y directivas de modo)
+  const buildQuestionContext = useCallback((q: string) => {
+    const lang = detectQuestionLanguage(q);
+    const focusedProfile =
+      profile && profile.length > 800
+        ? selectRelevantCvChunks(q, chunkCv(profile))
+        : profile;
+
+    const excludedStories = Array.from(usedStoryIndicesRef.current);
+    const matchedStory = matchSTARStory(q, starStoriesRef.current, 0.35, excludedStories);
+    const firmnessAlert = detectFirmnessChallenge(q);
+    const experienceAlert = detectExperienceQuestion(q);
+
+    if (matchedStory) {
+      usedStoryIndicesRef.current.add(matchedStory.storyIndex);
+    }
+
+    let effectiveInstructions = extraInstructions;
+    if (interviewModeRef.current === "screening") {
+      effectiveInstructions =
+        (effectiveInstructions ? effectiveInstructions + "\n" : "") +
+        "[MODO RECRUITER SCREENING]: Respuestas directas, cordiales y concisas (máximo 2 oraciones). Enfocar en pretensión de $4,000 USD/mes o ~$25-$30/h contractor, disponibilidad inmediata, inglés B2 fluido, residencia remota en Salta (UTC-3), estabilidad laboral y fit cultural con Luna.";
+    }
+
+    if (experienceAlert) {
+      effectiveInstructions =
+        (effectiveInstructions ? effectiveInstructions + "\n" : "") +
+        "⚠️ REGLA DE EXPERIENCIA ESTRICTA: Diferenciar +8 años TOTALES en IT/desarrollo vs ~4 años ESPECÍFICOS en Cloud/DevOps/GCP. NUNCA decir '8 años en GCP/DevOps'.";
+    }
+
+    return {
+      lang,
+      focusedProfile,
+      matchedStory,
+      firmnessAlert,
+      experienceAlert,
+      effectiveInstructions,
+    };
+  }, [profile, extraInstructions, usedStoryIndicesRef]);
+
   // Trigger automático de respuesta al detectar fin de habla (UtteranceEnd)
   const handleUtteranceEnd = useCallback((force?: boolean) => {
+    // Flush de los interims pendientes del throttle de render (la UI muestra el turno completo)
+    transcriptStoreRef.current.setLines(transcriptLinesRef.current);
     if (!autoRespond || isGeneratingRef.current) return;
 
     if (utteranceTimerRef.current) {
@@ -416,23 +574,14 @@ export default function CopilotPage() {
 
       if (recentText && recentText.length >= 6) {
         lastProcessedLineIdRef.current = newLastId;
-        const lang = detectQuestionLanguage(recentText);
-        const focusedProfile =
-          profile && profile.length > 800
-            ? selectRelevantCvChunks(recentText, chunkCv(profile))
-            : profile;
-
-        // Auto-match STAR y Detector de test de firmeza
-        // M4: pasar historias ya usadas en la sesión para deprioritizarlas
-        const excludedStories = Array.from(usedStoryIndicesRef.current);
-        const matchedStory = matchSTARStory(recentText, starStoriesRef.current, 0.35, excludedStories);
-        const firmnessAlert = detectFirmnessChallenge(recentText);
-        const experienceAlert = detectExperienceQuestion(recentText);
-
-        // M4: registrar la historia usada
-        if (matchedStory) {
-          usedStoryIndicesRef.current.add(matchedStory.storyIndex);
-        }
+        const {
+          lang,
+          focusedProfile,
+          matchedStory,
+          firmnessAlert,
+          experienceAlert,
+          effectiveInstructions,
+        } = buildQuestionContext(recentText);
 
         syncTeleprompter({
           question: recentText,
@@ -451,14 +600,6 @@ export default function CopilotPage() {
             : {}),
           firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
         });
-
-        // Directivas especializadas según modo (Pilar 1)
-        let effectiveInstructions = extraInstructions;
-        if (interviewModeRef.current === "screening") {
-          effectiveInstructions =
-            (effectiveInstructions ? effectiveInstructions + "\n" : "") +
-            "[MODO RECRUITER SCREENING]: Respuestas directas, cordiales y concisas (máximo 2 oraciones). Enfocar en pretensión de $4,000 USD/mes o ~$25-$30/h contractor, disponibilidad inmediata, inglés B2 fluido, residencia remota en Salta (UTC-3), estabilidad laboral y fit cultural con Luna.";
-        }
 
         requestAnswer({
           question: recentText,
@@ -490,15 +631,14 @@ export default function CopilotPage() {
     requestAnswer,
     company,
     role,
-    profile,
     interviewerBio,
-    extraInstructions,
     selectedModel,
     simpleEnglish,
     dialect,
     bilingualMode,
     syncTeleprompter,
     earbudWhisper,
+    buildQuestionContext,
   ]);
   handleUtteranceEndRef.current = handleUtteranceEnd;
 
@@ -528,6 +668,11 @@ export default function CopilotPage() {
     onSpeculativeTurn: (interimText) => {
       if (!autoRespond || isGeneratingRef.current) return;
       if (!isActionableQuestion(interimText)) return;
+      const {
+        lang,
+        focusedProfile,
+        effectiveInstructions,
+      } = buildQuestionContext(interimText);
       startSpeculativePreFetch({
         question: interimText,
         transcript: transcriptLinesRef.current
@@ -535,10 +680,16 @@ export default function CopilotPage() {
           .join("\n"),
         company,
         role,
-        profile,
+        profile: focusedProfile,
+        interviewerBio,
+        extraInstructions: effectiveInstructions,
         provider: selectedModel.provider,
         model: selectedModel.model,
-        detectedLang: detectQuestionLanguage(interimText),
+        detectedLang: lang,
+        simpleEnglish,
+        dialect,
+        bilingualMode,
+        starStories: starStoriesRef.current,
       });
     },
     onLanguageDetected: (detected) => {
@@ -654,7 +805,7 @@ export default function CopilotPage() {
     });
   }, [company, role, profile, interviewerBio, extraInstructions, selectedModel, sttLang, syncTeleprompter, requestAnswer, earbudWhisper]);
 
-  // Atajos de teclado sigilosos sin mover las manos (F2, F3, F4, `, Ctrl+1, Ctrl+2)
+  // Atajos de teclado sigilosos sin mover las manos (F2, F3, F4, `, Ctrl+Shift+S/Q, F8, Esc, Alt+1..4)
   const keyboardHandlersRef = useRef({
     handleConciseRefine,
     handleTradeOffsRefine,
@@ -662,6 +813,8 @@ export default function CopilotPage() {
     handleCaptureScreen,
     syncTeleprompter,
     openTeleprompter,
+    hasOpenModal: () => false as boolean,
+    closeModals: () => {},
   });
   keyboardHandlersRef.current = {
     handleConciseRefine,
@@ -670,81 +823,104 @@ export default function CopilotPage() {
     handleCaptureScreen,
     syncTeleprompter,
     openTeleprompter,
+    hasOpenModal: () => vulnModalOpen || summaryModalOpen || glassdoorModalOpen || showDossierWizard,
+    closeModals: () => {
+      setVulnModalOpen(false);
+      setSummaryModalOpen(false);
+      setGlassdoorModalOpen(false);
+      setShowDossierWizard(false);
+    },
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (target?.isContentEditable) return;
+      if (e.repeat) return;
 
       // F2: Respuesta ultra concisa en 2 oraciones
-      if (e.key === "F2") {
+      if (e.key === "F2" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
         e.preventDefault();
         keyboardHandlersRef.current.handleConciseRefine();
         return;
       }
 
       // F3: Matriz de Trade-offs y "Why NOT X?"
-      if (e.key === "F3") {
+      if (e.key === "F3" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
         e.preventDefault();
         keyboardHandlersRef.current.handleTradeOffsRefine();
         return;
       }
 
-      // F4: Preguntas estratégicas de Cierre de Oro
-      if (e.key === "F4") {
+      // F4: Preguntas estratégicas de Cierre de Oro (sin modificadores: Alt+F4 cierra la ventana)
+      if (e.key === "F4" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
         e.preventDefault();
         keyboardHandlersRef.current.handleReverseQuestions();
         return;
       }
 
-      // `: Captura instantánea de pantalla (Screen Vision)
-      if (e.key === "`") {
+      // Escape: si hay un modal abierto en la app, cerrarlo primero; si no, Botón Pánico para el HUD
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (keyboardHandlersRef.current.hasOpenModal()) {
+          keyboardHandlersRef.current.closeModals();
+          return;
+        }
+        keyboardHandlersRef.current.syncTeleprompter({ command: "TOGGLE_PANIC" }, false);
+        return;
+      }
+
+      // ` (tecla física, independiente del layout): Captura instantánea de pantalla (Screen Vision)
+      if (e.code === "Backquote" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
         e.preventDefault();
         keyboardHandlersRef.current.handleCaptureScreen();
         return;
       }
 
-      // F8: Alternar Modo Pantalla Segura / Camuflaje IDE en Teleprompter (Pilar 6)
-      if (e.key === "F8") {
+      // Ctrl+Shift+S: alias publicado en la UI para Analizar Pantalla (e.code: independiente del layout)
+      if (e.ctrlKey && e.shiftKey && e.code === "KeyS") {
         e.preventDefault();
-        setScreenSafeMode((prev) => {
-          const next = !prev;
-          keyboardHandlersRef.current.syncTeleprompter({ camouMode: next ? "ide" : "normal" });
-          return next;
+        keyboardHandlersRef.current.handleCaptureScreen();
+        return;
+      }
+
+      // Ctrl+Shift+Q: alias publicado en la UI para Cierre de Oro
+      if (e.ctrlKey && e.shiftKey && e.code === "KeyQ") {
+        e.preventDefault();
+        keyboardHandlersRef.current.handleReverseQuestions();
+        return;
+      }
+
+      // F8: Ciclar Camuflaje (normal → ide → terminal) en el Teleprompter
+      if (e.key === "F8" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault();
+        // Fuera del updater de setState: los updaters deben ser puros
+        const next =
+          camouModeRef.current === "normal" ? "ide" : camouModeRef.current === "ide" ? "terminal" : "normal";
+        setCamouMode(next);
+        keyboardHandlersRef.current.syncTeleprompter({ camouMode: next });
+        return;
+      }
+
+      // Alt + 1..4: frases de rescate (alineadas con las 4 frases del panel RescuePhrases).
+      // Ctrl+1..8 está reservado por el navegador para cambiar de pestaña: no es interceptable.
+      const digitMatch = /^Digit([1-4])$/.exec(e.code);
+      if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && digitMatch) {
+        e.preventDefault();
+        const rescue = DEFAULT_RESCUE_PHRASES[Number(digitMatch[1]) - 1];
+        if (!rescue) return;
+        navigator.clipboard.writeText(rescue.en);
+        keyboardHandlersRef.current.syncTeleprompter({
+          enText: rescue.en,
+          esText: rescue.es || "",
+          cleanText: rescue.en,
+          question: `Frase de Rescate (${rescue.label})`,
+          isGenerating: false,
+          modelName: "Rescate Inmediato ⚡",
+          fromMemory: true,
         });
-        return;
-      }
-
-      if (e.ctrlKey && e.key === "1") {
-        e.preventDefault();
-        const rescue = {
-          icon: "⏳",
-          label: "Ganar tiempo",
-          en: "That's a great question, let me organize my thoughts for a second.",
-        };
-        navigator.clipboard.writeText(rescue.en);
-        window.focus();
-        return;
-      }
-
-      if (e.ctrlKey && e.key === "2") {
-        e.preventDefault();
-        keyboardHandlersRef.current.openTeleprompter();
-        return;
-      }
-
-      // Atajo Ctrl + número para frases de rescate
-      const num = parseInt(e.key, 10);
-      if (e.ctrlKey && num >= 1 && num <= 3) {
-        e.preventDefault();
-        const rescue = {
-          1: { en: "Could you clarify what you mean by that?", es: "¿Podrías aclarar a qué te referís?" },
-          2: { en: "Give me a second to think through this architecture.", es: "Dame un segundo para pensar esta arquitectura." },
-          3: { en: "That is a great question, let me break it down.", es: "Buena pregunta, permitime desglosarla." },
-        }[num as 1 | 2 | 3];
-        navigator.clipboard.writeText(rescue.en);
-        keyboardHandlersRef.current.syncTeleprompter({ enText: rescue.en, question: "Frase de rescate (Clarificar)" });
       }
     };
 
@@ -764,20 +940,14 @@ export default function CopilotPage() {
 
     lastProcessedLineIdRef.current = targetLine.id;
     const q = targetLine.text.trim();
-    const lang = detectQuestionLanguage(q);
-    const focusedProfile =
-      profile && profile.length > 800
-        ? selectRelevantCvChunks(q, chunkCv(profile))
-        : profile;
-
-    const excludedStories = Array.from(usedStoryIndicesRef.current);
-    const matchedStory = matchSTARStory(q, starStoriesRef.current, 0.35, excludedStories);
-    const firmnessAlert = detectFirmnessChallenge(q);
-    const experienceAlert = detectExperienceQuestion(q);
-
-    if (matchedStory) {
-      usedStoryIndicesRef.current.add(matchedStory.storyIndex);
-    }
+    const {
+      lang,
+      focusedProfile,
+      matchedStory,
+      firmnessAlert,
+      experienceAlert,
+      effectiveInstructions,
+    } = buildQuestionContext(q);
 
     syncTeleprompter({
       question: q,
@@ -796,13 +966,6 @@ export default function CopilotPage() {
         : {}),
       firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
     });
-
-    let effectiveInstructions = extraInstructions;
-    if (interviewModeRef.current === "screening") {
-      effectiveInstructions =
-        (effectiveInstructions ? effectiveInstructions + "\n" : "") +
-        "[MODO RECRUITER SCREENING]: Respuestas directas, cordiales y concisas (máximo 2 oraciones). Enfocar en pretensión de $4,000 USD/mes o ~$25-$30/h contractor, disponibilidad inmediata, inglés B2 fluido, residencia remota en Salta (UTC-3), estabilidad laboral y fit cultural con Luna.";
-    }
 
     requestAnswer({
       question: q,
@@ -831,15 +994,14 @@ export default function CopilotPage() {
     requestAnswer,
     company,
     role,
-    profile,
     interviewerBio,
-    extraInstructions,
     selectedModel,
     simpleEnglish,
     dialect,
     bilingualMode,
     syncTeleprompter,
     earbudWhisper,
+    buildQuestionContext,
   ]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -854,34 +1016,32 @@ export default function CopilotPage() {
     if (currentLines.length > 0) {
       lastProcessedLineIdRef.current = currentLines[currentLines.length - 1]?.id || null;
     }
-    const lang = detectQuestionLanguage(q);
+    const {
+      lang,
+      focusedProfile,
+      matchedStory,
+      firmnessAlert,
+      experienceAlert,
+      effectiveInstructions,
+    } = buildQuestionContext(q);
 
-    // Auto-match STAR y Detector de test de firmeza en submit manual
-    // M4: pasar historias ya usadas en la sesión para deprioritizarlas
-    const excludedStories = Array.from(usedStoryIndicesRef.current);
-    const matchedStory = matchSTARStory(q, starStoriesRef.current, 0.35, excludedStories);
-    const firmnessAlert = detectFirmnessChallenge(q);
-
-    // M4: registrar la historia usada
-    if (matchedStory) {
-      usedStoryIndicesRef.current.add(matchedStory.storyIndex);
-    }
-
-    if (matchedStory || firmnessAlert.isChallenge) {
-      syncTeleprompter({
-        question: q,
-        matchedStory: matchedStory
-          ? {
+    syncTeleprompter({
+      question: q,
+      interviewMode: interviewModeRef.current,
+      experienceAlert,
+      ...(matchedStory
+        ? {
+            matchedStory: {
               storyIndex: matchedStory.storyIndex,
               title: matchedStory.story.title,
               action: matchedStory.story.action,
               result: matchedStory.story.result || "",
               score: matchedStory.score,
-            }
-          : null,
-        firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
-      });
-    }
+            },
+          }
+        : {}),
+      firmnessAlert: firmnessAlert.isChallenge ? firmnessAlert : null,
+    });
 
     requestAnswer({
       question: q,
@@ -890,9 +1050,9 @@ export default function CopilotPage() {
         .join("\n"),
       company,
       role,
-      profile,
+      profile: focusedProfile,
       interviewerBio,
-      extraInstructions,
+      extraInstructions: effectiveInstructions,
       provider: selectedModel.provider,
       model: selectedModel.model,
       modelLabel: selectedModel.label,
@@ -911,7 +1071,7 @@ export default function CopilotPage() {
   const handleIcebreaker = () => {
     requestAnswer({
       question: "Qué preguntas estratégicas puedo hacerle al entrevistador en este momento?",
-      transcript: transcriptLines
+      transcript: transcriptLinesRef.current
         .map((l) => `[${l.speaker === 0 ? "Entrevistador" : "Yo"}]: ${l.text}`)
         .join("\n"),
       company,
@@ -952,14 +1112,10 @@ export default function CopilotPage() {
       ? `### INTERACCIONES Y RESPUESTAS TÉCNICAS:\n${answersDigest}\n\n### TRANSCRIPCIÓN CONTINUA DE AUDIO:\n${fullTranscript}`
       : fullTranscript || "(Sin transcripción grabada en esta sesión)";
 
-    const formattedFacts = sessionFacts.map((f: any) =>
-      typeof f === "object"
-        ? `${f.category || "Técnico"}: ${f.fact || f.statement || f.key || JSON.stringify(f)}`
-        : String(f)
-    );
+    const formattedFacts = sessionFacts.map((f) => `${f.category}: ${f.statement}`);
 
     try {
-      const res = await fetch("/api/summary", {
+      const res = await apiFetch("/api/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1110,6 +1266,28 @@ export default function CopilotPage() {
     }
   }, [glassdoorText, company, role, importMasterAnswers]);
 
+  // Bancos diferidos: se precargan al montar para tener los conteos a mano
+  const [banks, setBanks] = useState<Banks | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadBanks().then((b) => {
+      if (alive) setBanks(b);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const loadBankIntoMemory = useCallback(
+    (key: BankKey, filter: string) => {
+      void loadBanks().then((b) => {
+        importMasterAnswers(b[key]);
+        setMemoryFilterCompany(filter);
+      });
+    },
+    [importMasterAnswers]
+  );
+
   const handleCopy = (id: number, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -1130,17 +1308,13 @@ export default function CopilotPage() {
 
   const handlePlayTTS = (textToSpeak: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
+    earbudWhisper.clearActive();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(textToSpeak.slice(0, 600));
     utterance.lang = "en-US";
     utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
   };
-
-  const lastTranscriptText = useMemo(
-    () => transcriptLines.map((l) => l.text).join(" ").slice(-150),
-    [transcriptLines]
-  );
 
   // M5: Estado del Wizard del Dossier del Entrevistador
   const [showDossierWizard, setShowDossierWizard] = useState(false);
@@ -1174,20 +1348,20 @@ export default function CopilotPage() {
   // Preset 1-Click: IT Patagonia — Charla Técnica con el Líder de Infraestructura (DevOps & FinOps Sr)
   const loadItPatagoniaPreset = useCallback(() => {
     setCompany("ITPatagonia");
-    setRole("DevOps & FinOps Sr (Charla Técnica con el Líder)");
+    setRole("DevOps & FinOps Sr (Charla Técnica con el Líder de Infraestructura)");
     setInterviewerBio(
-      "Líder Técnico del Área de Infraestructura / DevOps & FinOps en IT Patagonia. Entrevista técnica profunda: evalúa cómo harías esto o aquello en producción para clientes bancarios (Santander, Galicia, Macro, Prisma, Interbanking) y la Software Factory. Valida resolución de problemas reales en Hyper-V 2025 / SAN / MPIO, Veeam Backup & DRP (inmutabilidad, RTO/RPO), Active Directory (replicación, FSMO, SYSVOL, GPOs), WSUS por anillos, monitoreo con Zabbix, pipelines CI/CD con escaneo de seguridad y prácticas avanzadas de FinOps sobre GCP con Terraform."
+      "Ricardo, Líder Técnico del Área de Infraestructura en IT Patagonia (consultora en crecimiento de ~800 personas). Entrevista técnica en español para clientes bancarios (Santander, Galicia, Macro, Prisma, Interbanking) y la Software Factory. Stack real: Hyper-V 2025, Proxmox, Veeam/DRP (inmutabilidad, RTO/RPO), Active Directory (replicación, FSMO, SYSVOL, GPO), WSUS por anillos, Zabbix, Windows Server, firewalls Cisco/Fortinet, 2 datacenters on-premise (Puerto Madero y Parque Patricios) y 3 nubes en paralelo: Huawei Cloud, AWS y Azure (GCP NO es parte del stack). Responsabilidades: administrar repositorios GitLab/GitHub y CI/CD, profesionalizar y asegurar lo cloud, FinOps transversal, cotizar ambientes de POC/preventa comparando nubes y desplegarlos. Logística: presencial 2 a 3 días por semana en Madero o Sáenz, dedicación full time sin proyectos paralelos, inglés para calls técnicas con vendors (AWS/Huawei/India). Proceso: novedades en 15 a 20 días, con segunda etapa técnica posible."
     );
     setProfile(
-      "Guillermo Fernando Farfán Romero. Ingeniero de Infraestructura Cloud y Software con +8 años de experiencia global en IT/sistemas y ~4 años dedicados a Google Cloud Platform (GCP), Terraform, Linux y Kubernetes. Experiencia destacada: clúster HA en Microsoft Hyper-V 2025 sobre 3 blades HPE Synergy + SAN HPE Alletra/3PAR (55 TB CSV, MPIO Round Robin, Live Migration a 20 Gbps con SMB Direct/RDMA), respaldos con Veeam Backup & Replication (inmutabilidad, RTO < 15 min, SureBackup), Active Directory (GPOs de hardening CIS, LAPS, troubleshooting con repadmin/dcdiag), WSUS por anillos de prueba, observabilidad híbrida con Zabbix (LLD, proxies para redes aisladas), CI/CD DevSecOps (GitHub Actions/GitLab CI con checkov/trivy/infracost) y FinOps en Reforest Latam (28% de reducción de gasto mensual, billing export a BigQuery, rightsizing, CUDs, autoescalado). Proxmox: conocimiento conceptual, clustering Corosync, KVM y storage ZFS/Ceph con rápida asimilación. Radicado en Salta con perrita adoptada Luna, casa en Almagro (Buenos Aires), disponibilidad inmediata para esquema híbrido."
+      "Guillermo Fernando Farfán Romero. Ingeniero de Infraestructura Cloud y Software con +8 años de experiencia global en IT/sistemas y ~4 años dedicados a cloud, Linux y Kubernetes. On-premise: clúster HA en Microsoft Hyper-V 2025 sobre 3 blades HPE Synergy + SAN HPE Alletra/3PAR (55 TB CSV, MPIO Round Robin, Live Migration a 20 Gbps con SMB Direct/RDMA), respaldos con Veeam Backup & Replication (inmutabilidad, RTO < 15 min, SureBackup, Instant VM Recovery), Active Directory (GPOs de hardening CIS, LAPS, troubleshooting con repadmin/dcdiag), WSUS por anillos de prueba, observabilidad híbrida con Zabbix (LLD, proxies para redes aisladas), Windows Server (DNS/DHCP/IIS/clustering) y firewalls Cisco/Fortinet a nivel reglas, NAT y VPN. Cloud: GCP como base más profunda con Terraform; AWS y Azure operativos (VPC, cómputo, storage, IAM, costos); Huawei Cloud conceptual (VPC/ECS/OBS/CCE) sin producción, con asimilación rápida. DevOps: CI/CD DevSecOps (GitHub Actions/GitLab CI con tflint/checkov/trivy/infracost), gobierno de repositorios y cotización de ambientes multi-nube. FinOps en Reforest Latam: alrededor de 30% de reducción de gasto mensual, billing export a BigQuery, rightsizing, CUDs y autoescalado. Proxmox: conocimiento conceptual de clustering Corosync, KVM y storage ZFS/Ceph, sin sobreventa. Radicado en Salta con perrita adoptada Luna, casa en Almagro (Buenos Aires), disponibilidad inmediata y dedicación full time."
     );
     setExtraInstructions(
-      "Charla técnica con el Líder de Infraestructura en español. Respuestas de alta densidad técnica cumpliendo el Zero-Bullet Mandate: exactamente 2 oraciones (25-45 palabras), primero el veredicto técnico concreto ('punchline') y luego la justificación de arquitectura, trade-off o comando exacto. Mencionar herramientas y conceptos precisos: repadmin, dcdiag, SOBR, Object Lock, MPIO Round Robin, CSV, SMB Direct/RDMA, BigQuery billing export, CUDs, Workload Identity, Infracost. En Proxmox: mantener posicionamiento honesto y sólido (dominio de clustering Linux, storage compartido y equivalencia con VMware/Hyper-V sin sobreventa). En FinOps: enfoque metodológico (Inform, Optimize, Operate). NUNCA usar viñetas ni inventar métricas. Mascota Luna solo si surge charla casual."
+      "Charla técnica en español con Ricardo, Líder de Infraestructura. Prioridad absoluta: on-prem y operación (Hyper-V 2025 con CSV/MPIO/Live Migration, Proxmox con Corosync/KVM, Veeam con inmutabilidad/SureBackup/Instant VM Recovery, AD con repadmin/dcdiag/LAPS/GPO, WSUS por anillos, Zabbix con proxies y LLD, Windows Server, firewalls Cisco/Fortinet). Prohibido responder por defecto con GCP/GKE/GCVE: si preguntan por nube, hablar primero de Huawei Cloud, AWS y Azure, y presentar GCP solo como método transferible o si lo piden explícitamente. Si preguntan por Huawei Cloud, declarar con honestidad que no hay producción y mapear VPC/ECS/OBS/CCE. Zero-Bullet Mandate: exactamente 2 oraciones (25-40 palabras), veredicto técnico primero y luego trade-off o comando exacto. Si el entrevistador cita algo que dijiste ('me dijiste que usaste una vez'), responder 'Sí, lo uso de forma continua desde hace unos cuatro años...' sin negar ni contradecir. CI/CD y repositorios GitLab/GitHub son responsabilidad del rol: gobierno de repos, ramas protegidas y pipelines con lint, tests, escaneo y plan de Terraform. Cotización de ambientes: dimensionar cómputo, storage, base de datos, egress y horas, comparar Azure vs AWS y dejar supuestos explícitos. Planificación de cambios: alcance, ventana, rollback probado, canary o anillos y comunicación. Logística: casa en Almagro (CABA), presencial 2-3 días en Madero/Sáenz sin problema, disponibilidad inmediata y full time sin proyectos paralelos ni freelance. Inglés: sostener la call técnica completa con vendors; nunca decir 'mi eslabón débil' ni que se perdió la conversación. No inventar métricas ni porcentajes; la reducción de gasto es 'alrededor del 30%'. Luna solo si surge charla casual. Cierre: novedades en 15-20 días y disponibilidad para segunda etapa técnica."
     );
     setInterviewMode("technical");
     syncTeleprompter({ interviewMode: "technical" });
 
-    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
+    void loadBanks().then((b) => importMasterAnswers(b.itp));
     setMemoryFilterCompany("ITPatagonia");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
@@ -1207,7 +1381,7 @@ export default function CopilotPage() {
     setInterviewMode("technical");
     syncTeleprompter({ interviewMode: "technical" });
 
-    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
+    void loadBanks().then((b) => importMasterAnswers(b.snappy));
     setMemoryFilterCompany("SnappyCommerce");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
@@ -1237,7 +1411,7 @@ export default function CopilotPage() {
     setInterviewMode("technical");
     syncTeleprompter({ interviewMode: "technical" });
 
-    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+    void loadBanks().then((b) => importMasterAnswers(b.meli));
     setMemoryFilterCompany("MercadoLibre");
     setModelId("glm-5-3-flash");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers, setModelId]);
@@ -1258,7 +1432,7 @@ export default function CopilotPage() {
     setInterviewMode("screening");
     syncTeleprompter({ interviewMode: "screening" });
 
-    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
+    void loadBanks().then((b) => importMasterAnswers(b.meli));
     setMemoryFilterCompany("MercadoLibre");
   }, [setCompany, setRole, setInterviewerBio, setProfile, setExtraInstructions, setInterviewMode, syncTeleprompter, importMasterAnswers]);
 
@@ -1349,9 +1523,14 @@ export default function CopilotPage() {
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={openTeleprompter}
+            onClick={() => {
+              openTeleprompter();
+              // Handshake: el HUD recién abierto debe arrancar con el camuflaje actual
+              syncTeleprompter({ camouMode });
+            }}
             className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium transition-all duration-150 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             title="Abrir Teleprompter flotante para ubicar bajo la cámara"
+            aria-label="HUD Teleprompter"
           >
             <ExternalLinkIcon />
             <span className="hidden md:inline font-semibold">HUD Teleprompter</span>
@@ -1375,7 +1554,29 @@ export default function CopilotPage() {
         {generationError && (
           <div className="p-3 rounded-xl bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center justify-between shadow-lg">
             <span>⚠️ {generationError}</span>
-            <button type="button" onClick={() => stopGenerating()} className="underline hover:text-white">
+            <button
+              type="button"
+              onClick={() => {
+                stopGenerating();
+                clearGenerationError();
+              }}
+              className="underline hover:text-white"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
+        {storageQuotaExceeded && !quotaAlertDismissed && (
+          <div className="p-3 rounded-xl bg-amber-950/80 border border-amber-600 text-amber-200 text-xs flex items-center justify-between shadow-lg">
+            <span>
+              ⚠️ <strong>Almacenamiento lleno:</strong> no se pudieron guardar los últimos cambios en localStorage (cuota del navegador alcanzada). La sesión en vivo sigue funcionando con normalidad en memoria.
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuotaAlertDismissed(true)}
+              className="ml-2 px-2 py-0.5 rounded bg-amber-900 hover:bg-amber-800 text-amber-100 font-medium"
+            >
               Cerrar
             </button>
           </div>
@@ -1474,7 +1675,7 @@ export default function CopilotPage() {
                       IT Patagonia — DevOps & FinOps Sr (Arquitectura Híbrida & Operaciones)
                     </p>
                     <p className="text-[11px] text-zinc-400">
-                      Entrevistador: <strong className="text-sky-300">Líder Técnico de Área</strong> • Stack: <strong className="text-zinc-200">Hyper-V 2025, Proxmox, Veeam DRP, AD/WSUS, Zabbix, GCP Terraform & FinOps</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
+                      Entrevistador: <strong className="text-sky-300">Ricardo (Líder Técnico de Infraestructura)</strong> • Stack: <strong className="text-zinc-200">Hyper-V 2025, Proxmox, Veeam DRP, AD/WSUS, Zabbix, Huawei/AWS/Azure, Terraform & FinOps</strong> • Memoria: <strong className="text-zinc-200">{masterAnswers.length} listas</strong>
                     </p>
                   </div>
                 </div>
@@ -1746,7 +1947,10 @@ export default function CopilotPage() {
                     <>
                       <button
                         type="button"
-                        onClick={disconnectDeepgram}
+                        onClick={() => {
+                          earbudWhisper.stopIfActive();
+                          disconnectDeepgram();
+                        }}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] active:scale-[0.98]"
                       >
                         <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -1793,17 +1997,7 @@ export default function CopilotPage() {
                 </div>
 
                 {/* Live Speech Monitor / Ticker */}
-                <div className="flex-1 min-w-[200px] flex items-center justify-end">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.06] text-zinc-400 text-xs max-w-md w-full justify-between backdrop-blur-sm">
-                    <span className="flex items-center gap-1.5 text-[10px] uppercase font-mono tracking-wider text-zinc-500 shrink-0">
-                      <span className={`w-1.5 h-1.5 rounded-full ${sttStatus === "live" ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
-                      Monitor
-                    </span>
-                    <div className="truncate text-zinc-300 text-right">
-                      <ListenText text={lastTranscriptText} />
-                    </div>
-                  </div>
-                </div>
+                <LiveMonitorListen store={transcriptStoreRef.current} sttStatus={sttStatus} />
               </div>
 
               {/* Tier 2: Co-Pilot Tactical Arsenal & Assistance Tools */}
@@ -1850,7 +2044,7 @@ export default function CopilotPage() {
                     onClick={handleCaptureScreen}
                     disabled={isGenerating || isVisionCapturing}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
-                    title="Capturar pantalla y resolver ejercicio de LeetCode / diagrama (Ctrl+Shift+S)"
+                    title="Capturar pantalla y resolver ejercicio de LeetCode / diagrama (Ctrl+Shift+S o tecla `)"
                   >
                     <span>📷 {isVisionCapturing ? "Capturando..." : "Pantalla"}</span>
                   </button>
@@ -1891,20 +2085,22 @@ export default function CopilotPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setScreenSafeMode((prev) => {
-                        const next = !prev;
-                        syncTeleprompter({ camouMode: next ? "ide" : "normal" });
-                        return next;
-                      });
+                      const next = camouMode === "normal" ? "ide" : camouMode === "ide" ? "terminal" : "normal";
+                      setCamouMode(next);
+                      syncTeleprompter({ camouMode: next });
                     }}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
-                      screenSafeMode
+                      camouMode !== "normal"
                         ? "bg-purple-950/80 border-purple-500 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.3)] animate-pulse"
                         : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] text-zinc-300"
                     }`}
-                    title="Alternar Pantalla Segura / Camuflaje IDE en el Teleprompter (Atajo: F8)"
+                    title="Ciclar Camuflaje: Normal → IDE → Terminal (Atajo: F8)"
                   >
-                    <span>{screenSafeMode ? "🛡️ Camuflaje (F8) ON" : "🛡️ Camuflaje (F8)"}</span>
+                    <span>
+                      {camouMode === "normal"
+                        ? "🛡️ Camuflaje (F8)"
+                        : `🛡️ Camuflaje ${camouMode === "ide" ? "IDE" : "Terminal"} ON`}
+                    </span>
                   </button>
                 </div>
 
@@ -1912,7 +2108,13 @@ export default function CopilotPage() {
                 <div className="flex items-center gap-1.5 flex-wrap lg:justify-end">
                   <button
                     type="button"
-                    onClick={() => earbudWhisper.setIsEnabled(!earbudWhisper.isEnabled)}
+                      onClick={() => {
+                        const next = !earbudWhisper.isEnabled;
+                        earbudWhisper.setIsEnabled(next);
+                        // Al desactivar, cortar el susurro en curso: se desactiva justo
+                        // cuando el usuario teme la fuga al micrófono de la call
+                        if (!next) earbudWhisper.stop();
+                      }}
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 ${
                       earbudWhisper.isEnabled
                         ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] font-semibold"
@@ -1964,6 +2166,7 @@ export default function CopilotPage() {
                     disabled={isGenerating}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition-all duration-150 disabled:opacity-50"
                     title="Preguntas estratégicas para hacerle a ellos"
+                    aria-label="Preguntas estratégicas"
                   >
                     <SparkleIcon />
                     <span className="hidden sm:inline">Preguntas</span>
@@ -1976,8 +2179,9 @@ export default function CopilotPage() {
             {showDeviceSettings && (
               <div className="p-4 rounded-2xl border border-emerald-500/30 bg-[#0c101c]/95 backdrop-blur-2xl flex flex-wrap items-center gap-4 text-xs shadow-2xl animate-in fade-in">
                 <div className="flex flex-col gap-1.5 min-w-[240px]">
-                  <label className="text-[11px] font-semibold text-emerald-400">🎤 Tu Micrófono (Canal Izquierdo):</label>
+                  <label htmlFor="mic-select" className="text-[11px] font-semibold text-emerald-400">🎤 Tu Micrófono (Canal Izquierdo):</label>
                   <select
+                    id="mic-select"
                     value={selectedMicId}
                     onChange={(e) => setSelectedMicId(e.target.value)}
                     className="px-3 py-2 rounded-xl bg-black/50 border border-white/[0.1] text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
@@ -1992,10 +2196,11 @@ export default function CopilotPage() {
                 </div>
 
                 <div className="flex flex-col gap-1.5 min-w-[260px]">
-                  <label className="text-[11px] font-semibold text-sky-400">
+                  <label htmlFor="interviewer-audio-select" className="text-[11px] font-semibold text-sky-400">
                     🔊 Audio del Entrevistador (Zoom / Teams - Canal Derecho):
                   </label>
                   <select
+                    id="interviewer-audio-select"
                     value={selectedInterviewerId}
                     onChange={(e) => setSelectedInterviewerId(e.target.value)}
                     className="px-3 py-2 rounded-xl bg-black/50 border border-white/[0.1] text-zinc-200 text-xs focus:outline-none focus:border-sky-500"
@@ -2015,44 +2220,14 @@ export default function CopilotPage() {
               </div>
             )}
 
-            {/* Ticker / Monitor de Transcripción en Vivo */}
-            {sttStatus === "live" && (
-              <div className="px-4 py-3 rounded-2xl bg-[#0a0e1a]/90 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs shadow-[0_0_20px_rgba(16,185,129,0.1)] animate-in fade-in">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <span className="font-semibold text-emerald-300 shrink-0">
-                    {audioMode === "tab" ? "Escuchando Pestaña:" : audioMode === "dual" ? "Escuchando Entrevistador:" : "Escuchando Mic:"}
-                  </span>
-                  <span className="font-mono text-zinc-200 truncate">
-                    {transcriptLines.length > 0 ? (
-                      `"${transcriptLines[transcriptLines.length - 1].text}"`
-                    ) : (
-                      <span className="text-zinc-500 italic">Esperando que hable el entrevistador...</span>
-                    )}
-                  </span>
-                </div>
-                {transcriptLines.length > 0 && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={triggerCurrentInterviewerQuestion}
-                      disabled={isGenerating}
-                      className="px-3 py-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-bold text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all active:scale-95 disabled:opacity-50"
-                      title="Generar respuesta inmediata para lo que acaba de decir el entrevistador"
-                    >
-                      <span>⚡</span>
-                      <span>Responder Turno</span>
-                    </button>
-                    <span className="text-[11px] font-mono text-zinc-500 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.04]">
-                      {transcriptLines.length} turnos
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Ticker / Monitor de Transcripción en Vivo (Aislado para evitar re-render de CopilotPage) */}
+            <LiveTranscriptTicker
+              store={transcriptStoreRef.current}
+              sttStatus={sttStatus}
+              audioMode={audioMode}
+              isGenerating={isGenerating}
+              onTrigger={triggerCurrentInterviewerQuestion}
+            />
 
             {/* Frases de Rescate Inmediatas */}
             <RescuePhrases onSelect={handleSelectRescuePhrase} />
@@ -2124,8 +2299,8 @@ export default function CopilotPage() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-zinc-300">
                         <div>💼 Rol: <span className="text-zinc-100 font-medium">DevOps & FinOps Sr</span></div>
-                        <div>👤 Panel: <span className="text-sky-200 font-medium">Líder Técnico de Área</span></div>
-                        <div>⚡ Foco: <span className="text-sky-300 font-medium">Hyper-V, Veeam, AD, Zabbix, GCP</span></div>
+                        <div>👤 Panel: <span className="text-sky-200 font-medium">Ricardo (Líder de Infraestructura)</span></div>
+                        <div>⚡ Foco: <span className="text-sky-300 font-medium">Hyper-V, Proxmox, Veeam, AD/WSUS, Zabbix, Huawei/AWS/Azure</span></div>
                         <div>🏛️ Clientes: <span className="text-zinc-100 font-medium">Bancarios & Factory</span></div>
                         <div>🐕 Mascota: <span className="text-sky-300 font-medium">Luna (Salta)</span></div>
                         <div>📚 Memoria: <span className="text-zinc-100 font-medium">{masterAnswers.length} respuestas</span></div>
@@ -2165,15 +2340,31 @@ export default function CopilotPage() {
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
                       <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">F2</kbd>
-                      <span>Alternar Escucha</span>
+                      <span>Ultra Conciso</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
-                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">Ctrl+Shift+S</kbd>
-                      <span>Analizar Pantalla</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">F3</kbd>
+                      <span>Trade-offs Matrix</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">F4</kbd>
+                      <span>Cierre de Oro (o Ctrl+Shift+Q)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">`</kbd>
+                      <span>Analizar Pantalla (o Ctrl+Shift+S)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">F8</kbd>
+                      <span>Camuflaje IDE/Terminal</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
+                      <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">Alt+1..4</kbd>
+                      <span>Frases de rescate</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-zinc-300">
                       <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">Esc</kbd>
-                      <span>Botón Pánico</span>
+                      <span>Botón Pánico (HUD)</span>
                     </div>
                   </div>
                 </div>
@@ -2215,6 +2406,7 @@ export default function CopilotPage() {
                   value={manualQuestion}
                   onChange={(e) => setManualQuestion(e.target.value)}
                   placeholder="Preguntale al copiloto o pegá la pregunta del entrevistador..."
+                  aria-label="Preguntale al copiloto"
                   className="flex-1 bg-transparent px-2 py-2 text-zinc-100 placeholder-zinc-500 text-xs sm:text-sm focus:outline-none font-normal"
                 />
                 <button
@@ -2284,8 +2476,9 @@ export default function CopilotPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">Empresa</label>
+                <label htmlFor="ctx-company" className="block text-xs font-semibold text-zinc-300 mb-1">Empresa</label>
                 <input
+                  id="ctx-company"
                   type="text"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
@@ -2295,8 +2488,9 @@ export default function CopilotPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">Puesto / Rol Postulado</label>
+                <label htmlFor="ctx-role" className="block text-xs font-semibold text-zinc-300 mb-1">Puesto / Rol Postulado</label>
                 <input
+                  id="ctx-role"
                   type="text"
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
@@ -2307,10 +2501,11 @@ export default function CopilotPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              <label htmlFor="ctx-profile" className="block text-xs font-semibold text-zinc-300 mb-1">
                 Perfil del Candidato (CV, Experiencia, Logros y Stack)
               </label>
               <textarea
+                id="ctx-profile"
                 value={profile}
                 onChange={(e) => setProfile(e.target.value)}
                 rows={6}
@@ -2320,10 +2515,11 @@ export default function CopilotPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              <label htmlFor="ctx-extra" className="block text-xs font-semibold text-zinc-300 mb-1">
                 Instrucciones Extra / Rubric Personalizada
               </label>
               <textarea
+                id="ctx-extra"
                 value={extraInstructions}
                 onChange={(e) => setExtraInstructions(e.target.value)}
                 rows={2}
@@ -2335,7 +2531,7 @@ export default function CopilotPage() {
             {/* Dossier & Perfil Psicológico del Entrevistador */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-zinc-300">
+                <label htmlFor="ctx-interviewer-bio" className="block text-xs font-semibold text-zinc-300">
                   👤 Dossier & Perfil Psicológico del Entrevistador (Pre-Interview Intel)
                 </label>
                 <div className="flex items-center gap-2">
@@ -2361,8 +2557,8 @@ export default function CopilotPage() {
                     Respondé 3 preguntas rápidas y generamos el dossier automáticamente:
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-400 mb-1">1. ¿Perfil del entrevistador?</label>
-                    <div className="flex gap-2">
+                    <span className="block text-[10px] text-zinc-400 mb-1">1. ¿Perfil del entrevistador?</span>
+                    <div role="group" aria-label="1. ¿Perfil del entrevistador?" className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setWizardProfile("technical")}
@@ -2388,8 +2584,9 @@ export default function CopilotPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-400 mb-1">2. ¿Empresa / Stack? (opcional)</label>
+                    <label htmlFor="wizard-company" className="block text-[10px] text-zinc-400 mb-1">2. ¿Empresa / Stack? (opcional)</label>
                     <input
+                      id="wizard-company"
                       type="text"
                       value={wizardCompany}
                       onChange={(e) => setWizardCompany(e.target.value)}
@@ -2398,8 +2595,8 @@ export default function CopilotPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-zinc-400 mb-1">3. ¿Cómo arranó la charla?</label>
-                    <div className="flex gap-1.5 flex-wrap">
+                    <span className="block text-[10px] text-zinc-400 mb-1">3. ¿Cómo arranó la charla?</span>
+                    <div role="group" aria-label="3. ¿Cómo arranó la charla?" className="flex gap-1.5 flex-wrap">
                       {(["warm", "neutral", "cold", "aggressive"] as const).map((tone) => (
                         <button
                           key={tone}
@@ -2436,6 +2633,7 @@ export default function CopilotPage() {
               )}
 
               <textarea
+                id="ctx-interviewer-bio"
                 value={interviewerBio}
                 onChange={(e) => setInterviewerBio(e.target.value)}
                 rows={2}
@@ -2447,8 +2645,9 @@ export default function CopilotPage() {
             {/* Language & Dialect Settings */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-zinc-800 pt-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">Idioma del Entrevistador</label>
+                <label htmlFor="stt-lang-select" className="block text-xs font-semibold text-zinc-300 mb-1">Idioma del Entrevistador</label>
                 <select
+                  id="stt-lang-select"
                   value={sttLang}
                   onChange={(e) => setSttLang(e.target.value as "es" | "en")}
                   className="w-full px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-200 text-xs"
@@ -2459,10 +2658,11 @@ export default function CopilotPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">Dialecto de Respuesta</label>
+                <label htmlFor="dialect-select" className="block text-xs font-semibold text-zinc-300 mb-1">Dialecto de Respuesta</label>
                 <select
+                  id="dialect-select"
                   value={dialect}
-                  onChange={(e) => setDialect(e.target.value as any)}
+                  onChange={(e) => setDialect(e.target.value as "rioplatense" | "neutro" | "english")}
                   className="w-full px-3 py-2 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-200 text-xs"
                 >
                   <option value="rioplatense">Rioplatense (Voseo)</option>
@@ -2492,6 +2692,7 @@ export default function CopilotPage() {
                   value={profileNameInput}
                   onChange={(e) => setProfileNameInput(e.target.value)}
                   placeholder="Nombre del perfil (ej: Senior Backend Python)"
+                  aria-label="Nombre del perfil"
                   className="px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-200 text-xs"
                 />
                 <button
@@ -2512,23 +2713,24 @@ export default function CopilotPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-zinc-400">Cargar:</span>
                   {savedProfiles.map((p) => (
-                    <button
-                      key={p.name}
-                      type="button"
-                      onClick={() => loadProfile(p.name)}
-                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300 flex items-center gap-1"
-                    >
-                      <span>{p.name}</span>
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteProfile(p.name);
-                        }}
-                        className="text-zinc-500 hover:text-red-400 ml-1"
+                    <div key={p.name} className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => loadProfile(p.name)}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300"
+                      >
+                        <span>{p.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteProfile(p.name)}
+                        className="px-1.5 py-1 rounded text-zinc-500 hover:text-red-400 text-xs"
+                        title={`Borrar perfil ${p.name}`}
+                        aria-label={`Borrar perfil ${p.name}`}
                       >
                         ×
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -2557,8 +2759,9 @@ export default function CopilotPage() {
               {showStarForm && (
                 <form onSubmit={handleSaveNewStarStory} className="p-3 bg-zinc-950/80 border border-amber-500/30 rounded-xl flex flex-col gap-2.5 mb-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">Título del Proyecto / Logro</label>
+                    <label htmlFor="star-title" className="block text-[11px] font-semibold text-zinc-300 mb-1">Título del Proyecto / Logro</label>
                     <input
+                      id="star-title"
                       type="text"
                       value={newStarTitle}
                       onChange={(e) => setNewStarTitle(e.target.value)}
@@ -2569,8 +2772,9 @@ export default function CopilotPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-semibold text-zinc-300 mb-1">Situación & Tarea</label>
+                      <label htmlFor="star-situation" className="block text-[11px] font-semibold text-zinc-300 mb-1">Situación & Tarea</label>
                       <textarea
+                        id="star-situation"
                         value={newStarSituation}
                         onChange={(e) => setNewStarSituation(e.target.value)}
                         placeholder="El problema de escala, cuellos de botella o requerimiento inicial..."
@@ -2579,8 +2783,9 @@ export default function CopilotPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-zinc-300 mb-1">Acción Técnica Real</label>
+                      <label htmlFor="star-action" className="block text-[11px] font-semibold text-zinc-300 mb-1">Acción Técnica Real</label>
                       <textarea
+                        id="star-action"
                         value={newStarAction}
                         onChange={(e) => setNewStarAction(e.target.value)}
                         placeholder="Qué implementaste vos específicamente y qué trade-off defendiste..."
@@ -2591,8 +2796,9 @@ export default function CopilotPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">Resultado Cuantitativo (Métrica de impacto)</label>
+                    <label htmlFor="star-result" className="block text-[11px] font-semibold text-zinc-300 mb-1">Resultado Cuantitativo (Métrica de impacto)</label>
                     <input
+                      id="star-result"
                       type="text"
                       value={newStarResult}
                       onChange={(e) => setNewStarResult(e.target.value)}
@@ -2622,6 +2828,7 @@ export default function CopilotPage() {
                             onClick={() => deleteSTARStory(story.id)}
                             className="text-zinc-500 hover:text-red-400 text-xs"
                             title="Eliminar historia"
+                            aria-label="Eliminar historia"
                           >
                             ✕
                           </button>
@@ -2660,53 +2867,46 @@ export default function CopilotPage() {
                 {/* Botón Cargar Snappy Commerce */}
                 <button
                   type="button"
-                  onClick={() => {
-                    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
-                    setMemoryFilterCompany("SnappyCommerce");
-                  }}
+                  onClick={() => loadBankIntoMemory("snappy", "SnappyCommerce")}
                   className="px-3 py-1.5 rounded-lg border border-orange-500/40 bg-orange-950/40 hover:bg-orange-900/60 text-orange-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(249,115,22,0.2)]"
                   title="Cargar el banco maestro de respuestas para Snappy Commerce (Full Stack Developer • Patricio & Nick)"
                 >
-                  <span>🧡 Cargar Snappy Commerce ({SNAPPY_COMMERCE_MASTER_ANSWERS.length})</span>
+                  <span>🧡 Cargar Snappy Commerce ({banks?.snappy.length ?? "…"})</span>
                 </button>
 
                 {/* Botón Cargar IT Patagonia */}
                 <button
                   type="button"
-                  onClick={() => {
-                    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
-                    setMemoryFilterCompany("ITPatagonia");
-                  }}
+                  onClick={() => loadBankIntoMemory("itp", "ITPatagonia")}
                   className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/60 text-sky-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(14,165,233,0.2)]"
                   title="Cargar el banco maestro de respuestas para IT Patagonia (DevOps & FinOps Sr • Charla Técnica)"
                 >
-                  <span>🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})</span>
+                  <span>🔵 Cargar IT Patagonia ({banks?.itp.length ?? "…"})</span>
                 </button>
 
                 {/* Botón Cargar Mercado Libre */}
                 <button
                   type="button"
-                  onClick={() => {
-                    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
-                    setMemoryFilterCompany("MercadoLibre");
-                  }}
+                  onClick={() => loadBankIntoMemory("meli", "MercadoLibre")}
                   className="px-3 py-1.5 rounded-lg border border-yellow-500/40 bg-yellow-950/40 hover:bg-yellow-900/60 text-yellow-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(234,179,8,0.2)]"
                   title="Cargar o actualizar las respuestas maestras preparadas para Mercado Libre NoSQL Service Team"
                 >
-                  <span>🟡 Cargar Mercado Libre ({MELI_NOSQL_MASTER_ANSWERS.length})</span>
+                  <span>🟡 Cargar Mercado Libre ({banks?.meli.length ?? "…"})</span>
                 </button>
 
                 {/* Botón Cargar Todas */}
                 <button
                   type="button"
                   onClick={() => {
-                    importMasterAnswers([...SNAPPY_COMMERCE_MASTER_ANSWERS, ...IT_PATAGONIA_MASTER_ANSWERS, ...MELI_NOSQL_MASTER_ANSWERS]);
-                    setMemoryFilterCompany("all");
+                    void loadBanks().then((b) => {
+                      importMasterAnswers([...b.snappy, ...b.itp, ...b.meli]);
+                      setMemoryFilterCompany("all");
+                    });
                   }}
                   className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
                   title="Cargar todas las respuestas maestras de Snappy Commerce, IT Patagonia y Mercado Libre juntas"
                 >
-                  <span>⚡ Cargar Todas ({SNAPPY_COMMERCE_MASTER_ANSWERS.length + IT_PATAGONIA_MASTER_ANSWERS.length + MELI_NOSQL_MASTER_ANSWERS.length})</span>
+                  <span>⚡ Cargar Todas ({banks ? banks.snappy.length + banks.itp.length + banks.meli.length : "…"})</span>
                 </button>
 
                 {/* Reemplazar Banco con Preset Activo */}
@@ -2716,20 +2916,18 @@ export default function CopilotPage() {
                     const isMeli = company === "MercadoLibre";
                     const isItp = company === "ITPatagonia";
                     const isSnappy = company === "SnappyCommerce";
-                    const targetName = isSnappy
-                      ? "Snappy Commerce (" + SNAPPY_COMMERCE_MASTER_ANSWERS.length + ")"
-                      : isItp
-                      ? "IT Patagonia (" + IT_PATAGONIA_MASTER_ANSWERS.length + ")"
-                      : "Mercado Libre (" + MELI_NOSQL_MASTER_ANSWERS.length + ")";
-                    const answersToLoad = isSnappy
-                      ? SNAPPY_COMMERCE_MASTER_ANSWERS
-                      : isItp
-                      ? IT_PATAGONIA_MASTER_ANSWERS
-                      : MELI_NOSQL_MASTER_ANSWERS;
-                    if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
-                      replaceMasterAnswers(answersToLoad);
-                      setMemoryFilterCompany(isSnappy ? "SnappyCommerce" : isItp ? "ITPatagonia" : "MercadoLibre");
-                    }
+                    void loadBanks().then((b) => {
+                      const answersToLoad = isSnappy ? b.snappy : isItp ? b.itp : b.meli;
+                      const targetName = isSnappy
+                        ? "Snappy Commerce (" + b.snappy.length + ")"
+                        : isItp
+                        ? "IT Patagonia (" + b.itp.length + ")"
+                        : "Mercado Libre (" + b.meli.length + ")";
+                      if (confirm(`Esto reemplaza TODAS las entradas del Banco con las ${answersToLoad.length} respuestas de ${targetName}. Las entradas viejas se eliminan. ¿Continuar?`)) {
+                        replaceMasterAnswers(answersToLoad);
+                        setMemoryFilterCompany(isSnappy ? "SnappyCommerce" : isItp ? "ITPatagonia" : "MercadoLibre");
+                      }
+                    });
                   }}
                   className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all flex items-center gap-1.5"
                   title="Reemplazar todo el banco con el preset de la empresa seleccionada"
@@ -2780,18 +2978,15 @@ export default function CopilotPage() {
                   <span className="text-xl">🧡</span>
                   <div>
                     <span className="font-bold text-orange-100">Estás en la entrevista de Snappy Commerce (Full Stack Developer • Patricio & Nick)</span>
-                    <p className="text-[11px] text-orange-300/80">Tu banco de memoria aún no tiene cargadas las {SNAPPY_COMMERCE_MASTER_ANSWERS.length} respuestas de Vue 3, Node.js, PostgreSQL y AI eCommerce.</p>
+                    <p className="text-[11px] text-orange-300/80">Tu banco de memoria aún no tiene cargadas las {banks?.snappy.length ?? "…"} respuestas de Vue 3, Node.js, PostgreSQL y AI eCommerce.</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
-                    setMemoryFilterCompany("SnappyCommerce");
-                  }}
+                  onClick={() => loadBankIntoMemory("snappy", "SnappyCommerce")}
                   className="px-3.5 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
                 >
-                  ⚡ Cargar las {SNAPPY_COMMERCE_MASTER_ANSWERS.length} Respuestas de Snappy
+                  ⚡ Cargar las {banks?.snappy.length ?? "…"} Respuestas de Snappy
                 </button>
               </div>
             )}
@@ -2803,18 +2998,15 @@ export default function CopilotPage() {
                   <span className="text-xl">🔵</span>
                   <div>
                     <span className="font-bold text-sky-100">Estás en la entrevista de IT Patagonia (DevOps & FinOps Sr • Charla Técnica)</span>
-                    <p className="text-[11px] text-sky-300/80">Tu banco de memoria aún no tiene cargadas las {IT_PATAGONIA_MASTER_ANSWERS.length} respuestas de Hyper-V 2025, Veeam, AD y FinOps.</p>
+                    <p className="text-[11px] text-sky-300/80">Tu banco de memoria aún no tiene cargadas las {banks?.itp.length ?? "…"} respuestas de Hyper-V 2025, Veeam, AD y FinOps.</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
-                    setMemoryFilterCompany("ITPatagonia");
-                  }}
+                  onClick={() => loadBankIntoMemory("itp", "ITPatagonia")}
                   className="px-3.5 py-1.5 rounded-lg bg-sky-400 hover:bg-sky-300 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
                 >
-                  ⚡ Cargar las {IT_PATAGONIA_MASTER_ANSWERS.length} Respuestas de IT Patagonia
+                  ⚡ Cargar las {banks?.itp.length ?? "…"} Respuestas de IT Patagonia
                 </button>
               </div>
             )}
@@ -2831,13 +3023,10 @@ export default function CopilotPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
-                    setMemoryFilterCompany("MercadoLibre");
-                  }}
+                  onClick={() => loadBankIntoMemory("meli", "MercadoLibre")}
                   className="px-3.5 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-zinc-950 font-bold text-xs shrink-0 transition-all shadow"
                 >
-                  ⚡ Cargar las {MELI_NOSQL_MASTER_ANSWERS.length} Respuestas de MELI
+                  ⚡ Cargar las {banks?.meli.length ?? "…"} Respuestas de MELI
                 </button>
               </div>
             )}
@@ -2930,6 +3119,7 @@ export default function CopilotPage() {
                   value={memorySearchTerm}
                   onChange={(e) => setMemorySearchTerm(e.target.value)}
                   placeholder="🔍 Buscar pregunta, sharding, istio, star..."
+                  aria-label="Buscar en la memoria de respuestas"
                   className="w-full px-3 py-1.5 pr-7 text-xs rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-yellow-500"
                 />
                 {memorySearchTerm && (
@@ -2938,6 +3128,7 @@ export default function CopilotPage() {
                     onClick={() => setMemorySearchTerm("")}
                     className="absolute right-2.5 top-2 text-zinc-400 hover:text-zinc-200 text-xs"
                     title="Limpiar búsqueda"
+                    aria-label="Limpiar búsqueda"
                   >
                     ✕
                   </button>
@@ -2955,40 +3146,31 @@ export default function CopilotPage() {
                 </p>
                 <p className="text-xs max-w-md mx-auto mb-4 text-zinc-400">
                   {masterAnswers.length === 0
-                    ? `Cargá las respuestas de Snappy Commerce (${SNAPPY_COMMERCE_MASTER_ANSWERS.length}), IT Patagonia (${IT_PATAGONIA_MASTER_ANSWERS.length}) o Mercado Libre (${MELI_NOSQL_MASTER_ANSWERS.length}) para tener respuestas instantáneas (<50ms) en vivo.`
+                    ? `Cargá las respuestas de Snappy Commerce (${banks?.snappy.length ?? "…"}), IT Patagonia (${banks?.itp.length ?? "…"}) o Mercado Libre (${banks?.meli.length ?? "…"}) para tener respuestas instantáneas (<50ms) en vivo.`
                     : "Prueba seleccionando 'Todas' o borrando el término del buscador."}
                 </p>
                 {masterAnswers.length === 0 && (
                   <div className="flex flex-wrap items-center justify-center gap-2.5">
                     <button
                       type="button"
-                      onClick={() => {
-                        importMasterAnswers(SNAPPY_COMMERCE_MASTER_ANSWERS);
-                        setMemoryFilterCompany("SnappyCommerce");
-                      }}
+                      onClick={() => loadBankIntoMemory("snappy", "SnappyCommerce")}
                       className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(249,115,22,0.3)]"
                     >
-                      🧡 Cargar Snappy Commerce ({SNAPPY_COMMERCE_MASTER_ANSWERS.length})
+                      🧡 Cargar Snappy Commerce ({banks?.snappy.length ?? "…"})
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        importMasterAnswers(IT_PATAGONIA_MASTER_ANSWERS);
-                        setMemoryFilterCompany("ITPatagonia");
-                      }}
+                      onClick={() => loadBankIntoMemory("itp", "ITPatagonia")}
                       className="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(14,165,233,0.3)]"
                     >
-                      🔵 Cargar IT Patagonia ({IT_PATAGONIA_MASTER_ANSWERS.length})
+                      🔵 Cargar IT Patagonia ({banks?.itp.length ?? "…"})
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        importMasterAnswers(MELI_NOSQL_MASTER_ANSWERS);
-                        setMemoryFilterCompany("MercadoLibre");
-                      }}
+                      onClick={() => loadBankIntoMemory("meli", "MercadoLibre")}
                       className="px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-zinc-950 text-xs font-bold transition-all shadow-[0_0_12px_rgba(250,204,21,0.3)]"
                     >
-                      🟡 Cargar Mercado Libre ({MELI_NOSQL_MASTER_ANSWERS.length})
+                      🟡 Cargar Mercado Libre ({banks?.meli.length ?? "…"})
                     </button>
                   </div>
                 )}
@@ -3122,6 +3304,9 @@ export default function CopilotPage() {
             onClick={() => setVulnModalOpen(false)}
           >
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Radar de Vulnerabilidades del CV"
               className="bg-zinc-950 border border-amber-500/40 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-2xl flex flex-col gap-4"
               onClick={(e) => e.stopPropagation()}
             >
@@ -3137,6 +3322,7 @@ export default function CopilotPage() {
                   type="button"
                   onClick={() => setVulnModalOpen(false)}
                   className="text-zinc-500 hover:text-zinc-200 text-lg p-1"
+                  aria-label="Cerrar"
                 >
                   ✕
                 </button>
@@ -3180,6 +3366,9 @@ export default function CopilotPage() {
             onClick={() => setSummaryModalOpen(false)}
           >
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Scorecard Predictor FAANG"
               className="bg-zinc-950 border border-emerald-500/40 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-2xl flex flex-col gap-4"
               onClick={(e) => e.stopPropagation()}
             >
@@ -3195,6 +3384,7 @@ export default function CopilotPage() {
                   type="button"
                   onClick={() => setSummaryModalOpen(false)}
                   className="text-zinc-500 hover:text-zinc-200 text-lg p-1"
+                  aria-label="Cerrar"
                 >
                   ✕
                 </button>
@@ -3247,6 +3437,9 @@ export default function CopilotPage() {
             onClick={() => setGlassdoorModalOpen(false)}
           >
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Inyector de preguntas Glassdoor"
               className="bg-zinc-950 border border-amber-500/40 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-2xl flex flex-col gap-4"
               onClick={(e) => e.stopPropagation()}
             >
@@ -3264,16 +3457,18 @@ export default function CopilotPage() {
                   type="button"
                   onClick={() => setGlassdoorModalOpen(false)}
                   className="text-zinc-500 hover:text-zinc-200 text-lg p-1"
+                  aria-label="Cerrar"
                 >
                   ✕
                 </button>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-zinc-300">
+                <label htmlFor="glassdoor-questions" className="text-xs font-semibold text-zinc-300">
                   Preguntas (una por línea o lista numerada):
                 </label>
                 <textarea
+                  id="glassdoor-questions"
                   value={glassdoorText}
                   onChange={(e) => setGlassdoorText(e.target.value)}
                   placeholder={`1. Tell me about a time you had to deal with high latency in distributed services.\n2. How do you design an idempotent payment processing API?\n3. Why do you want to work at ${company || "this company"}?\n4. What was the hardest production bug you resolved?`}

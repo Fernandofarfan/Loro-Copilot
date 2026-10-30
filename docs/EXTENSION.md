@@ -2,7 +2,7 @@
 
 La carpeta `extension/` es un companion Manifest V3 para capturar audio de pestañas (Meet / Zoom Web / Teams) en **desarrollo** (`http://localhost:3000`), sin depender solo de `getDisplayMedia` en la ventana del copiloto.
 
-**Estado:** el código existe. La app Next **no escucha** `LORO_EXT_DG_MESSAGE`. En producción el copiloto usa `getDisplayMedia` / VB-CABLE vía `useDeepgram.ts`. No instalar esto para la entrevista Globant salvo que se cablee el listener.
+**Estado:** el código existe. La app Next **no escucha** `LORO_EXT_DG_MESSAGE`. En producción el copiloto usa `getDisplayMedia` / VB-CABLE vía `useDeepgram.ts`. No instalar esto para una entrevista salvo que se cablee el listener.
 
 ---
 

@@ -315,6 +315,13 @@ input, select {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
+/* Foco por teclado visible. Pisa a propósito los `focus:outline-none` de Tailwind:
+   el cambio de borde/color solo no alcanza para navegar por teclado. */
+*:focus-visible {
+  outline: 2px solid #6366f1 !important;
+  outline-offset: 2px !important;
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 110px;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { parseMermaidFlowchart, ArchitectureNode } from "../lib/mermaidParser";
 import { copyGraphToExcalidraw } from "../lib/excalidrawExport";
 

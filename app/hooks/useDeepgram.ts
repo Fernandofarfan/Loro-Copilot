@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { track } from "../lib/track";
+import { apiFetch } from "../lib/apiFetch";
 
 export type DeepgramStatus = "idle" | "connecting" | "live" | "error";
 export type AudioMode = "mic" | "tab" | "dual";
@@ -129,7 +130,8 @@ export function useDeepgram({
     }
   }, []);
 
-  const disconnect = useCallback(() => {
+  // Liberar solo los recursos (socket, streams, AudioContext, timers) sin tocar el estado de UI.
+  const releaseCapture = useCallback(() => {
     intentionalCloseRef.current = true;
     connectionGenRef.current++; // invalidar handlers asíncronos pendientes
     clearTimers();
@@ -197,13 +199,22 @@ export function useDeepgram({
       audioCtxRef.current = null;
     }
 
-    setStatus("idle");
-    setErrorMessage(null);
     setEnergy({ micRms: 0, tabRms: 0 });
     currentInterimIdRef.current = null;
     lineCounterRef.current = 1;
     reconnectAttemptsRef.current = 0;
   }, [clearTimers, releaseWakeLock]);
+
+  // Cierre completo: libera recursos y fija el estado final (idle, o error con diagnóstico
+  // visible para el usuario — el orden importa: la limpieza no debe borrar el mensaje).
+  const disconnect = useCallback(
+    (opts?: { status?: "idle" | "error"; errorMessage?: string | null }) => {
+      releaseCapture();
+      setStatus(opts?.status ?? "idle");
+      setErrorMessage(opts?.errorMessage ?? null);
+    },
+    [releaseCapture]
+  );
 
   // Manejo de visibilidad de pestaña: reanudar AudioContext si se suspende
   useEffect(() => {
@@ -237,7 +248,7 @@ export function useDeepgram({
         tokenAbortControllerRef.current = new AbortController();
 
         // 1. Obtener Token Temporal (Grant 120s)
-        const tokenRes = await fetch("/api/deepgram-token", {
+        const tokenRes = await apiFetch("/api/deepgram-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: tokenAbortControllerRef.current.signal,
@@ -252,8 +263,8 @@ export function useDeepgram({
             (tokenRes.status === 503
               ? "Capacidad temporalmente agotada."
               : "Error de autenticación con el servicio de transcripción.");
-          setStatus("error");
-          setErrorMessage(errMsg);
+          // Sin token no hay transcripción: liberar micrófono/audio sin perder el diagnóstico
+          disconnect({ status: "error", errorMessage: errMsg });
           return;
         }
 
@@ -261,8 +272,7 @@ export function useDeepgram({
         if (connectionGenRef.current !== gen) return;
 
         if (!token) {
-          setStatus("error");
-          setErrorMessage("No se recibió token de autorización.");
+          disconnect({ status: "error", errorMessage: "No se recibió token de autorización." });
           return;
         }
 
@@ -317,7 +327,9 @@ export function useDeepgram({
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
               try {
                 wsRef.current.send(JSON.stringify({ type: "KeepAlive" }));
-              } catch {}
+              } catch (err) {
+                console.warn("[deepgram] KeepAlive fallido (la conexión puede estar muerta):", err);
+              }
             }
           }, 8000);
 
@@ -412,7 +424,10 @@ export function useDeepgram({
                 });
               }
             }
-          } catch {}
+          } catch (err) {
+            // Sin este log, un error de parseo/dispatch mata la transcripción en vivo sin rastro
+            console.warn("[deepgram] error procesando mensaje del WS:", err);
+          }
         };
 
         ws.onerror = (err) => {
@@ -435,18 +450,21 @@ export function useDeepgram({
               }
             }, delay);
           } else if (statusRef.current === "live" || statusRef.current === "connecting") {
-            setStatus("idle");
+            // Reintentos agotados: liberar la captura (el micrófono seguía abierto sin socket)
+            disconnect({
+              status: "error",
+              errorMessage: "Se perdió la conexión de transcripción. Volvé a conectar.",
+            });
           }
         };
       } catch (err: unknown) {
         if (connectionGenRef.current !== gen) return;
         if (err instanceof Error && err.name === "AbortError") return;
         console.error("Error al conectar WebSocket:", err);
-        setStatus("error");
-        setErrorMessage("No se pudo establecer la conexión de audio.");
+        disconnect({ status: "error", errorMessage: "No se pudo establecer la conexión de audio." });
       }
     },
-    [clearTimers, releaseWakeLock, requestWakeLock]
+    [clearTimers, disconnect, releaseWakeLock, requestWakeLock]
   );
 
   const connect = useCallback(
@@ -696,11 +714,12 @@ export function useDeepgram({
       } catch (err: unknown) {
         if (connectionGenRef.current !== currentGen) return;
         console.error("Error al iniciar captura de audio:", err);
-        setStatus("error");
-        setErrorMessage(
-          err instanceof Error ? err.message : "No se pudo acceder al micrófono o audio del sistema."
-        );
-        disconnect();
+        // Liberar recursos SIN borrar el diagnóstico (disconnect() simple reseteaba el error)
+        disconnect({
+          status: "error",
+          errorMessage:
+            err instanceof Error ? err.message : "No se pudo acceder al micrófono o audio del sistema.",
+        });
       }
     },
     [connectWs, disconnect]

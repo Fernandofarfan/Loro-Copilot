@@ -3,27 +3,18 @@
 import React, { useState, useEffect } from "react";
 import { SparkleIcon, CheckIcon, CopyIcon } from "../components/Icons";
 
-export type FeedbackQuestion = {
-  question: string;
-  answer: string;
-  score?: number;
-  analysis: string;
-  suggestion: string;
-};
+import {
+  type FeedbackQuestion,
+  type FeedbackIndicator,
+  type FeedbackReport,
+  normalizeFeedbackReport,
+} from "./types";
 
-export type FeedbackIndicator = { name: string; score: number };
-
-export type FeedbackReport = {
-  score: number;
-  level?: string;
-  verdict?: string;
-  topPriority?: string;
-  nextStep?: string;
-  summary: string;
-  indicators?: FeedbackIndicator[];
-  strengths: string[];
-  improvements: string[];
-  questions: FeedbackQuestion[];
+export {
+  type FeedbackQuestion,
+  type FeedbackIndicator,
+  type FeedbackReport,
+  normalizeFeedbackReport,
 };
 
 export function scoreColor(score: number): string {

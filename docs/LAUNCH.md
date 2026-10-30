@@ -1,6 +1,6 @@
 # LAUNCH.md — ops personales (lanzamiento público archivado)
 
-**Estado actual:** Loro es la herramienta de Fernando para el screening Globant / Intermedia. No hay lanzamiento a comunidades, paywall ni cupos de usuarios.
+**Estado actual:** Loro es la herramienta de Fernando para el screening (foco Snappy Commerce / IT Patagonia / Mercado Libre). No hay lanzamiento a comunidades, paywall ni cupos de usuarios. **Tampoco hay deploy público**: corre en local (`npm run dev`); las menciones a Vercel de abajo quedan como archivo por si algún día se expone.
 
 Lo de abajo sirve para **no quedarse sin crédito de Deepgram/LLM en la semana de la entrevista**. Los borradores de posts (r/devsarg, Sysarmy, etc.) quedan como archivo histórico; no publicar.
 
@@ -12,7 +12,7 @@ Nova-2 streaming ≈ **US$0.06** por ~10 min. Una sesión de screening de 45 min
 
 - [ ] [console.deepgram.com](https://console.deepgram.com) → crédito + alertas de usage.
 - [ ] Key con permiso de `auth/grant` (Member o superior).
-- [ ] `DEEPGRAM_API_KEY` en Vercel.
+- [ ] `DEEPGRAM_API_KEY` en `.env.local`.
 
 `app/api/deepgram-token/route.ts` emite un grant **TTL 120 s**. Si el grant falla, responde 500 y **nunca** manda la API key permanente al browser (en prod).
 
@@ -30,25 +30,25 @@ Free tier de Gemini se acaba fácil si se deja el simulador girando. Para uso de
 
 Si hay que cortar APIs ya:
 
-1. Vercel → env `CAPACITY_CLOSED` = `1` (Production).
-2. Redeploy (los env no aplican solos).
+1. En `.env.local` → `CAPACITY_CLOSED=1`.
+2. Reiniciar `npm run dev`.
 3. `/api/answer` y `/api/deepgram-token` → 503.
 
-Reabrir: borrar la var o `0` + redeploy.
+Reabrir: borrar la var o `0` + reiniciar `npm run dev`.
 
 ## 4. PostHog (opcional)
 
-Sin `NEXT_PUBLIC_POSTHOG_KEY` no hay funnel. `@vercel/analytics` está en `package.json` y **no se usa**. Para uso personal no es bloqueante.
+Sin `NEXT_PUBLIC_POSTHOG_KEY` no hay funnel. Para uso personal no es bloqueante.
 
-## 5. Vercel Hobby
+## 5. Ejecución Local
 
-Bandwidth 100 GB/mes y edge invocations. Suficiente para un usuario.
+Corre 100% en local (`npm run dev` en `http://localhost:3000`). Sin deploy externo.
 
-## 6. Humo antes de la call Globant (no “desde el celular”)
+## 6. Humo antes de la call (no “desde el celular”)
 
 El copiloto dual + HUD es **Chrome de escritorio**.
 
-- [ ] Preset **Activar Entrevista Globant**.
+- [ ] Preset de la empresa (**Snappy Commerce / IT Patagonia / Mercado Libre**).
 - [ ] Audio dual 5–10 min con Meet de prueba (mic + pestaña o VB-CABLE).
 - [ ] Confirmar que Deepgram sigue transcribiendo y que `/api/answer` responde.
 - [ ] HUD bajo la webcam + Panic `Escape`.

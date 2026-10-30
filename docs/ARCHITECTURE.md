@@ -1,6 +1,6 @@
 # Arquitectura y flujo de Loro Copilot
 
-Mapa técnico del copiloto **personal** de Fernando (foco Globant / Intermedia). El loop real es: audio dual → Deepgram Nova-2 → memoria léxica o SSE `/api/answer` → HUD.
+Mapa técnico del copiloto **personal** de Fernando (foco Snappy Commerce / IT Patagonia / Mercado Libre). El loop real es: audio dual → Deepgram Nova-2 → memoria léxica o SSE `/api/answer` → HUD.
 
 ## Límites (para no documentar humo)
 
@@ -8,15 +8,15 @@ Mapa técnico del copiloto **personal** de Fernando (foco Globant / Intermedia).
 - **Speech Coach live en `/app` no está.** `analyzeSpeech` tiene tests; el simulador usa `countFillers`. El diagrama de la §1 no debe leerse como UI del copiloto.
 - **KV-Cache de proveedor no existe.** El prompt pone el prefijo estático primero. No hay `cache_control` ni ahorro medido del ~75%.
 - Grant Deepgram: **TTL 120 s** (`ttl_seconds: 120`), no 60 s.
-- Company dossier: **9 empresas**, no 20+.
+- Company dossier: **11 empresas**, no 20+.
 - RAG (`cvChunker`): overlap de tokens + recencia/seniority. No embeddings.
 - Extensión Chrome: no cableada a Next (`LORO_EXT_DG_MESSAGE` sin listener).
 - Gaze: luminosidad ~4 FPS, no eye-tracking ML.
 - Glassdoor/Blind: paste, no scraper.
-- Screen Vision: un frame WebP; **re-pide** `getDisplayMedia` en cada captura.
-- Matching de memoria: Jaccard / Dice / cobertura, umbral 0.65. No es semántica vectorial.
-- Tests: **207** en 26 archivos. Sin GitHub Actions.
-- Analytics: PostHog opcional. `@vercel/analytics` no se importa.
+- Screen Vision: un frame JPEG (calidad 0.85); **re-pide** `getDisplayMedia` en cada captura.
+- Matching de memoria: Jaccard / Dice / cobertura, umbral 0.48 en vivo (0.65 es el default del helper). No es semántica vectorial.
+- Tests: **280** en 32 archivos. CI: `.github/workflows/ci.yml` (jobs `unit` + `e2e`).
+- Analytics: PostHog opcional.
 
 ---
 
@@ -51,12 +51,12 @@ sequenceDiagram
     Note over DG,UI: 2. Transcripción y Detección de Turnos Quirúrgica
     DG-->>UI: Transcripción Canal 0 = Candidato (speaker 1)
     DG-->>UI: Transcripción Canal 1 = Entrevistador (speaker 0)
-    opt Barge-in / Interrupción Sustancial del Entrevistador (>=15 chars & >4.5s)
+    opt Barge-in / Interrupción Sustancial del Entrevistador (>=15 chars & >1.5s tab/dual, >3s mic)
         WK-->>UI: Evento bargeIn / Transcripción entrevistador
         UI->>UI: Cancela streaming LLM si superó ventana de gracia (AbortController)
     end
     DG-->>UI: Evento UtteranceEnd (pausa de habla del entrevistador)
-    Note over UI: Turn-Taking: Debounce (1000ms) + extractCurrentTurnQuestion() + isIncompleteQuestion()
+    Note over UI: Turn-Taking: Debounce Adaptativo (900/1300/2800ms) + extractCurrentTurnQuestion() + isIncompleteQuestion()
     end
 
     alt Opción A: Saludo / Small talk instantáneo (<10ms)
@@ -77,7 +77,7 @@ sequenceDiagram
             UI->>API: POST /api/answer (SSE, type: "answer", CV Chunks)
             Note over API: Prefijo estático + verifyOrigin + RateLimit (35 req/min)
             API->>LLM: Invocación en Streaming (Gemini / OpenCode / Claude / OpenAI)
-            loop Chunks SSE (Throttled a 50ms)
+            loop Chunks SSE (UI throttle 120-250ms, sync HUD 500ms)
                 LLM-->>API: Deltas de texto en streaming
                 API-->>UI: EventSource ReadableStream Chunks
                 UI->>UI: parseBlocks() ➔ [KEY], [EN], [PHO], [ES]
@@ -98,7 +98,7 @@ sequenceDiagram
     opt Botón Panic (Tecla Escape)
         HUD->>HUD: Ocultamiento instantáneo de pantalla en modo pausa stealth
     end
-    Note over UI: Atajos de teclado: Ctrl+1 (Copiloto) / Ctrl+2 (HUD Pop-out)
+    Note over UI: Atajos de teclado: F2/F3/F4, ` (Screen Vision), F8, Ctrl+Shift+S/Q, Alt+1..4
     end
 ```
 
@@ -127,7 +127,7 @@ El sistema resuelve de raíz el problema clásico del audio en llamadas (donde c
   - Calcula la energía RMS independiente para `micRms` y `tabRms` en cada frame.
   - Detecta actividad de voz o silencio localmente en menos de 80ms, reduciendo la dependencia de latencias de red.
 - **Auto-Cancelación por Barge-in Inteligente (Interrupción del Entrevistador):**
-  - Si el entrevistador comienza a hablar con una intervención sustancial (`transcript.length >= 15`), el Copiloto evalúa la ventana temporal: solo si ya transcurrieron más de **4.5 segundos** desde el inicio de la generación de la respuesta (`generationStartTimeRef`), se activa la cancelación vía `AbortController`. Esto previene de forma determinante que ecos finales de la pregunta, fragmentos breves ("ok", "sí") o ruidos de fondo de la pestaña aborten la respuesta en curso.
+  - Si el entrevistador comienza a hablar con una intervención sustancial (`transcript.length >= 15`), el Copiloto evalúa la ventana temporal: solo si ya transcurrieron más de **1.5 s** (modo pestaña/dual) o **3 s** (micrófono) desde el inicio de la generación de la respuesta (`bargeInThresholdMs` en `app/app/page.tsx`), se activa la cancelación vía `AbortController`. Esto previene de forma determinante que ecos finales de la pregunta, fragmentos breves ("ok", "sí") o ruidos de fondo de la pestaña aborten la respuesta en curso.
 - **Limpieza de Nodos Web Audio:**
   - En modo Dual, `micSource`, `tabSource` y `merger` quedan registrados en `dualSourcesRef` y se desconectan de manera estricta junto al `AudioContext` para evitar acumulación de handles y fugas de memoria en el navegador.
 
@@ -159,10 +159,10 @@ El sistema resuelve de raíz el problema clásico del audio en llamadas (donde c
 ### Fase 4: Inteligencia de Detección de Turno (`Turn-Taking Engine`)
 Para no disparar respuestas ante silencios breves o pausas de respiración:
 1. **Detección de Fin de Habla:** Disparada por VAD local o el evento `UtteranceEnd` de Deepgram.
-2. **Debounce Adaptativo (1000ms):** Ventana de espera prudencial para permitir pausas naturales de pensamiento del interlocutor.
+2. **Debounce Adaptativo (900 / 1300 / 2800 ms):** Ventana de espera prudencial para permitir pausas naturales de pensamiento del interlocutor (2800 ms si la frase quedó incompleta, 900 ms si cierra con `?`; `getAdaptiveDebounceMs`).
 3. **Filtro de Candidato:** Si el último hablante registrado fue el candidato (`speaker === 1`), no se auto-genera respuesta para prevenir bucles de eco.
 4. **Validación de Pregunta Incompleta (`isIncompleteQuestion`):**
-   - Detecta si la frase quedó truncada (conectores terminales como *"and"*, *"or"*, *"pero"*, *"because"*, *"if"*, o preguntas de longitud menor a 6 caracteres). Si es incompleta, el motor posterga la generación.
+   - Detecta si la frase quedó truncada (conectores terminales como *"and"*, *"or"*, *"pero"*, *"because"*, *"if"*, o frases de menos de 3 palabras). Si es incompleta, el motor posterga la generación.
 5. **Aislamiento del Turno Actual (`extractCurrentTurnQuestion`):**
    - Extrae con precisión quirúrgica únicamente la última pregunta relevante sin concatenar texto previo ya respondido.
 
@@ -171,7 +171,7 @@ Para evitar saturar la ventana de contexto:
 - **Segmentación (`chunkCv`):** Divide el CV en bloques por encabezados (experiencia, proyectos, stack, certificaciones). No hay embeddings.
 - **Recuperación (`selectRelevantCvChunks`):**
   - Si el perfil supera ~800 caracteres, compara tokens de la pregunta con cada bloque (overlap + recencia + seniority).
-  - Inyecta 1–2 bloques con mayor score en el prompt.
+  - Acumula los bloques con mayor score hasta ~3000 caracteres en el prompt.
 
 ---
 
@@ -203,7 +203,7 @@ flowchart TD
 ```
 
 ### Nivel 1: Saludo Inmediato (`<10ms`)
-- Maneja frases de apertura como *"Hi, can you hear me?"*, *"Good morning"*, *"How are you today?"*.
+- Maneja frases de apertura como *"Hi"*, *"Hello"*, *"Hey"*, *"How are you?"*, *"Can you hear me?"*.
 - Resuelve en menos de 10ms con respuestas amables y contextualizadas con el nombre de la empresa sin consumir cuota de LLM.
 
 ### Nivel 2: Banco de Memoria Inteligente (`<50ms`)
@@ -227,7 +227,7 @@ Cuando se requiere inferencia generativa:
 
 ```mermaid
 graph LR
-    subgraph Edge_Runtime [Vercel Edge Runtime]
+    subgraph Edge_Runtime [Next.js Edge Runtime - Local]
         V[verifyOrigin] --> R[checkRateLimitAsync: 35 req/min]
         R --> S[sanitizeForPrompt]
         S --> C[Prefijo estático del user prompt]
@@ -236,7 +236,7 @@ graph LR
 
     subgraph Red_Modelos [Catálogo Multi-Proveedor]
         M --> P1[OpenCode / OpenRouter: DeepSeek V4 / MiMo / GLM]
-        M --> P2[Google: Gemini 3.6 Flash / 2.5 Flash]
+        M --> P2[Google: Gemini Flash Latest / Flash Lite Latest]
         M --> P3[Anthropic: Claude 3.5 Haiku / Sonnet]
         M --> P4[OpenAI: GPT-4o-mini / GPT-4o]
     end
@@ -254,10 +254,10 @@ graph LR
 
 | Nivel de Velocidad | Modelo | Proveedor | TTFT / Latencia Típica | Caso de Uso Principal |
 |---|---|---|---|---|
-| **Ultra Rápido ⚡** | `gemini-3.6-flash` | Google | ~500ms TTFT (6.0s total) | Entrevista en vivo de máxima velocidad |
+| **Ultra Rápido ⚡** | `gemini-flash-latest` | Google | ~500ms TTFT (6.0s total) | Entrevista en vivo de máxima velocidad |
 | **Ultra Rápido ⚡** | `mimo-v2.5` | OpenCode | ~600ms TTFT (6.2s total) | Entrevistas en inglés fluido |
-| **Ultra Rápido ⚡** | `glm-5.3-flash` | OpenCode | ~650ms TTFT (6.5s total) | Respuestas técnicas directas |
-| **Ultra Rápido ⚡** | `deepseek-v4-flash` | OpenCode | ~700ms TTFT (6.6s total) | Modelo predeterminado en vivo |
+| **Ultra Rápido ⚡** | `glm-5.3-flash` | OpenCode | ~650ms TTFT (6.5s total) | **Modelo predeterminado en vivo** (DEFAULT_MODEL_ID) |
+| **Ultra Rápido ⚡** | `deepseek-v4-flash` | OpenCode | ~700ms TTFT (6.6s total) | Respuestas rápidas multi-propósito |
 | **Pro / Senior 🧠** | `deepseek-v4-pro` | OpenCode | ~800ms TTFT (6.7s total) | Arquitectura y algoritmos complejos |
 | **Ultra Rápido ⚡** | `glm-5.2` | OpenCode | ~700ms TTFT (6.9s total) | Soporte multi-idioma |
 | **Ultra Rápido ⚡** | `qwen-3.8-flash` | OpenCode | ~800ms TTFT (7.6s total) | Alta precisión semántica |
@@ -268,7 +268,7 @@ graph LR
 | **Fallback Estándar** | `gpt-4o-mini` / `claude-3-5-haiku` | OpenAI / Anthropic | ~600ms TTFT | Conmutación por falla de cuota |
 
 ### Blindaje y seguridad
-- **Vercel Edge Runtime:** `export const runtime = "edge"` desplegado globalmente para minimizar latencia de red.
+- **Edge Runtime:** `export const runtime = "edge"` en `app/api/*` (sin `fs`/`net`). El proyecto corre en local; el runtime edge queda como compatibilidad, no hay deploy activo.
 - **Prefijo de prompt (no KV-Cache de proveedor):** Company, role, CV y notas van primero; historial y pregunta al final. No hay `cache_control`, `cachedContent` ni ahorro medido del ~75%.
 - **Sanitización Anti-Inyección (`sanitizeForPrompt`):** Convierte caracteres `<` y `>` en comillas angulares equivalentes (`‹`, `›`), anulando cualquier vector de inyección de prompt proveniente del audio transcripto o datos del usuario.
 - **Rate Limit por IP:** 35 solicitudes/minuto con deslizamiento en memoria.
@@ -282,7 +282,7 @@ graph LR
    - **PROHIBICIÓN ESTRICTA DE VIÑETAS:** Cero viñetas (`•`, `- `, `*`), listas o enumeraciones (`1.`, `2.`). En llamadas de entrevista reales, las viñetas inducían lectura robótica y fragmentada como diapositivas.
    - **PROHIBICIÓN DE NÚMEROS / ESTADÍSTICAS:** Cero porcentajes o números estadísticos inventados en el inglés hablado.
 3. **`[PHO]`:** Fonética simplificada en español con acentuación tónica en mayúsculas (ej. `DE-ko-rei-ter`, `kub-er-NE-tis`, `AR-ki-tek-chur`).
-4. **`[ES]`:** Resumen conceptual rápido en español para tranquilidad cognitiva (máximo 25 palabras en texto fluido).
+4. **`[ES]`:** Resumen conceptual rápido en español para tranquilidad cognitiva (1 sola oración corta, corrida y sin viñetas; el límite de 25–35 palabras corresponde al bloque `[EN]`).
 5. **`[WHY_NOT]`:** Alternativa popular descartada con justificación técnica cuantitativa (latencia, costo, límites de memoria).
 6. **`[EDGE_CASES]`:** Casos límite y trampas de test cases a consensuar antes de programar en vivo.
 7. **`[DRY_RUN]`:** Trazado de estados paso a paso para relatar la ejecución de algoritmos con naturalidad.
@@ -297,7 +297,7 @@ graph LR
 
 ## 🪟 5. Sincronización HUD Pop-out y Lectura Biónica (`/teleprompter`)
 
-Ventana flotante ultraliviana (540x380) diseñada para ubicarse justo debajo de la lente de la cámara web, permitiendo mantener contacto visual con el entrevistador:
+Ventana flotante ultraliviana (560x380) diseñada para ubicarse justo debajo de la lente de la cámara web, permitiendo mantener contacto visual con el entrevistador:
 
 - **Protocolo de Comunicación de Cero Latencia:**
   1. `BroadcastChannel("loro_teleprompter_channel")`: Transmisión en memoria entre pestañas locales en 0ms.
@@ -329,11 +329,15 @@ Semáforo 120–150 WPM y ratio talk/listen **no aparecen** en el copiloto live.
 
 | Atajo | Ámbito | Acción |
 |---|---|---|
-| `Ctrl + 1` | Global | Enfocar la pestaña principal del Copiloto en vivo. |
-| `Ctrl + 2` | Global | Abrir o enfocar la ventana emergente flotante del Teleprompter HUD. |
-| `Ctrl + Shift + S` | Copiloto | Screen Vision: un frame WebP (re-pide share cada vez). |
+| `F2` / `F3` / `F4` | Copiloto | Refinar respuesta: Ultra Conciso / Trade-offs Matrix / **Cierre de Oro**. |
+| `` ` `` (Backquote) | Copiloto | Screen Vision: captura y análisis de pantalla. |
+| `Ctrl + Shift + S` | Copiloto | Screen Vision: un frame JPEG (re-pide share cada vez). |
 | `Ctrl + Shift + Q` | Global Copiloto | **Cierre de Oro:** Generar al instante 3 repreguntas estratégicas ancladas a los dolores del entrevistador. |
+| `F8` | Copiloto / HUD | Camuflaje en ciclo **Normal → IDE → Terminal** (F8 cicla los 3 estados en `/app` y en el HUD; el estado se sincroniza en ambos sentidos). |
+| `Alt + 1..4` | Copiloto | Copiar frases de rescate y enviarlas al HUD. |
 | `Escape` | Teleprompter HUD | Activar / Desactivar el modo Panic (ocultar pantalla de inmediato). |
+
+> `Ctrl+1..8` está reservado por el navegador para pestañas y **no es interceptable** (no confiar en docs viejos que mencionen `Ctrl+1`/`Ctrl+2`).
 
 ---
 
@@ -350,7 +354,7 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
          │                 │
          ▼                 ▼
    [ IA Pregunta ]   [ Candidato Responde ]
-   (TTS Web Speech)  (Audio STT / Texto)
+   (TTS API simulador)  (Audio STT / Texto)
          │                 │
          └────────┬────────┘
                   │ (Al completar rondas o pulsar Finalizar)
@@ -359,8 +363,8 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
                   │
                   ▼
    [ Reporte Evaluativo Estructurado JSON ]
-   ├── Score Global (0 - 100) y Nivel (Junior / Semi-Senior / Senior / Staff)
-   ├── Veredicto de Contratación (Strong Hire / Hire / Weak / No Hire)
+   ├── Score Global (0 - 100) y Nivel (texto libre, ej. "Sólido")
+   ├── Veredicto de Contratación (frase en texto libre; el enum Strong/Hire/Lean/No Hire pertenece a `/api/summary`)
    ├── Radar: Claridad, Estructura, Fit Técnico, Confianza, Comunicación
    ├── Fortalezas y Áreas de Mejora
    └── Desglose Pregunta por Pregunta con Respuesta Modelo Ideal
@@ -372,11 +376,11 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 | Módulo / Componente | Archivo | Responsabilidad Principal |
 |---|---|---|
-| **Página Principal Copiloto** | `app/app/page.tsx` | Orquestación, audio dual (VB-CABLE), barge-in ~4.5 s, Screen Vision (`Ctrl+Shift+S`, un frame por captura), Susurro al Oído, Cierre de Oro, preset Globant, HUD. |
+| **Página Principal Copiloto** | `app/app/page.tsx` | Orquestación, audio dual (VB-CABLE), barge-in 1.5–3 s, Screen Vision (`Ctrl+Shift+S` / `` ` ``, un frame por captura), Susurro al Oído, Cierre de Oro, presets Snappy / IT Patagonia / MELI, HUD. |
 | **Hook Audio / STT** | `app/hooks/useDeepgram.ts` | Captura dual (Mic + Pestaña / Dispositivo Físico o Virtual), `ChannelMergerNode`, ciclo de vida WebSocket Deepgram, VAD local, barge-in, reconexión y pre-fetching especulativo en turnos largos. |
 | **Hook Respuestas LLM** | `app/hooks/useAnswerStream.ts` | Saludo instantáneo (<10ms), cálculo de Puente Inmediato (<1ms), matching en memoria (<50ms), RAG de CV, streaming SSE principal, pre-fetch especulativo, callback `onPunchline`, Dual Stream de trampas en background, extracción en tiempo real de `[YAGNI]`, `[EDGE_CASES]`, `[WHY_NOT]` y `[DRY_RUN]`, y soporte multimodal. |
-| **Hook Screen Vision** | `app/hooks/useScreenVision.ts` | Un frame WebP por captura vía `getDisplayMedia` (no share persistente). |
-| **Hook Susurro al Oído** | `app/hooks/useEarbudWhisper.ts` | Sintetizador de voz Web Speech API acelerado (1.5x) para dictado privado del punchline `[KEY]` al auricular del candidato. |
+| **Hook Screen Vision** | `app/hooks/useScreenVision.ts` | Un frame JPEG por captura vía `getDisplayMedia` (no share persistente). |
+| **Hook Susurro al Oído** | `app/hooks/useEarbudWhisper.ts` | Sintetizador de voz Web Speech API acelerado (1.45x) para dictado privado del punchline `[KEY]` al auricular del candidato. |
 | **Hook Teleprompter** | `app/hooks/useTeleprompter.ts` | Apertura de ventana emergente y sincronización bidireccional en tiempo real vía `BroadcastChannel` y `localStorage` con soporte de `scalePills`, `yagni`, `bridge`, `triggerCards`, `surgicalPhonetics` y `dryRun`. |
 | **Hook Contexto Entrevista** | `app/hooks/useInterviewContext.ts` | Gestión de perfiles de entrevista, CVs, empresa, rol, modelo seleccionado, Dossier Psicológico (`interviewerBio`) y persistencia del banco maestro. |
 | **Worklet de Audio PCM16** | `public/pcm-worklet.js` | AudioWorklet en hilo de audio: downsampling lineal a 16kHz, conversión Float32 a Int16 estéreo, RMS dual, filtro de voz paso-alto, noise gate adaptativo y VAD local. |
@@ -391,7 +395,7 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 | **Reporte de Feedback & Audio Player** | `app/simulador/FeedbackReportView.tsx` | Visualizador de informe con gauge interactivo, desglose pregunta por pregunta y reproductor `AudioTurnPlayer` con selector de velocidad (1x/1.25x) y conteo de muletillas. |
 | **API Generación Respuestas** | `app/api/answer/route.ts` | Edge, prefijo de prompt estático, Punchline First, YAGNI, visión, reverse questions, trap detector. |
 | **API Token Deepgram** | `app/api/deepgram-token/route.ts` | Grant efímero **120 s**. No expone la API key permanente en prod. |
-| **API Simulador** | `app/api/simulador/route.ts` | Inyección obligatoria de `jobDescription`, generador de preguntas dinámicas y evaluación estructurada JSON de la entrevista simulada. |
+| **API Simulador** | `app/api/simulador/route.ts` | Inyección de `jobDescription` cuando se provee (el campo es opcional), generador de preguntas dinámicas y evaluación estructurada JSON de la entrevista simulada. |
 | **API Resumen Post-Entrevista** | `app/api/summary/route.ts` | Generador de Scorecard Predictor FAANG, Análisis Forense (Post-Mortem Técnico) y borrador de Follow-up Thank-You Note en Markdown. |
 
 ---
@@ -400,12 +404,12 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 ### 1. Screen Vision multimodal (`Ctrl+Shift+S`)
 - **Problema resuelto:** En live-coding (LeetCode, HackerRank, CoderPad) o diagramas de arquitectura en Miro/Excalidraw, transcribir el enunciado o código a mano consume tiempo valioso y genera errores.
-- **Implementación:** `useScreenVision` llama `getDisplayMedia()` **en cada captura** (no es un share persistente), toma un frame ~1280px, WebP y POST a `/api/answer` (`mode: "vision_coding"`) si el modelo es multimodal.
+- **Implementación:** `useScreenVision` llama `getDisplayMedia()` **en cada captura** (no es un share persistente), toma un frame ~1280px, JPEG (calidad 0.85) y POST a `/api/answer` (`mode: "vision_coding"`) si el modelo es multimodal.
 - **Salida:** Enfoque algorítmico estructurado, código de producción limpio con tipado estricto y análisis formal Big-O de tiempo y espacio.
 
 ### 2. Generación Especulativa Temprana (Pre-Warming)
 - **Problema resuelto:** Esperar a que el entrevistador finalice una pregunta extensa (10-20 segundos) acumulando 1.5s de debounce añade latencia innecesaria.
-- **Implementación:** `useDeepgram` monitoriza el canal del entrevistador (`speaker 0`). Al acumularse más de 30 caracteres en un turno activo continuo, dispara un pre-fetch especulativo en background (`startSpeculativePreFetch`). Cuando el entrevistador finaliza su turno formalmente, si la pregunta definitiva es continuación del prefijo pre-calentado, `useAnswerStream` adopta el `Response` ya en vuelo en 0ms.
+- **Implementación:** `useDeepgram` monitoriza el canal del entrevistador (`speaker 0`). Al acumularse 35 o más caracteres en un turno activo continuo, dispara un pre-fetch especulativo en background (`startSpeculativePreFetch`). Cuando el entrevistador finaliza su turno formalmente, si la pregunta definitiva es continuación del prefijo pre-calentado, `useAnswerStream` adopta el `Response` ya en vuelo en 0ms.
 
 ### 3. Modo "Cierre de Oro" (Reverse Interviewer / `Ctrl+Shift+Q`)
 - **Problema resuelto:** Al final de la entrevista ("¿Tenés alguna pregunta para nosotros?"), hacer preguntas genéricas reduce el impacto del candidato.
@@ -413,7 +417,7 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 ### 4. Modo "Susurro al Oído" (Earbud Audio Whisperer)
 - **Problema resuelto:** En entrevistas con webcam activa, desviar la mirada al teleprompter puede delatar la lectura de notas.
-- **Implementación:** `useEarbudWhisper` sintetiza el `[KEY]` a 1.5x con Web Speech API. **No hay ruteo forzado a auricular:** si el output del sistema es el mismo device que entra al Meet, el susurro se filtra al entrevistador. Desactivar en screening si no está 100% en earbud.
+- **Implementación:** `useEarbudWhisper` sintetiza el `[KEY]` a 1.45x con Web Speech API. **No hay ruteo forzado a auricular:** si el output del sistema es el mismo device que entra al Meet, el susurro se filtra al entrevistador. Desactivar en screening si no está 100% en earbud.
 
 ### 5. Sandbox de Validación de Código Client-Side & Big-O
 - **Problema resuelto:** Respuestas de live-coding con pequeños errores tipográficos o de sintaxis pueden arruinar una prueba técnica.
@@ -428,7 +432,7 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 ### 7. Overlay Stealth HUD Always-on-Top (`documentPictureInPicture`)
 - **Problema resuelto:** Ventanas emergentes comunes se van al fondo al hacer clic en Zoom o el navegador de la llamada.
-- **Implementación:** `app/teleprompter/page.tsx` soporta la Picture-in-Picture Document API nativa (`window.documentPictureInPicture.requestWindow()`). El HUD queda anclado Always-on-Top en la esquina superior directamente debajo de la webcam, e incluye un slider de opacidad interactivo (30% - 100%) para mimetizarse con el fondo.
+- **Implementación:** `app/teleprompter/page.tsx` soporta la Picture-in-Picture Document API nativa (`window.documentPictureInPicture.requestWindow()`). El HUD queda anclado Always-on-Top en la esquina superior directamente debajo de la webcam, e incluye un slider de opacidad interactivo (30% - 100%) para mimetizarse con el fondo. El PiP es una vista **solo lectura viva**: re-clona el HUD ante cada cambio de estado (incluida la pantalla de Panic) con los controles deshabilitados; los botones viven en la pestaña del HUD.
 
 ### 8. Grafo Temporal de Conocimiento del CV
 - **Problema resuelto:** Modelos de lenguaje citan proyectos de hace 8 años como si fueran el trabajo actual del candidato.
@@ -454,9 +458,9 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 - **Problema resuelto:** Mirar continuamente hacia abajo para leer notas o el teleprompter delata al candidato frente a la webcam.
 - **Implementación:** `app/hooks/useGazeTracker.ts` mira el **ratio de luminosidad** vertical del frame de webcam a ~4 FPS (no es ML ni iris tracking). Si la zona inferior se ilumina de forma sostenida (~2.2 s), avisa *"Mirá a la cámara"*. Falla con poca luz, gorra, o HUD al costado de la lente. 100% en el cliente.
 
-### 5. Company Dossier (9 empresas)
+### 5. Company Dossier (11 empresas)
 - **Problema resuelto:** Desconocer jerga interna resta fit.
-- **Implementación:** `app/lib/companyDossier.ts` tiene **9** perfiles: MercadoLibre, Uber, Stripe, Netflix, Amazon, Google, Meta, **Globant** (alias Intermedia), Nubank. Se inyectan tools/cultura si el nombre matchea (Fury, Schemaless, Agile Pods, GCVE, etc.).
+- **Implementación:** `app/lib/companyDossier.ts` tiene **11** perfiles: MercadoLibre, Uber, Stripe, Netflix, Amazon, Google, Meta, **Globant** (alias Intermedia), IT Patagonia, Nubank, VAIRIX. Se inyectan tools/cultura si el nombre matchea (Fury, Schemaless, Agile Pods, GCVE, etc.).
 
 ### 6. Copiloto Táctico de Negociación Salarial (Modo Oferta & HR)
 - **Problema resuelto:** Preguntas sobre pretensión salarial o compensación actual pueden desvalorizar al candidato en minutos.
@@ -464,7 +468,7 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 ### 7. Filtro de Voz Paso-Alto y Noise Gate Adaptativo en AudioWorklet
 - **Problema resuelto:** Clicks mecánicos de teclado, zumbido de ventiladores o ruido ambiental hacen que Deepgram alucine palabras o detecte falsos turnos.
-- **Implementación:** `public/pcm-worklet.js` aplica un filtro paso-alto digital (atenuando rumble de baja frecuencia <150Hz) y una compuerta de ruido (*soft noise gate*) que atenúa un 65% las señales por debajo del piso de ruido ambiente en los canales de entrada.
+- **Implementación:** `public/pcm-worklet.js` aplica un filtro paso-alto digital (atenuando rumble de baja frecuencia <150Hz) y una compuerta de ruido (*soft noise gate*) que atenúa un 50% las señales por debajo del piso de ruido ambiente en los canales de entrada.
 
 ---
 
@@ -473,9 +477,9 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 ### 1. Radar de Vulnerabilidades del CV (Red Team Heuristic & LLM Auditor)
 - **Problema resuelto:** Los entrevistadores senior detectan rápidamente flancos débiles en un CV (gaps temporales, permanencias cortas <1 año, saltos bruscos de stack o bullets vagos sin métricas cuantitativas) y atacan allí con preguntas trampa.
 - **Implementación:** `app/lib/vulnerabilityRadar.ts` realiza un escaneo estático heurístico del perfil e infiere vulnerabilidades críticas:
-  - *Short Tenure Attack:* Si hay roles de menos de 12 meses, anticipa la pregunta de retención y fit.
-  - *Metrics Vacuum Attack:* Si los logros no indican números (% de mejora, QPS, latencia o USD), prepara el cuestionamiento sobre impacto real.
-  - *Buzzword Stacking Attack:* Si se listan muchas tecnologías sin proyectos concretos que las respalden, genera repreguntas de profundidad interna.
+  - *Timeline Gap (`timeline_gap`, `vuln_tenure`):* Si hay roles de menos de 12 meses, anticipa la pregunta de retención y fit.
+  - *Missing Metrics (`missing_metrics`):* Si los logros no indican números (% de mejora, QPS, latencia o USD), prepara el cuestionamiento sobre impacto real.
+  - *Stack Gap (`stack_gap`):* Si se listan muchas tecnologías sin proyectos concretos que las respalden, genera repreguntas de profundidad interna.
   - *Pivot STAR:* Cada vulnerabilidad incluye una estrategia de defensa estructurada (Situación/Tarea, Acción técnica concreta y Resultado cuantitativo defendible).
 - **Acceso:** Disponible desde el botón `🛡️ Radar CV` en el copiloto y `🛡️ Radar de Vulnerabilidades` en el simulador.
 
@@ -497,14 +501,14 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 - **Problema resuelto:** En entrevistas de System Design donde el entrevistador comparte una pizarra virtual (Excalidraw, Miro), redibujar componentes a mano consume minutos críticos.
 - **Implementación:**
   - `app/lib/excalidrawExport.ts` traduce la topología de nodos y flechas del bloque Mermaid a elementos JSON nativos de Excalidraw.
-  - El botón `📋 Copiar a Excalidraw` en `ArchitectureCanvas.tsx` copia la carga con el tipo MIME `application/vnd.excalidraw+json` al portapapeles. El usuario solo presiona `Ctrl+V` en cualquier pizarra de Excalidraw para pegar los rectángulos y conectores vectoriales editables instantáneamente.
+  - El botón `📋 Copiar a Excalidraw` en `ArchitectureCanvas.tsx` copia el JSON de Excalidraw como texto plano al portapapeles (`navigator.clipboard.writeText`, sin MIME especial). El usuario solo presiona `Ctrl+V` en cualquier pizarra de Excalidraw para pegar los rectángulos y conectores vectoriales editables instantáneamente.
   - El botón `💾 Descargar SVG` permite guardar el diagrama vectorizado completo con un solo clic.
 
 ### 5. Scorecard Predictor FAANG & Follow-up Thank-You Note
 - **Problema resuelto:** Al finalizar la entrevista, no se tiene claridad del veredicto probable del panel ni se cuenta con un correo de agradecimiento técnico que consolide la impresión de contratación.
 - **Implementación:** `app/api/summary/route.ts` evalúa la transcripción completa de la llamada y los hechos del Fact Ledger bajo la rúbrica formal FAANG:
   - Clasificación de hiring decision: `Strong Hire`, `Hire`, `Lean Hire` o `No Hire`.
-  - Desglose en 4 dimensiones: *Problem Solving & Algorithmic Rigor*, *System Design & Scale*, *Communication & EQ*, y *Cultural & Leadership Alignment*.
+  - Desglose en 3 scores: *Claridad & Estructura*, *Profundidad Técnica & Arquitectura*, y *Consistencia & Dominio (Fact Ledger)*.
   - Borrador de Thank-You Note: redacta un correo en inglés o español formal citando un trade-off técnico específico debatido durante la llamada, demostrando alta retención y proactividad post-entrevista.
 
 ### 6. Bóveda de Historias STAR Reales (Personal Career Brain)
@@ -518,7 +522,7 @@ Entorno cerrado para práctica y entrenamiento con evaluación automática:
 
 ## 🚀 13. Suite Táctica de Ventaja Injusta para Uso Personal (Elite Interview Mastery)
 
-Pensada para las entrevistas de Fernando (HUD bajo webcam, hotkeys, banco Globant). Es una web en Chrome, no un overlay nativo invisible al screen share.
+Pensada para las entrevistas de Fernando (HUD bajo webcam, hotkeys, bancos maestros por empresa). Es una web en Chrome, no un overlay nativo invisible al screen share.
 
 ### 1. Live Coding Edge-Case Synthesizer & "Why NOT X?" Trade-Offs Matrix (`[EDGE_CASES]` & `[WHY_NOT]`)
 - **Problema:** En entrevistas de LeetCode/System Design, un candidato promedio se lanza a codear o proponer una arquitectura sin anticipar límites. Un Staff+ Engineer siempre pregunta: *"¿Qué casos de borde rompen esto?"* y *"¿Por qué NO usamos la alternativa popular X?"*.
@@ -548,12 +552,11 @@ Pensada para las entrevistas de Fernando (HUD bajo webcam, hotkeys, banco Globan
 - **Implementación:**
   - `app/teleprompter/page.tsx`: Panel modal emergente accesible con un solo clic en el botón `🔢 Números` del HUD.
   - Despliega una tabla compacta con las latencias críticas de Jeff Dean actualizadas:
-    - L1 Cache: ~0.5 ns
+    - L1 / L2 Cache: 0.5 – 7 ns
     - RAM: ~100 ns
-    - SSD NVMe Read: ~16 µs
-    - Round-trip dentro del mismo Datacenter: ~500 µs
-    - Round-trip CA a NY: ~40 ms
-    - Round-trip Transatlántico: ~150 ms
+    - SSD NVMe secuencial: 1–3 GB/s (~100 µs de acceso)
+    - Round-trip dentro del mismo Datacenter: ~0.5 ms
+    - Round-trip transcontinental: ~150 ms
     - Cálculos rápidos de QPS: 1M req/día ≈ 12 QPS / 86,400s por día.
 
 ### 5. Inyector Masivo de Preguntas Glassdoor / Blind / Reddit en Banco de Memoria (<50ms)
@@ -562,7 +565,7 @@ Pensada para las entrevistas de Fernando (HUD bajo webcam, hotkeys, banco Globan
   - Botón `📥 Glassdoor / Blind` en la pestaña de Memoria de `app/app/page.tsx`.
   - Modal donde Fernando puede pegar listas de preguntas crudas copiadas directamente de internet (formatos con números, viñetas o texto libre).
   - El parser sanitiza líneas y las mete en el banco local (empresa + rol).
-  - En la call, `findMatchingAnswer` (léxico, umbral 0.65) puede devolver match en &lt;50 ms. No scrapea Glassdoor.
+  - En la call, `findMatchingAnswer` (léxico, umbral 0.48) puede devolver match en &lt;50 ms. No scrapea Glassdoor.
 
 ### 6. Selector de Hardware de Audio & Soporte para VB-CABLE / Mezcla Estéreo
 - **Problema:** En entornos corporativos donde la entrevista se realiza en las aplicaciones de escritorio nativas de Zoom o Microsoft Teams, compartir pestaña del navegador para capturar el audio no está disponible o levanta sospechas.
@@ -582,7 +585,7 @@ Pensada para las entrevistas de Fernando (HUD bajo webcam, hotkeys, banco Globan
 
 ---
 
-## 🎯 12. Las 6 Capacidades Tácticas de Nivel Élite para Triunfo Personal
+## 🎯 14. Las 6 Capacidades Tácticas de Nivel Élite para Triunfo Personal
 
 ### 1. Sugeridor Automático de Historias STAR (Auto-Match Heurístico)
 - **Problema:** Ante preguntas conductuales de liderazgo, conflictos o migraciones complejas, recordar cuál de las 10 historias de la bóveda es la más contundente mientras se habla bajo presión genera dudas o anécdotas débiles.
@@ -624,7 +627,7 @@ Pensada para las entrevistas de Fernando (HUD bajo webcam, hotkeys, banco Globan
 
 ---
 
-## ⚡ 14. Motor Conversacional de Brevedad Radical y Blindaje Técnico (Live Production Hardening)
+## ⚡ 15. Motor Conversacional de Brevedad Radical y Blindaje Técnico (Live Production Hardening)
 
 Esta sección consolida la evolución del motor de inferencia tras la validación en entrevistas técnicas reales de alta exigencia:
 
@@ -649,12 +652,12 @@ En el system prompt (`app/api/answer/route.ts`), se codificaron axiomas de ingen
   - Inspección y diagnóstico de puertos de red (`lsof -i :8000`, `ss -tulpn`).
 
 ### 3. Banco de Memoria & Purga Automática de Procesos Finalizados
-- **Aislamiento y Purga Automática:** En cada montaje de sesión, el sistema purga automáticamente del almacenamiento local (`localStorage`) cualquier perfil o respuesta asociada a procesos de selección concluidos, manteniendo la memoria limpia y relevante.
-- **Matching léxico de baja latencia:** &lt;50 ms con Jaccard / Dice / cobertura + `CANONICAL_SYNONYMS` sobre el banco (`globantMasterAnswers` + `docs/master_answers_all_roles.md`). No es búsqueda vectorial.
+- **Aislamiento y Purga Automática:** Una única vez por migración de versión de datos (`loro-context-data-version`), el sistema purga automáticamente del almacenamiento local (`localStorage`) cualquier perfil o respuesta asociada a procesos de selección concluidos, manteniendo la memoria limpia y relevante.
+- **Matching léxico de baja latencia:** &lt;50 ms con Jaccard / Dice / cobertura + `CANONICAL_SYNONYMS` sobre el banco activo (`meliMasterAnswers` / `snappyCommerceMasterAnswers` / `itPatagoniaMasterAnswers` + `docs/master_answers_all_roles.md`). No es búsqueda vectorial.
 
 ---
 
-## 🛡️ 15. Los 5 Pilares Estratégicos Post-Entrevista (Live Reliability & Deliberate Practice)
+## 🛡️ 16. Los 5 Pilares Estratégicos Post-Entrevista (Live Reliability & Deliberate Practice)
 
 Diseñados e integrados para dotar al candidato de máxima autoridad técnica, práctica deliberada acústica y cero fricción cognitiva durante llamadas reales de alta exigencia:
 
@@ -668,7 +671,7 @@ Diseñados e integrados para dotar al candidato de máxima autoridad técnica, p
 - **Calibración obligatoria:** `/api/simulador` inyecta la Job Description en el system prompt del entrevistador para calibrar el 100% de las preguntas, casos prácticos y desafíos técnicos sobre el stack de la vacante.
 
 ### 3. Cancelación Inmediata por Interrupción del Entrevistador (<50ms Barge-in Inverso)
-- **Respuesta instantánea:** En `app/app/page.tsx`, cuando el entrevistador (`speaker === 0`) interrumpe con una objeción sustancial (>=12 caracteres) mientras se genera una respuesta previa, se aborta inmediatamente el SSE (`abortController.abort()`) y se envía un flush síncrono al Teleprompter (`cleanText: "(Entrevistador interrumpió con nueva pregunta...)"`) en **<50ms**, evitando que el candidato lea respuestas desactualizadas.
+- **Respuesta instantánea:** En `app/app/page.tsx`, cuando el entrevistador (`speaker === 0`) interrumpe con una objeción sustancial (>=12 caracteres) mientras se genera una respuesta previa, se aborta inmediatamente el SSE (`abortController.abort()`) y se envía un flush síncrono al Teleprompter (`cleanText: "(El entrevistador repreguntó. Escuchando...)"`) en **<50ms**, evitando que el candidato lea respuestas desactualizadas.
 
 ### 4. Sugerencia Preventiva "YAGNI / Anti-Overengineering"
 - **Directiva LLM & Helper determinista:** `getInstantYagniTip(question)` (<1ms) y directiva `[YAGNI]` en `app/api/answer/route.ts` que anticipa la solución simple de ingeniería de producción (monolito modular antes de microservicios, colas simples antes de Kafka, read replicas antes de sharding, Cloud Run antes de Kubernetes).

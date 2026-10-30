@@ -25,6 +25,9 @@ export function useGazeTracker({
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lookawayStartRef = useRef<number | null>(null);
+  // El intervalo captura una copia de analyzeFrame: el estado se lee por ref para no
+  // quedar con un closure obsoleto que jamás repone isLookingAway=false.
+  const isLookingAwayRef = useRef(false);
 
   const stopTracking = useCallback(() => {
     if (intervalRef.current) {
@@ -39,6 +42,7 @@ export function useGazeTracker({
       videoRef.current.srcObject = null;
     }
     setIsTracking(false);
+    isLookingAwayRef.current = false;
     setIsLookingAway(false);
     lookawayStartRef.current = null;
   }, []);
@@ -95,7 +99,8 @@ export function useGazeTracker({
       if (!lookawayStartRef.current) {
         lookawayStartRef.current = now;
       } else if (now - lookawayStartRef.current > lookawayThresholdMs) {
-        if (!isLookingAway) {
+        if (!isLookingAwayRef.current) {
+          isLookingAwayRef.current = true;
           setIsLookingAway(true);
           setLookawayCount((c) => c + 1);
           onLookaway?.(now - lookawayStartRef.current);
@@ -106,17 +111,24 @@ export function useGazeTracker({
         onEyeContactRestored?.();
       }
       lookawayStartRef.current = null;
-      if (isLookingAway) {
+      if (isLookingAwayRef.current) {
+        isLookingAwayRef.current = false;
         setIsLookingAway(false);
       }
     }
-  }, [lookawayThresholdMs, isLookingAway, onLookaway, onEyeContactRestored]);
+  }, [lookawayThresholdMs, onLookaway, onEyeContactRestored]);
 
   const startTracking = useCallback(async () => {
     try {
       setError(null);
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("getUserMedia no soportado en este navegador");
+      }
+
+      // Un doble start (effect + toggle manual) no debe fugar la cámara anterior
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -163,16 +175,21 @@ export function useGazeTracker({
     }
   }, [isTracking, startTracking, stopTracking]);
 
+  // Auto-arranque/parada SOLO ante cambios de `enabled`; el toggle manual vive fuera de
+  // este effect. No se pasan start/stop como deps: sus identidades cambian con cada flip
+  // de mirada y el cleanup apagaría la cámara en cada transición.
+  const startTrackingRef = useRef(startTracking);
+  startTrackingRef.current = startTracking;
+  const stopTrackingRef = useRef(stopTracking);
+  stopTrackingRef.current = stopTracking;
+
   useEffect(() => {
-    if (enabled && !isTracking) {
-      startTracking();
-    } else if (!enabled && isTracking) {
-      stopTracking();
-    }
+    if (enabled) startTrackingRef.current();
     return () => {
-      stopTracking();
+      stopTrackingRef.current();
     };
-  }, [enabled, isTracking, startTracking, stopTracking]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
 
   return {
     isTracking,

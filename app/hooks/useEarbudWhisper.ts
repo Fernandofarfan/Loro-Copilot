@@ -17,6 +17,9 @@ export function useEarbudWhisper({
   const [isEnabled, setIsEnabled] = useState(defaultEnabled);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+  // Flag síncrono: isSpeaking recién cambia en utterance.onstart (evento async con
+  // latencia real de TTS); con solo el estado, un stop() en esa ventana no corta nada.
+  const activeRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -25,11 +28,23 @@ export function useEarbudWhisper({
   }, []);
 
   const stop = useCallback(() => {
+    activeRef.current = false;
     if (synthRef.current) {
       synthRef.current.cancel();
     }
     setIsSpeaking(false);
   }, []);
+
+  const clearActive = useCallback(() => {
+    activeRef.current = false;
+    setIsSpeaking(false);
+  }, []);
+
+  // Corta SOLO si el susurro del earbud es el que está hablando: el TTS manual
+  // ("Escuchar") comparte speechSynthesis y no debe morir con cada request nueva.
+  const stopIfActive = useCallback(() => {
+    if (activeRef.current) stop();
+  }, [stop]);
 
   const whisper = useCallback(
     (textToSpeak: string, lang: "en" | "es" = "en") => {
@@ -66,10 +81,25 @@ export function useEarbudWhisper({
       }
 
       utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onend = () => {
+        activeRef.current = false;
+        setIsSpeaking(false);
+      };
+      utterance.onerror = () => {
+        activeRef.current = false;
+        setIsSpeaking(false);
+      };
 
-      synthRef.current.speak(utterance);
+      activeRef.current = true;
+      try {
+        synthRef.current.speak(utterance);
+      } catch (err) {
+        // Un fallo de TTS no debe dejar activeRef colgado (mataría el TTS manual después)
+        // ni romper el stream que llamó a whisper() vía onPunchline
+        activeRef.current = false;
+        console.warn("[earbud] speechSynthesis.speak falló:", err);
+        return;
+      }
       track("earbud_whisper_played", { lang, length: cleanText.length });
     },
     [isEnabled, rate, volume]
@@ -81,5 +111,7 @@ export function useEarbudWhisper({
     isSpeaking,
     whisper,
     stop,
+    stopIfActive,
+    clearActive,
   };
 }

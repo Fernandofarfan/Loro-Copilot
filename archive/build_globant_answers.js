@@ -309,7 +309,7 @@ const globantSpecific = [
 const allAnswers = [...globantSpecific, ...baseItems];
 console.log('Total combined master answers:', allAnswers.length);
 
-const outPath = path.join(__dirname, '../app/lib/globantMasterAnswers.ts');
-const fileData = 'import { MasterAnswer } from "./interviewHelpers";\n\nexport const GLOBANT_AND_GCP_MASTER_ANSWERS: MasterAnswer[] = ' + JSON.stringify(allAnswers, null, 2) + ';\n';
+const outPath = path.join(__dirname, 'globantMasterAnswers.ts');
+const fileData = 'import { MasterAnswer } from "../app/lib/interviewHelpers";\n\nexport const GLOBANT_AND_GCP_MASTER_ANSWERS: MasterAnswer[] = ' + JSON.stringify(allAnswers, null, 2) + ';\n';
 fs.writeFileSync(outPath, fileData, 'utf-8');
 console.log('Written to ' + outPath + ' successfully!');

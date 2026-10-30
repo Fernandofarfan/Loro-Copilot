@@ -1,29 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { track, identify } from "../lib/track";
+import { apiFetch } from "../lib/apiFetch";
 import Avatar, { type AvatarState } from "./Avatar";
 import { TtsQueue, extractSentences } from "./tts";
 import { BrandLogo } from "../lib/BrandLogo";
 import {
-  OpenAIMark,
-  AnthropicMark,
-  GoogleMark,
   BriefcaseIcon,
   DocIcon,
   UserIcon,
-  CopyIcon,
-  CheckIcon,
-  SparkleIcon,
+  MicIcon,
 } from "../components/Icons";
+import { InfoTip } from "../components/InfoTip";
+import { MODELS, DEFAULT_MODEL_ID, ProviderIcon } from "../components/ModelCatalog";
 import {
   FeedbackReportView,
   AudioTurnPlayer,
   type FeedbackReport,
-  type FeedbackQuestion,
-  type FeedbackIndicator,
-  scoreColor,
-  scoreInk,
+  normalizeFeedbackReport,
 } from "./FeedbackReportView";
 
 import { Dropdown } from "../components/Dropdown";
@@ -33,8 +28,6 @@ import { countFillers } from "../lib/speechCoach";
 
 type Line = { id: number; text: string; final: boolean };
 type Lang = "es" | "en";
-type Provider = "gemini" | "anthropic" | "openai" | "opencode";
-type ModelOption = { id: string; label: string; provider: Provider; model: string; tag: string };
 
 type InterviewType = "general" | "technical" | "behavioral" | "hr";
 type Persona = "standard" | "amazon_bar_raiser" | "skeptic_architect" | "faang_recruiter";
@@ -59,89 +52,8 @@ type HistoryItem = {
 };
 
 // El modelo puede devolver un JSON válido pero incompleto; normalizamos para
-// que el render nunca reviente por un campo faltante (mapear sobre undefined).
-function normalizeReport(raw: any): FeedbackReport {
-  const arr = (v: any) => (Array.isArray(v) ? v : []);
-  const n = Number(raw?.score);
-  return {
-    score: Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0,
-    level: typeof raw?.level === "string" ? raw.level : undefined,
-    verdict: typeof raw?.verdict === "string" ? raw.verdict : undefined,
-    topPriority: typeof raw?.topPriority === "string" ? raw.topPriority : undefined,
-    nextStep: typeof raw?.nextStep === "string" ? raw.nextStep : undefined,
-    summary: typeof raw?.summary === "string" ? raw.summary : "",
-    indicators: arr(raw?.indicators).filter((i: any) => i && typeof i.name === "string"),
-    strengths: arr(raw?.strengths).filter((s: any) => typeof s === "string"),
-    improvements: arr(raw?.improvements).filter((s: any) => typeof s === "string"),
-    questions: arr(raw?.questions).filter((q: any) => q && typeof q.question === "string"),
-  };
-}
-
-const STT_LANG: Record<Lang, string> = { es: "es", en: "en" };
-
-function OpenCodeMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-    </svg>
-  );
-}
-
-const MODELS: ModelOption[] = [
-  // ⚡ Nivel Ultra Rápido (< 2s) — Óptimo en Vivo
-  { id: "glm-5-3-flash", label: "GLM 5.3 Flash ⚡ (6.3k req)", provider: "opencode", model: "glm-5.3-flash", tag: "Ultra Rápido" },
-  { id: "glm-5-2", label: "GLM 5.2 ⚡ (880 req)", provider: "opencode", model: "glm-5.2", tag: "Ultra Rápido" },
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 🧠 (Nuevo)", provider: "opencode", model: "claude-haiku-5.5", tag: "Top Tier" },
-  { id: "deepseek-v4-1-flash", label: "DeepSeek V4.1 Flash ⚡ (34k req)", provider: "opencode", model: "deepseek-v4.1-flash", tag: "Ultra Rápido" },
-  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash ⚡ (13k req)", provider: "opencode", model: "deepseek-v4-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-6-flash", label: "MiMo V2.6 Flash ⚡ (30k req)", provider: "opencode", model: "mimo-v2.6-flash", tag: "Ultra Rápido" },
-  { id: "mimo-v2-5", label: "MiMo V2.5 ⚡ (30k req)", provider: "opencode", model: "mimo-v2.5", tag: "Ultra Rápido" },
-  { id: "qwen-3-8-flash", label: "Qwen 3.8 Flash ⚡ (5.4k req)", provider: "opencode", model: "qwen3.8-flash", tag: "Ultra Rápido" },
-  { id: "gemini-flash-latest", label: "Gemini Flash Latest ⚡", provider: "gemini", model: "gemini-flash-latest", tag: "Google" },
-  { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite ⚡", provider: "gemini", model: "gemini-flash-lite-latest", tag: "Google" },
-
-  // ♾️ Ilimitados / Free (OpenCode Go)
-  { id: "longcat-2-5-preview-free", label: "LongCat 2.5 Free ♾️", provider: "opencode", model: "longcat-2.5-preview-free", tag: "Ilimitado" },
-  { id: "step-5-preview-free", label: "Step 5 Preview Free ♾️", provider: "opencode", model: "step-5-preview-free", tag: "Ilimitado" },
-  { id: "cat-jam-free", label: "Cat Jam Free ♾️", provider: "opencode", model: "cat-jam-free", tag: "Ilimitado" },
-
-  // 🚀 Nivel Pro / Senior (Alta Precisión & Calidad)
-  { id: "gpt-6-luna", label: "GPT 6 Luna 🚀", provider: "opencode", model: "gpt-6-luna", tag: "Top Tier" },
-  { id: "gpt-5-6-luna", label: "GPT 5.6 Luna 🎯", provider: "opencode", model: "gpt-5.6-luna", tag: "Top Tier" },
-  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro 🧠 (1k req)", provider: "opencode", model: "deepseek-v4-pro", tag: "Senior / Pro" },
-  { id: "mimo-v2-6-pro", label: "MiMo V2.6 Pro 🎯", provider: "opencode", model: "mimo-v2.6-pro", tag: "Senior / Pro" },
-  { id: "mimo-v2-5-pro", label: "MiMo V2.5 Pro 🎯", provider: "opencode", model: "mimo-v2.5-pro", tag: "Senior / Pro" },
-  { id: "kimi-k3", label: "Kimi K3 🧠", provider: "opencode", model: "kimi-k3", tag: "Balanceado" },
-  { id: "kimi-k2-7-code", label: "Kimi K2.7 Code 💻", provider: "opencode", model: "kimi-k2.7-code", tag: "Coding" },
-  { id: "space-bunny", label: "Space Bunny 🐰", provider: "opencode", model: "space-bunny", tag: "Balanceado" },
-
-  // 🌌 Nivel Razonamiento / Deep Think & Grok
-  { id: "grok-4-7", label: "Grok 4.7 🌌", provider: "opencode", model: "grok-4.7", tag: "Deep Think" },
-  { id: "grok-4-6", label: "Grok 4.6 🌌", provider: "opencode", model: "grok-4.6", tag: "Deep Think" },
-  { id: "qwen-3-8-max", label: "Qwen 3.8 Max 🧠", provider: "opencode", model: "qwen3.8-max", tag: "Deep Think" },
-  { id: "glm-5-3", label: "GLM 5.3", provider: "opencode", model: "glm-5.3", tag: "Deep Think" },
-  { id: "hy4-preview", label: "Hy4 Preview 🔮", provider: "opencode", model: "hy4-preview", tag: "Deep Think" },
-  { id: "hy3", label: "Hy3", provider: "opencode", model: "hy3", tag: "Deep Think" },
-  { id: "minimax-m3", label: "MiniMax M3", provider: "opencode", model: "minimax-m3", tag: "Deep Think" },
-  { id: "minimax-m2-7", label: "MiniMax M2.7", provider: "opencode", model: "minimax-m2.7", tag: "Deep Think" },
-  { id: "longcat-2-0", label: "LongCat 2.0 🐱", provider: "opencode", model: "longcat-2.0", tag: "Deep Think" },
-  { id: "qwen-3-7-plus", label: "Qwen 3.7 Plus", provider: "opencode", model: "qwen3.7-plus", tag: "Deep Think" },
-  { id: "muse-spark-1-3", label: "Muse Spark 1.3 ⚡", provider: "opencode", model: "muse-spark-1.3-contributor", tag: "Deep Think" },
-  { id: "deepseek-v4-vision", label: "DeepSeek V4 Vision 👁️", provider: "opencode", model: "deepseek-v4-flash-vision-exp", tag: "Vision" },
-
-  // Direct Providers
-  { id: "gpt-4o-mini", label: "GPT-4o Mini 🚀", provider: "openai", model: "gpt-4o-mini", tag: "OpenAI" },
-  { id: "claude-haiku", label: "Claude 3.5 Haiku 🧠", provider: "anthropic", model: "claude-3-5-haiku-20241022", tag: "Anthropic" },
-];
-const DEFAULT_MODEL_ID = "glm-5-3-flash";
-
-function ProviderIcon({ provider }: { provider: Provider }) {
-  return (
-    <span className="dd-icon">
-      {provider === "openai" ? <OpenAIMark /> : provider === "anthropic" ? <AnthropicMark /> : provider === "opencode" ? <OpenCodeMark /> : <GoogleMark />}
-    </span>
-  );
-}
+// que el render nunca reviente por un campo faltante.
+const normalizeReport = normalizeFeedbackReport;
 
 // Íconos de la sala (header de videollamada)
 const ctlIconProps = {
@@ -171,15 +83,6 @@ function CamIcon({ off }: { off?: boolean }) {
     </svg>
   );
 }
-function MicIcon({ off }: { off?: boolean }) {
-  return (
-    <svg {...ctlIconProps}>
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" />
-      {off && <line x1="2" y1="2" x2="22" y2="22" />}
-    </svg>
-  );
-}
 function SpeakerIcon({ off }: { off?: boolean }) {
   return (
     <svg {...ctlIconProps}>
@@ -196,48 +99,6 @@ function PhoneIcon() {
     </svg>
   );
 }
-function CaptionsIcon() {
-  return (
-    <svg {...ctlIconProps}>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M7 15h3M14 15h3M7 11h10" />
-    </svg>
-  );
-}
-
-// Info tip
-function InfoTip({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-  return (
-    <span className="info-tip" ref={ref}>
-      <button
-        type="button"
-        className="info-tip-btn"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen((o) => !o);
-        }}
-        aria-label="Ayuda"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4M12 8h.01" />
-        </svg>
-      </button>
-      {open && <span className="info-bubble">{text}</span>}
-    </span>
-  );
-}
-
 function fmtElapsed(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -367,7 +228,6 @@ export default function SimuladorPage() {
   // Refs de audio / sesión
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
   const ttsRef = useRef<TtsQueue | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sessionLangRef = useRef<Lang>("es");
@@ -383,7 +243,7 @@ export default function SimuladorPage() {
   const postTtsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef(0);
-  const wakeLockRef = useRef<any>(null);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   const selectedModel = MODELS.find((m) => m.id === modelId) || MODELS[0];
 
@@ -391,6 +251,60 @@ export default function SimuladorPage() {
   const closeAnswerRef = useRef<(auto: boolean) => void>(() => {});
   const lastCutRef = useRef(false);
   const recoveryOfferedRef = useRef(false);
+
+  // URLs de audio del historial: se registran para revocarlas al limpiar; si no, cada
+  // grabación fuga memoria hasta que se cierra la pestaña.
+  const audioUrlsRef = useRef<Set<string>>(new Set());
+  // Pausa silenciosa de evaluación (5-7s): debe poder cancelarse al salir del turno
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  // Un rec.onstop tardío tras cancelar la sesión no debe adjuntar audio al turno anterior
+  const discardOnstopRef = useRef(false);
+
+  // El audio se arma SOLO desde rec.onstop con los chunks capturados por closure del
+  // recorder: el flush final de MediaRecorder es async y leer el ref compartido desde
+  // closeAnswer/skipQuestion perdía los últimos ~250ms (o todo, en "Finalizar").
+  const buildRecordedAudioUrl = (chunks: Blob[]): string | undefined => {
+    if (chunks.length === 0) return undefined;
+    try {
+      const mimeType =
+        typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm";
+      const blob = new Blob(chunks, { type: mimeType });
+      if (blob.size <= 300) return undefined;
+      const url = URL.createObjectURL(blob);
+      audioUrlsRef.current.add(url);
+      return url;
+    } catch (err) {
+      console.warn("[simulador] No se pudo generar el audio de la respuesta:", err);
+      return undefined;
+    }
+  };
+
+  const revokeAudioUrls = () => {
+    audioUrlsRef.current.forEach((u) => {
+      try {
+        URL.revokeObjectURL(u);
+      } catch {}
+    });
+    audioUrlsRef.current.clear();
+  };
+
+  useEffect(() => {
+    // StrictMode re-monta en dev: sin reponer el flag, rec.onstop nunca armaría el audio
+    mountedRef.current = true;
+    const urls = audioUrlsRef.current;
+    return () => {
+      mountedRef.current = false;
+      urls.forEach((u) => {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {}
+      });
+      urls.clear();
+    };
+  }, []);
 
   // Load and save context
   useEffect(() => {
@@ -434,7 +348,9 @@ export default function SimuladorPage() {
         JSON.stringify({ company, role, jobDescription, profile, modelId, lang, interviewType, pushbackMode })
       );
       localStorage.setItem("loro_simulador_job_desc", jobDescription);
-    } catch {}
+    } catch (e) {
+      console.warn("[simulador] localStorage no persistió (¿cuota llena?)", e);
+    }
   }, [company, role, jobDescription, profile, modelId, lang, interviewType, pushbackMode]);
 
   // M3: Sincronizar silentPauseRef con el state
@@ -483,23 +399,40 @@ export default function SimuladorPage() {
       startWatchdog();
     }
 
-    setLines((prev) => {
-      const idx = prev.findIndex((l) => l.id === line.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = line;
-        return next;
-      }
-      return [...prev.slice(-40), line];
-    });
-
     if (line.final) {
+      setLines((prev) => {
+        const idx = prev.findIndex((l) => l.id === line.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = line;
+          return next;
+        }
+        return [...prev.slice(-40), line];
+      });
       const acc = `${currentAnswerRef.current} ${line.text}`.trim();
       currentAnswerRef.current = acc;
       setCurrentAnswer(acc);
+      return;
+    }
+
+    // Throttle de interims (200ms) para no re-renderizar todo el simulador 10 veces por segundo
+    const now = Date.now();
+    if (now - lastInterimThrottleRef.current > 200) {
+      lastInterimThrottleRef.current = now;
+      setLines((prev) => {
+        const idx = prev.findIndex((l) => l.id === line.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = line;
+          return next;
+        }
+        return [...prev.slice(-40), line];
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const lastInterimThrottleRef = useRef<number>(0);
 
   const handleUtteranceEnd = useCallback(() => {
     if (
@@ -521,10 +454,17 @@ export default function SimuladorPage() {
     lang: lang === "en" ? "en" : "es",
   });
 
+  const sttStatusRef = useRef(sttStatus);
+  sttStatusRef.current = sttStatus;
+
   const clearTurnTimers = () => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
     }
     if (confirmTimerRef.current) {
       clearTimeout(confirmTimerRef.current);
@@ -551,7 +491,7 @@ export default function SimuladorPage() {
     watchdogRef.current = setInterval(() => {
       if (phaseRef.current !== "listening") return;
       // Corte de red: si STT no está en vivo, reseteamos el reloj
-      if (sttStatus !== "live") {
+      if (sttStatusRef.current !== "live") {
         lastSpeechAtRef.current = Date.now();
         listeningStartedAtRef.current = Date.now();
         return;
@@ -587,6 +527,9 @@ export default function SimuladorPage() {
     setLines([]);
     stuckRef.current = false;
     setStuck(false);
+    // Cada recorder nuevo arranca sin descarte pendiente: un flag colgado de una
+    // cancelación previa mataría el audio del primer turno de la sesión siguiente
+    discardOnstopRef.current = false;
     setPhaseBoth("listening");
     startWatchdog();
 
@@ -604,29 +547,29 @@ export default function SimuladorPage() {
           ? "audio/webm"
           : "";
         const rec = mimeType ? new MediaRecorder(streamToRecord, { mimeType }) : new MediaRecorder(streamToRecord);
-        recordedChunksRef.current = [];
+        const chunks: Blob[] = [];
         rec.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+          if (e.data && e.data.size > 0) chunks.push(e.data);
         };
         rec.onstop = () => {
-          try {
-            if (recordedChunksRef.current.length > 0) {
-              const blob = new Blob(recordedChunksRef.current, { type: mimeType || "audio/webm" });
-              if (blob.size > 300) {
-                const url = URL.createObjectURL(blob);
-                setHistory((prev) => {
-                  if (prev.length === 0) return prev;
-                  const next = [...prev];
-                  const last = next.length - 1;
-                  if (!next[last].audioUrl) {
-                    next[last] = { ...next[last], audioUrl: url };
-                    historyRef.current = next;
-                  }
-                  return next;
-                });
+          if (!mountedRef.current) return;
+          if (discardOnstopRef.current) {
+            discardOnstopRef.current = false;
+            return;
+          }
+          const url = buildRecordedAudioUrl(chunks);
+          if (url) {
+            setHistory((prev) => {
+              if (prev.length === 0) return prev;
+              const next = [...prev];
+              const last = next.length - 1;
+              if (!next[last].audioUrl) {
+                next[last] = { ...next[last], audioUrl: url };
+                historyRef.current = next;
               }
-            }
-          } catch {}
+              return next;
+            });
+          }
         };
         rec.start(250);
         mediaRecorderRef.current = rec;
@@ -634,6 +577,26 @@ export default function SimuladorPage() {
     } catch (err) {
       console.warn("Could not start MediaRecorder in simulator:", err);
     }
+  };
+
+  const stopActiveRecorder = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+  };
+
+  const commitTurnAnswer = (answer: string) => {
+    stopActiveRecorder();
+    const { total: fillersCount } = countFillers(answer);
+    const updated = [...historyRef.current, { question: questionRef.current, answer, fillersCount }];
+    historyRef.current = updated;
+    setHistory(updated);
+    currentAnswerRef.current = "";
+    setCurrentAnswer("");
+    setLines([]);
+    return updated;
   };
 
   // Avanza sin exigir respuesta mínima (candidato trabado o mudo). Registra lo
@@ -645,31 +608,8 @@ export default function SimuladorPage() {
     stuckRef.current = false;
     setStuck(false);
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {}
-    }
-
     const answer = currentAnswerRef.current.trim() || "(No respondí a esta pregunta)";
-    let audioUrl: string | undefined = undefined;
-    if (recordedChunksRef.current.length > 0) {
-      try {
-        const mimeType = typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm";
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-        if (blob.size > 300) audioUrl = URL.createObjectURL(blob);
-      } catch {}
-    }
-    const { total: fillersCount } = countFillers(answer);
-
-    const updated = [...historyRef.current, { question: questionRef.current, answer, audioUrl, fillersCount }];
-    historyRef.current = updated;
-    setHistory(updated);
-    currentAnswerRef.current = "";
-    setCurrentAnswer("");
-    setLines([]);
+    const updated = commitTurnAnswer(answer);
     track("sim_answer_closed", { auto: true, skipped: true, question_index: updated.length });
     if (updated.length >= questionsCount) finishToFeedback(updated);
     else beginTurnRef.current(updated);
@@ -718,7 +658,11 @@ export default function SimuladorPage() {
 
     let ctx = ttsAudioCtxRef.current;
     if (!ctx || ctx.state === "closed") {
-      ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtxClass) return;
+      ctx = new AudioCtxClass();
       ttsAudioCtxRef.current = ctx;
     }
     if (ctx.state === "suspended") await ctx.resume();
@@ -728,7 +672,12 @@ export default function SimuladorPage() {
     // M3: Pausa Silenciosa — añadir un silencio de evaluación de 5-7s si está activado
     const baseOnDone = closing ? () => finishToFeedback(currentHistory) : enterListening;
     const onDone = silentPauseRef.current && !closing
-      ? () => setTimeout(baseOnDone, 5000 + Math.random() * 2000)
+      ? () => {
+          pauseTimerRef.current = setTimeout(() => {
+            pauseTimerRef.current = null;
+            baseOnDone();
+          }, 5000 + Math.random() * 2000);
+        }
       : baseOnDone;
 
     ttsRef.current?.stop();
@@ -789,7 +738,7 @@ export default function SimuladorPage() {
       // En el cierre no se manda imagen ni señal de corte.
       const withVision = !closing && questionIndex <= 2;
       const image = withVision ? captureFrame() : null;
-      const res = await fetch("/api/simulador", {
+      const res = await apiFetch("/api/simulador", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -854,7 +803,7 @@ export default function SimuladorPage() {
       armSpeakFailsafe(Math.max(15_000, questionText.length * 120));
 
       if (!questionText.trim()) throw new Error("El entrevistador no devolvió pregunta.");
-    } catch (err: any) {
+    } catch (err) {
       queue.stop();
       // Si falla el turno de cierre, igual entregamos el informe (el candidato
       // ya respondió todo); no lo mandamos de vuelta al setup.
@@ -862,7 +811,7 @@ export default function SimuladorPage() {
         finishToFeedback(currentHistory);
       } else {
         endSession();
-        setError(err?.message || "Error al conectar con la IA.");
+        setError(err instanceof Error && err.message ? err.message : "Error al conectar con la IA.");
       }
     }
   };
@@ -884,12 +833,6 @@ export default function SimuladorPage() {
     // ¿La respuesta quedó cortada? Solo si la cerró el silencio (auto) y terminó
     // en palabra colgada (conjunción/preposición/muletilla) → casi seguro seguía.
     // Anti-loop: si el turno anterior ya ofreció completar, no volvemos a ofrecer.
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {}
-    }
-
     const lastWord = answer
       .toLowerCase()
       .replace(/[.,!?…"”'’)\]]+$/g, "")
@@ -900,24 +843,7 @@ export default function SimuladorPage() {
     lastCutRef.current = offerRecovery;
     recoveryOfferedRef.current = offerRecovery;
 
-    let audioUrl: string | undefined = undefined;
-    if (recordedChunksRef.current.length > 0) {
-      try {
-        const mimeType = typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : "audio/webm";
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-        if (blob.size > 300) audioUrl = URL.createObjectURL(blob);
-      } catch {}
-    }
-    const { total: fillersCount } = countFillers(answer);
-
-    const updated = [...historyRef.current, { question: questionRef.current, answer, audioUrl, fillersCount }];
-    historyRef.current = updated;
-    setHistory(updated);
-    currentAnswerRef.current = "";
-    setCurrentAnswer("");
-    setLines([]);
+    const updated = commitTurnAnswer(answer);
     track("sim_answer_closed", { auto, question_index: updated.length, cut: offerRecovery });
 
     if (updated.length >= questionsCount) {
@@ -942,13 +868,8 @@ export default function SimuladorPage() {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {}
-    }
+    stopActiveRecorder();
     mediaRecorderRef.current = null;
-    recordedChunksRef.current = [];
     ttsRef.current?.stop();
     ttsRef.current = null;
     setAnalyser(null);
@@ -983,9 +904,13 @@ export default function SimuladorPage() {
     if (ph === "listening" || ph === "confirming") {
       const a = currentAnswerRef.current.trim();
       if (a.length >= MIN_ANSWER_CHARS) {
-        const updated = [...historyRef.current, { question: questionRef.current, answer: a }];
+        const { total: fillersCount } = countFillers(a);
+        const updated = [...historyRef.current, { question: questionRef.current, answer: a, fillersCount }];
         historyRef.current = updated;
         setHistory(updated);
+      } else {
+        // Sin respuesta válida en el turno actual: descartar el blob del recorder activo
+        discardOnstopRef.current = true;
       }
     }
     if (historyRef.current.length > 0) {
@@ -997,6 +922,9 @@ export default function SimuladorPage() {
   };
 
   const endSession = () => {
+    // Cancelación: no hay turno nuevo esperando audio; el onstop tardío no debe
+    // adjuntarse al último item del historial
+    discardOnstopRef.current = true;
     cleanupMedia();
     setPhaseBoth("setup");
   };
@@ -1022,7 +950,7 @@ export default function SimuladorPage() {
     // menos estable.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const res = await fetch("/api/simulador", {
+        const res = await apiFetch("/api/simulador", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1044,14 +972,16 @@ export default function SimuladorPage() {
         setSavedReport(report);
         try {
           localStorage.setItem(LS_KEY_REPORT, JSON.stringify({ report, company, role, ts: Date.now() }));
-        } catch {}
+        } catch (e) {
+          console.warn("[simulador] localStorage no persistió (¿cuota llena?)", e);
+        }
         setIsGeneratingFeedback(false);
         track("sim_feedback_shown", { score: report.score });
         return;
-      } catch (err: any) {
+      } catch (err) {
         if (attempt === 0) continue;
         setIsGeneratingFeedback(false);
-        setError(err?.message || "Error al procesar el feedback.");
+        setError(err instanceof Error && err.message ? err.message : "Error al procesar el feedback.");
         track("session_error", { where: "sim_feedback" });
       }
     }
@@ -1063,6 +993,7 @@ export default function SimuladorPage() {
     setError("");
     setHistory([]);
     historyRef.current = [];
+    revokeAudioUrls();
     setLines([]);
     setCurrentAnswer("");
     currentAnswerRef.current = "";
@@ -1117,19 +1048,21 @@ export default function SimuladorPage() {
 
       // Wake lock
       try {
-        wakeLockRef.current = await (navigator as any).wakeLock?.request("screen");
+        if ("wakeLock" in navigator && (navigator as Navigator & { wakeLock?: { request: (type: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock) {
+          wakeLockRef.current = await (navigator as Navigator & { wakeLock?: { request: (type: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock!.request("screen");
+        }
       } catch {}
 
       startedAtRef.current = Date.now();
       timerIntervalRef.current = setInterval(() => setElapsed(elapsedNow()), 1000);
       beginTurnRef.current([]);
-    } catch (err: any) {
+    } catch (err) {
       cleanupMedia();
-      const denied = err?.name === "NotAllowedError" || err?.name === "SecurityError";
+      const denied = err instanceof Error && (err.name === "NotAllowedError" || err.name === "SecurityError");
       setError(
         denied
           ? "Necesitamos el micrófono para la entrevista. Activá el permiso desde el candado 🔒 en la barra del navegador y volvé a intentar."
-          : err?.message || "No se pudo iniciar el simulador. Revisá los permisos de micrófono."
+          : (err instanceof Error && err.message) || "No se pudo iniciar el simulador. Revisá los permisos de micrófono."
       );
       setPhaseBoth("setup");
     }
@@ -1140,9 +1073,10 @@ export default function SimuladorPage() {
     const onVis = () => {
       const ph = phaseRef.current;
       if (document.visibilityState === "visible" && ph !== "setup" && ph !== "feedback") {
-        (navigator as any).wakeLock
+        const nav = navigator as Navigator & { wakeLock?: { request: (type: string) => Promise<{ release: () => Promise<void> }> } };
+        nav.wakeLock
           ?.request("screen")
-          .then((wl: any) => {
+          .then((wl) => {
             wakeLockRef.current = wl;
           })
           .catch(() => {});
@@ -1215,10 +1149,11 @@ export default function SimuladorPage() {
 
   // Loop viral top-of-funnel: comparte el SIMULADOR gratis por WhatsApp.
   const shareSimulator = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
     const msg =
       `Mira esto… me voló la cabeza.\n` +
-      `Simulé una entrevista con una IA por video en tiempo real, luego te da un informe con tips muy piola. Es gratis:\n` +
-      `https://loro-copilot.vercel.app/simulador`;
+      `Simulé una entrevista con una IA por video en tiempo real, luego te da un informe con tips muy piola:\n` +
+      `${origin}/simulador`;
     track("sim_share_whatsapp");
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
@@ -1233,7 +1168,7 @@ export default function SimuladorPage() {
     setEmailSending(true);
     setEmailError("");
     try {
-      const r = await fetch("/api/waitlist", {
+      const r = await apiFetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: em }),
@@ -1242,7 +1177,9 @@ export default function SimuladorPage() {
       if (r.ok && j.ok) {
         try {
           localStorage.setItem(LS_KEY_EMAIL, em);
-        } catch {}
+        } catch (e) {
+          console.warn("[simulador] localStorage no persistió (¿cuota llena?)", e);
+        }
         track("sim_email_submit");
         identify(em, { email: em });
         setEmailGatePassed(true);
@@ -1579,11 +1516,12 @@ export default function SimuladorPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label className="mono form-mini-label">
+              <label htmlFor="sim-company" className="mono form-mini-label">
                 <BriefcaseIcon /> Empresa
                 <InfoTip text="La empresa que simulará la entrevista. Ayuda a personalizar las preguntas y el fit." />
               </label>
               <input
+                id="sim-company"
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
                 placeholder="Ej: Mercado Libre"
@@ -1592,11 +1530,12 @@ export default function SimuladorPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-              <label className="mono form-mini-label">
+              <label htmlFor="sim-role" className="mono form-mini-label">
                 <DocIcon /> Descripción del puesto
                 <InfoTip text="Descripción del rol para el que te simularás. Ayuda a definir las preguntas técnicas o de comportamiento." />
               </label>
               <textarea
+                id="sim-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="Pegá la descripción del puesto, seniority, requisitos o tecnologías."
@@ -1605,7 +1544,7 @@ export default function SimuladorPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-              <label className="mono form-mini-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label htmlFor="sim-jd" className="mono form-mini-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   📋 Pegar Job Description / Requisitos de la Vacante (Opcional)
                   <InfoTip text="Pegá los requerimientos exactos de la oferta. El entrevistador calibrará el 100% de las preguntas, casos prácticos y pushbacks sobre estas tecnologías." />
@@ -1617,6 +1556,7 @@ export default function SimuladorPage() {
                 )}
               </label>
               <textarea
+                id="sim-jd"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="Pegá los requerimientos exactos de la vacante, responsabilidades y stack tecnológico requerido..."
@@ -1625,11 +1565,12 @@ export default function SimuladorPage() {
               />
             </div>
 
-            <label className="mono form-mini-label" style={{ marginTop: 4 }}>
+            <label htmlFor="sim-profile" className="mono form-mini-label" style={{ marginTop: 4 }}>
               <UserIcon /> Tu perfil / CV
               <InfoTip text="Tu experiencia y habilidades. La IA las usará para hacer preguntas más específicas a tu caso o evaluar si aprovechás tu background." />
             </label>
             <textarea
+              id="sim-profile"
               value={profile}
               onChange={(e) => setProfile(e.target.value)}
               placeholder="Pegá tu CV, experiencia previa o notas de tu perfil laboral."
@@ -1686,7 +1627,7 @@ export default function SimuladorPage() {
                 aria-label={micOn ? "Silenciar micrófono" : "Activar micrófono"}
                 title={micOn ? "Silenciar micrófono" : "Activar micrófono"}
               >
-                <MicIcon off={!micOn} />
+                <MicIcon size={17} off={!micOn} />
               </button>
               <button
                 className="sim-ctl-btn"
@@ -1994,7 +1935,9 @@ export default function SimuladorPage() {
                               const existing = JSON.parse(raw);
                               localStorage.setItem(LS_KEY_REPORT, JSON.stringify({ ...existing, outcome: id, outcomeAt: Date.now() }));
                             }
-                          } catch {}
+                          } catch (e) {
+                            console.warn("[simulador] localStorage no persistió (¿cuota llena?)", e);
+                          }
                           // M6: Track analytics
                           import("../lib/track").then(({ track }) => {
                             track("sim_interview_outcome", { outcome: id, score: feedbackReport?.score ?? 0, company, role });
@@ -2029,6 +1972,9 @@ export default function SimuladorPage() {
           onClick={() => setShowVulnModal(false)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Radar de Vulnerabilidades"
             style={{
               backgroundColor: "#0f172a",
               border: "1px solid rgba(245, 158, 11, 0.4)",
@@ -2050,7 +1996,9 @@ export default function SimuladorPage() {
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowVulnModal(false)}
+                aria-label="Cerrar"
                 style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 18 }}
               >
                 ✕

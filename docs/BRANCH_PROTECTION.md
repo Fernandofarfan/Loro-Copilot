@@ -1,23 +1,24 @@
 # Branch protection — `main` (deseado, no activo)
 
-No hay `.github/workflows/ci.yml`. GitHub no corre tests en push. Hasta que exista CI, el gate es manual:
+La CI **existe**: `.github/workflows/ci.yml` corre en push y PR a `main` con dos jobs:
+
+- `unit`: `npm run lint` + `npm run typecheck` + `npm test` + `npm run build`.
+- `e2e`: Playwright (`npm run test:e2e`) con Chromium. Cubre home, simulador, teleprompter, waitlist 400, waitlist sin Origin, token 503 y una pregunta manual con SSE mockeado. No cubre audio real, streaming real de Deepgram ni HUD pop-out.
 
 ```bash
-npm test          # 207 tests / 26 archivos
+npm test          # 280 tests / 32 archivos
 npx tsc --noEmit
 ```
 
-`npm run test:e2e` es smoke Playwright (título, URLs, waitlist 400). No cubre audio, SSE ni HUD.
-
 ---
 
-## Si se agrega CI más adelante
+## Falta habilitar la protección de rama
 
 `Settings → Branches → Branch protection rules → main`:
 
-- Require status checks: jobs `unit` (vitest + tsc) y, si se quiere, `e2e`.
+- Require status checks: jobs `unit` y `e2e`.
 - Require PR + 1 aprobación (opcional en un repo personal).
 - Linear history (squash/rebase).
 - Include administrators.
 
-Hoy Fernando pushea a `main` y Vercel despliega. El riesgo es romper el copiloto Globant sin red de CI.
+Hoy Fernando pushea a `main`; la CI corre pero **no bloquea** el merge/push (no hay deploy automático: el proyecto corre en local). El riesgo es romper el copiloto propio si se ignora un job en rojo.

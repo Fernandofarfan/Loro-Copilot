@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyOrigin, checkRateLimitAsync } from "../../lib/security";
+import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
 import { fetchWithTimeout } from "../../lib/llm";
 
 export const runtime = "edge";
@@ -7,6 +7,12 @@ export const runtime = "edge";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
 export async function POST(req: Request) {
+  // 0. Kill switch de capacidad (consistente con el resto de las rutas)
+  const capacity = checkCapacity();
+  if (!capacity.ok) {
+    return NextResponse.json({ error: capacity.error }, { status: capacity.status || 503 });
+  }
+
   // 1. Verificación de Origin / Referer
   const originCheck = verifyOrigin(req);
   if (!originCheck.ok) {
@@ -53,7 +59,7 @@ export async function POST(req: Request) {
     const formData = new URLSearchParams();
     formData.append(gformEmailEntry, email);
     if (body.source) {
-      formData.append(gformSourceEntry, body.source);
+      formData.append(gformSourceEntry, String(body.source).slice(0, 100));
     }
     const formRes = await fetchWithTimeout(
       gformAction,

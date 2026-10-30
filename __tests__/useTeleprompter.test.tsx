@@ -61,4 +61,45 @@ describe("useTeleprompter", () => {
     ).not.toThrow();
     setItemSpy.mockRestore();
   });
+
+  it("un turno nuevo depura los paneles del turno anterior en lo persistido", () => {
+    const { result } = renderHook(() => useTeleprompter());
+    act(() =>
+      result.current.syncTeleprompter({
+        question: "Pregunta A",
+        alert: "Ojo con el trade-off",
+        matchedStory: { storyIndex: 0, title: "Historia", action: "a", result: "r", score: 8 },
+        keyWords: ["uno", "dos"],
+      })
+    );
+    act(() =>
+      result.current.syncTeleprompter({
+        question: "Pregunta B",
+        cleanText: "Texto nuevo",
+      })
+    );
+
+    const stored = JSON.parse(localStorage.getItem("loro_teleprompter_data") || "{}");
+    expect(stored.question).toBe("Pregunta B");
+    expect(stored.cleanText).toBe("Texto nuevo");
+    // Los paneles/avisos del turno A no deben sobrevivir al turno B
+    expect(stored.alert).toBeUndefined();
+    expect(stored.matchedStory).toBeUndefined();
+    expect(stored.keyWords).toBeUndefined();
+  });
+
+  it("la misma pregunta no depura sus paneles", () => {
+    const { result } = renderHook(() => useTeleprompter());
+    act(() =>
+      result.current.syncTeleprompter({ question: "Pregunta A", alert: "Trap A", keyWords: ["x"] })
+    );
+    act(() =>
+      result.current.syncTeleprompter({ question: "Pregunta A", cleanText: "Texto final" })
+    );
+
+    const stored = JSON.parse(localStorage.getItem("loro_teleprompter_data") || "{}");
+    expect(stored.alert).toBe("Trap A");
+    expect(stored.keyWords).toEqual(["x"]);
+    expect(stored.cleanText).toBe("Texto final");
+  });
 });

@@ -1,25 +1,24 @@
 import {
-  streamGemini,
-  streamAnthropic,
-  streamOpenAI,
-  streamOpenCode,
+  streamForProvider,
+  buildCandidates,
   resolveProvider,
   resolveModel,
   FALLBACK_MODELS,
+  OPENCODE_VISION_MODELS,
   type Provider,
 } from "../../lib/llm";
-import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/security";
+import { verifyOrigin, verifySharedSecret, checkRateLimitAsync, checkCapacity } from "../../lib/security";
 import { detectQuestionLanguage, classifyQuestionType } from "../../lib/interviewHelpers";
 import { getCompanyDossier, formatCompanyDossierPrompt } from "../../lib/companyDossier";
+import { sanitizeForPrompt } from "../../lib/promptUtils";
 
 export const runtime = "edge";
 
-// Escapa caracteres XML de delimitación para evitar inyección de prompt via inputs de usuario
-function sanitizeForPrompt(text: string): string {
-  return text
-    .replace(/</g, "‹")   // reemplazar < por guillemet izquierdo (similar visual, no interpretable como tag)
-    .replace(/>/g, "›");  // reemplazar > por guillemet derecho
-}
+const DRY_RUN_TABLE = `| Paso | Variables / Punteros | Condición / Operación | Estado / Retorno |
+| :--- | :--- | :--- | :--- |
+| Inicial | i=0, j=n-1 | Input simple | Estado inicial |
+| Paso 1 | ... | ... | ... |
+| Fin | ... | ... | return resultado |`;
 
 const SYSTEM_PROMPT = `Sos EL ENTREVISTADO. Respondés en primera persona, en vivo, ahora mismo como candidato Senior.
 
@@ -101,11 +100,7 @@ Analizá la imagen provista y la pregunta o contexto:
 [EDGE_CASES] Caso 1 (ej. input vacío/nulo) | Caso 2 (ej. enteros extremos o negativos / overflow 32-bit) | Caso 3 (ej. duplicados o ciclos) [/EDGE_CASES]
 - Incluí OBLIGATORIAMENTE el bloque [DRY_RUN] con una tabla de 3-4 filas mostrando el trazado paso a paso con un test case de ejemplo para relatar la ejecución en vivo:
 [DRY_RUN]
-| Paso | Variables / Punteros | Condición / Operación | Estado / Retorno |
-| :--- | :--- | :--- | :--- |
-| Inicial | i=0, j=n-1 | Input simple | Estado inicial |
-| Paso 1 | ... | ... | ... |
-| Fin | ... | ... | return resultado |
+${DRY_RUN_TABLE}
 [/DRY_RUN]
 - 1 frase clara explicando la idea núcleo del algoritmo.
 - Código limpio, fuertemente tipado con tipos nativos en minúscula (list[int], dict[str, Any] en Python; NUNCA from typing import List), nombres descriptivos y manejo de casos borde en la primera línea.
@@ -161,6 +156,14 @@ export async function POST(req: Request) {
     });
   }
 
+  // 1b. Token compartido (solo si LORO_SHARED_TOKEN está configurado)
+  const secretCheck = verifySharedSecret(req);
+  if (!secretCheck.ok) {
+    return new Response(secretCheck.error || "No autorizado", {
+      status: secretCheck.status || 401,
+    });
+  }
+
   // 2. Rate limiting (35 respuestas por minuto por IP)
   const rl = await checkRateLimitAsync(req, { limit: 35, windowMs: 60_000, keyPrefix: "answer" });
   if (!rl.allowed) {
@@ -198,10 +201,31 @@ export async function POST(req: Request) {
     starStories?: Array<{ title?: string; situation?: string; task?: string; action?: string; result?: string }>;
   };
 
+  // Tope duro de tamaño: un payload gigante (base64 de imagen inflado, facts masivos)
+  // multiplica tokens y costo por request. ~2 MB cubre un frame WebP de 1280px con holgura.
+  const rawBody = await req.text().catch(() => "");
+  if (!rawBody || rawBody.length > 2_000_000) {
+    return new Response(rawBody ? "Body demasiado grande." : "Body inválido.", {
+      status: rawBody ? 413 : 400,
+    });
+  }
+
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return new Response("Body inválido.", { status: 400 });
+  }
+
+  // Validar y acotar la imagen multimodal: sin tope, un base64 inflado dispara el costo por tokens
+  if (body.image) {
+    const imgData = typeof body.image.data === "string" ? body.image.data : "";
+    const imgMime = typeof body.image.mimeType === "string" ? body.image.mimeType : "";
+    body.image =
+      imgData.length > 0 &&
+      imgData.length <= 1_500_000 &&
+      /^image\/(png|jpe?g|webp|gif)$/i.test(imgMime)
+        ? { mimeType: imgMime, data: imgData }
+        : null;
   }
 
   const provider: Provider = resolveProvider(body.provider);
@@ -239,8 +263,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // En OpenCode, mimo-v2.5 y kimi-k3 son ultrarrápidos en visión (~4s) y procesan imágenes sin cuelgues
-    const OPENCODE_VISION_MODELS = ["mimo-v2.5", "kimi-k3", "glm-5.3-flash"];
+    // OPENCODE_VISION_MODELS (llm.ts): mimo-v2.5 y kimi-k3 son ultrarrápidos en visión (~4s)
     const visionCandidates = Array.from(
       new Set([
         ...(visionProvider === "opencode" ? OPENCODE_VISION_MODELS : []),
@@ -251,13 +274,7 @@ export async function POST(req: Request) {
 
     try {
       const visionOptions = { image: body.image, maxTokens: 3500 };
-      return await (visionProvider === "gemini"
-        ? streamGemini(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions)
-        : visionProvider === "anthropic"
-        ? streamAnthropic(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions)
-        : visionProvider === "openai"
-        ? streamOpenAI(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions)
-        : streamOpenCode(visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions));
+      return await streamForProvider[visionProvider](visionCandidates, visionContent, VISION_CODING_PROMPT, visionOptions);
     } catch (err: unknown) {
       console.error("Error en vision coding:", err);
       return new Response("Error al analizar la imagen de pantalla.", { status: 500 });
@@ -269,15 +286,12 @@ export async function POST(req: Request) {
     const trapContent = `<question>${question || "(vacío)"}</question>
 <role>${role || "General"}</role>
 <company>${company || "General"}</company>`;
-    const trapCandidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 2);
+    const trapCandidates = buildCandidates(provider, model, 2);
     try {
-      return await (provider === "gemini"
-        ? streamGemini(trapCandidates, trapContent, TRAP_DETECTOR_PROMPT)
-        : provider === "anthropic"
-        ? streamAnthropic(trapCandidates, trapContent, TRAP_DETECTOR_PROMPT)
-        : provider === "openai"
-        ? streamOpenAI(trapCandidates, trapContent, TRAP_DETECTOR_PROMPT)
-        : streamOpenCode(trapCandidates, trapContent, TRAP_DETECTOR_PROMPT));
+      const trapRes = await streamForProvider[provider](trapCandidates, trapContent, TRAP_DETECTOR_PROMPT);
+      // Fail-safe silencioso para el detector secundario: nunca propagar errores al cliente
+      if (!trapRes.ok) return new Response("", { status: 200 });
+      return trapRes;
     } catch {
       return new Response("", { status: 200 }); // Fail-safe silencioso para el detector secundario
     }
@@ -292,15 +306,9 @@ ${transcript || "(sin transcripción previa acumulada)"}
 </transcript>
 <question>Generá 3 preguntas estratégicas y de alto impacto para hacerles en el cierre de la entrevista basadas en los dolores y temas técnicos mencionados.</question>`;
 
-    const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
+    const candidates = buildCandidates(provider, model, 3);
     try {
-      return await (provider === "gemini"
-        ? streamGemini(candidates, reverseContent, REVERSE_QUESTIONS_PROMPT)
-        : provider === "anthropic"
-        ? streamAnthropic(candidates, reverseContent, REVERSE_QUESTIONS_PROMPT)
-        : provider === "openai"
-        ? streamOpenAI(candidates, reverseContent, REVERSE_QUESTIONS_PROMPT)
-        : streamOpenCode(candidates, reverseContent, REVERSE_QUESTIONS_PROMPT));
+      return await streamForProvider[provider](candidates, reverseContent, REVERSE_QUESTIONS_PROMPT);
     } catch (err: unknown) {
       console.error("Error en reverse questions:", err);
       return new Response("Error al generar preguntas de cierre.", { status: 500 });
@@ -310,17 +318,11 @@ ${transcript || "(sin transcripción previa acumulada)"}
   // Modo Transpiler Rápido de Código Multilenguaje
   if (body.type === "transpile" || body.mode === "transpile") {
     const targetLang = sanitizeForPrompt((body.targetLang || "typescript").slice(0, 50));
-    const code = (body.code || "").slice(0, 6000);
+    const code = sanitizeForPrompt((body.code || "").slice(0, 6000));
     const transpilePrompt = `<target_language>${targetLang}</target_language>\n\n<source_code>\n${code}\n</source_code>`;
-    const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 2);
+    const candidates = buildCandidates(provider, model, 2);
     try {
-      return await (provider === "gemini"
-        ? streamGemini(candidates, transpilePrompt, TRANSPILER_PROMPT)
-        : provider === "anthropic"
-        ? streamAnthropic(candidates, transpilePrompt, TRANSPILER_PROMPT)
-        : provider === "openai"
-        ? streamOpenAI(candidates, transpilePrompt, TRANSPILER_PROMPT)
-        : streamOpenCode(candidates, transpilePrompt, TRANSPILER_PROMPT));
+      return await streamForProvider[provider](candidates, transpilePrompt, TRANSPILER_PROMPT);
     } catch (err: unknown) {
       console.error("Error en transpiler:", err);
       return new Response("Error al transpilar código.", { status: 500 });
@@ -335,15 +337,9 @@ ${profile || "(sin perfil)"}
 <company>${company || "General"}</company>
 <role>${role || "General"}</role>`;
 
-    const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
+    const candidates = buildCandidates(provider, model, 3);
     try {
-      return await (provider === "gemini"
-        ? streamGemini(candidates, userContent, WARMUP_SYSTEM_PROMPT)
-        : provider === "anthropic"
-        ? streamAnthropic(candidates, userContent, WARMUP_SYSTEM_PROMPT)
-        : provider === "openai"
-        ? streamOpenAI(candidates, userContent, WARMUP_SYSTEM_PROMPT)
-        : streamOpenCode(candidates, userContent, WARMUP_SYSTEM_PROMPT));
+      return await streamForProvider[provider](candidates, userContent, WARMUP_SYSTEM_PROMPT);
     } catch (err: unknown) {
       console.error("Error en warmup answer:", err);
       return new Response("Error al generar preguntas de calentamiento.", { status: 500 });
@@ -425,11 +421,7 @@ ${spanglishRule}
 - Invariantes Python en vivo: usá siempre genéricos nativos en minúscula (list[int], dict[str, Any], set[int]). En Python 'set' NO puede ser clave de dict (es mutable e unhashable); se DEBE usar 'frozenset'.
 - Incluí OBLIGATORIAMENTE el bloque [DRY_RUN] con una tabla concisa de 3 a 4 filas mostrando el trazado paso a paso con un test case de ejemplo para que el candidato pueda relatar la ejecución sin trabarse:
 [DRY_RUN]
-| Paso | Variables / Punteros | Condición / Operación | Estado / Retorno |
-| :--- | :--- | :--- | :--- |
-| Inicial | i=0, j=n-1 | Input simple | Estado inicial |
-| Paso 1 | ... | ... | ... |
-| Fin | ... | ... | return resultado |
+${DRY_RUN_TABLE}
 [/DRY_RUN]
 - Mostrá código limpio, idiomático y tipado para el puesto.`;
   } else if (questionCategory === "behavioral") {
@@ -470,15 +462,23 @@ ${spanglishRule}
   if (Array.isArray(body.facts) && body.facts.length > 0) {
     const lines = body.facts
       .slice(-10)
-      .map((f: unknown) => (typeof f === "string" ? `- ${f}` : `- [${(f as { category: string }).category}] ${(f as { statement: string }).statement}`));
+      .map((f: unknown) => {
+        const raw =
+          typeof f === "string"
+            ? f
+            : `[${String((f as { category?: string })?.category ?? "")}] ${String((f as { statement?: string })?.statement ?? "")}`;
+        // sanitizeForPrompt + tope por ítem: este campo venía interpolado crudo al prompt
+        return `- ${sanitizeForPrompt(String(raw)).slice(0, 500)}`;
+      });
     factsSection = `\n## HECHOS PREVIOS DE LA SESIÓN (NO CONTRADECIR):\n${lines.join("\n")}\n`;
   }
 
   let starStoriesSection = "";
   if (Array.isArray(body.starStories) && body.starStories.length > 0) {
+    const cut = (v: string) => sanitizeForPrompt(v).slice(0, 1500);
     const storiesFormatted = body.starStories
       .slice(0, 5)
-      .map((s) => `### ${sanitizeForPrompt(s.title || "Logro")}\n- **S/T:** ${sanitizeForPrompt(s.situation || "")} ${sanitizeForPrompt(s.task || "")}\n- **Acción:** ${sanitizeForPrompt(s.action || "")}\n- **Resultado:** ${sanitizeForPrompt(s.result || "")}`)
+      .map((s) => `### ${cut(s.title || "Logro")}\n- **S/T:** ${cut(s.situation || "")} ${cut(s.task || "")}\n- **Acción:** ${cut(s.action || "")}\n- **Resultado:** ${cut(s.result || "")}`)
       .join("\n\n");
     starStoriesSection = `\n## BÓVEDA DE HISTORIAS STAR REALES DEL CANDIDATO (Priorizar estas experiencias):\n${storiesFormatted}\n`;
   }
@@ -492,7 +492,7 @@ ${spanglishRule}
   if (previousAnswers.length > 0) {
     historySection = `## RESPUESTAS PREVIAS (NO REPETIR ANÉCDOTAS):\n`;
     previousAnswers.forEach((pa) => {
-      historySection += `Q: ${pa.q.slice(0, 200)}\nA: ${pa.a.slice(0, 300)}\n\n`;
+      historySection += `Q: ${sanitizeForPrompt((pa.q || "").slice(0, 200))}\nA: ${sanitizeForPrompt((pa.a || "").slice(0, 300))}\n\n`;
     });
   }
 
@@ -523,17 +523,11 @@ ${transcript || "(vacío)"}
 ${question || "(ninguna aún)"}
 </question>`;
 
-  const candidates = Array.from(new Set([model, ...FALLBACK_MODELS[provider]])).slice(0, 3);
+  const candidates = buildCandidates(provider, model, 3);
 
   try {
     const streamOpts = body.image ? { image: body.image } : {};
-    return await (provider === "gemini"
-      ? streamGemini(candidates, userContent, effectiveSystemPrompt, streamOpts)
-      : provider === "anthropic"
-      ? streamAnthropic(candidates, userContent, effectiveSystemPrompt, streamOpts)
-      : provider === "openai"
-      ? streamOpenAI(candidates, userContent, effectiveSystemPrompt, streamOpts)
-      : streamOpenCode(candidates, userContent, effectiveSystemPrompt, streamOpts));
+    return await streamForProvider[provider](candidates, userContent, effectiveSystemPrompt, streamOpts);
   } catch (err: unknown) {
     console.error("Error al generar respuesta en streaming:", err);
     return new Response(

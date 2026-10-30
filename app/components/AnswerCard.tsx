@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { CopyIcon, CheckIcon, ThumbUpIcon, ThumbDownIcon } from "./Icons";
 import { MarkdownText } from "./MarkdownText";
+import { apiFetch } from "../lib/apiFetch";
 import {
   classifyQuestion,
   detectTrickQuestion,
@@ -112,7 +113,7 @@ export const AnswerCard = React.memo(function AnswerCard({
     setIsTranspiling(true);
     setCurrentLang(targetLang);
     try {
-      const res = await fetch("/api/answer", {
+      const res = await apiFetch("/api/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "transpile", code: sourceCode, targetLang }),

@@ -3,8 +3,8 @@ import { verifyOrigin, checkRateLimitAsync, checkCapacity } from "../../lib/secu
 
 export const runtime = "edge";
 
-// Emite un TOKEN TEMPORAL de Deepgram (grant, TTL 60s), nunca la API key permanente.
-// El token expira a los 60s: alcanza para abrir el WebSocket y luego es descartado.
+// Emite un TOKEN TEMPORAL de Deepgram (grant, TTL 120s), nunca la API key permanente.
+// El token expira a los 120s: alcanza para abrir el WebSocket y luego es descartado.
 export async function POST(req: Request) {
   // 0. Kill switch de capacidad
   const capacity = checkCapacity();

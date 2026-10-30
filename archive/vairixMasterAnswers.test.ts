@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { VAIRIX_MASTER_ANSWERS } from "../app/lib/vairixMasterAnswers";
+import { VAIRIX_MASTER_ANSWERS } from "./vairixMasterAnswers";
 
 describe("VAIRIX_MASTER_ANSWERS", () => {
   it("contiene al menos 40 respuestas maestras para VAIRIX Senior Technical Architect", () => {
